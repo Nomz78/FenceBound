@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Fencebound Rate Card v2.1</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0a0a0a;color:#e5e7eb;font-family:'Barlow',sans-serif;min-height:100vh;padding-bottom:48px}
+  h1{font-family:'Bebas Neue',cursive;letter-spacing:2px;line-height:1}
+  button{cursor:pointer;font-family:'Barlow',sans-serif}
+  .mono{font-family:'IBM Plex Mono',monospace}
+  .header{background:linear-gradient(180deg,#0f1f0f,#0a0a0a);border-bottom:1px solid #1f2d1f;padding:24px 20px 18px}
+  .header-inner{max-width:760px;margin:0 auto;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px}
+  .header-label{font-size:11px;color:#4ade80;letter-spacing:3px;text-transform:uppercase;margin-bottom:4px}
+  .header-title{font-family:'Bebas Neue',cursive;font-size:clamp(28px,8vw,44px);color:#f9fafb}
+  .header-title span{color:#4ade80}
+  .header-meta{text-align:right}
+  .header-meta .lbl{font-size:11px;color:#6b7280;letter-spacing:1px}
+  .header-meta .val{font-size:13px;color:#9ca3af;font-weight:600}
+  .header-note{max-width:760px;margin:10px auto 0;font-size:12px;color:#6b7280;border-top:1px solid #1a2a1a;padding-top:10px}
+  .header-note b{color:#9ca3af}
+  .tabs{max-width:760px;margin:0 auto;padding:0 20px}
+  .tab-bar{display:flex;border-bottom:1px solid #1f2937;margin-top:20px;overflow-x:auto}
+  .tab-btn{background:none;border:none;padding:10px 16px;font-family:'Bebas Neue',cursive;font-size:16px;letter-spacing:1px;color:#6b7280;border-bottom:2px solid transparent;transition:color .2s;white-space:nowrap}
+  .tab-btn.active{color:#4ade80;border-bottom-color:#4ade80}
+  .filters{display:flex;gap:6px;flex-wrap:wrap;margin:16px 0}
+  .filter-btn{background:#1f2937;color:#9ca3af;border:none;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:600;letter-spacing:.5px;transition:all .2s}
+  .filter-btn.active{color:#fff}
+  .cards{display:flex;flex-direction:column;gap:10px}
+  .card{border:1px solid #1f2937;border-radius:10px;padding:14px 16px}
+  .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+  .card-left{flex:1;min-width:200px}
+  .badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+  .badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;letter-spacing:.5px;text-transform:uppercase}
+  .badge-height{background:#1c1a0e;color:#ca8a04}
+  .badge-hidden{background:#2a1010;color:#ef4444}
+  .badge-sync{background:#0f2810;color:#4ade80}
+  .card-name{color:#f3f4f6;font-weight:600;font-size:15px}
+  .card-spacing{color:#6b7280;font-size:11px;margin-top:2px}
+  .price-block{display:flex;align-items:baseline;gap:10px;margin-top:10px;flex-wrap:wrap}
+  .price-big{font-family:'Bebas Neue',cursive;font-size:30px;color:#4ade80;letter-spacing:.5px}
+  .price-sub{font-size:11px;color:#6b7280}
+  .margin-chip{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px}
+  .margin-good{background:#0f2810;color:#4ade80}
+  .margin-mid{background:#1c1a0e;color:#ca8a04}
+  .margin-low{background:#2a1a10;color:#f97316}
+  .height-row{display:flex;align-items:center;gap:8px;margin-top:10px}
+  .height-row label{font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px}
+  .height-row input{width:70px;background:#1f2937;border:1px solid #374151;border-radius:6px;padding:5px 8px;color:#f9fafb;font-size:13px;font-family:'IBM Plex Mono',monospace}
+  .height-fixed{font-size:12px;color:#9ca3af;margin-top:10px}
+  .detail-toggle{background:none;border:none;color:#60a5fa;font-size:11px;font-weight:600;margin-top:10px;padding:0;text-decoration:underline;text-underline-offset:2px}
+  .cost-detail{margin-top:10px;background:#0d1117;border:1px solid #1f2937;border-radius:8px;padding:10px 12px;display:none}
+  .cost-detail.show{display:block}
+  .cost-line{display:flex;justify-content:space-between;font-size:11px;color:#9ca3af;padding:2px 0}
+  .cost-line .nm{color:#7d8590}
+  .cost-line.total{border-top:1px solid #1f2937;margin-top:4px;padding-top:5px;color:#e5e7eb;font-weight:600}
+  .card-notes{color:#6b7280;font-size:11px;margin-top:10px;font-style:italic}
+  .card-required{color:#ca8a04;font-size:11px;margin-top:6px}
+  .field-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .field-row input[type=text]{flex:1;min-width:160px;background:#1f2937;border:1px solid #374151;border-radius:6px;padding:6px 9px;color:#f9fafb;font-size:12px;font-family:'Barlow',sans-serif}
+  .field-row .chk-label{display:flex;align-items:center;color:#9ca3af;font-size:11px;gap:5px;white-space:nowrap}
+  .data-toolbar{max-width:760px;margin:20px auto 0;padding:0 20px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .btn-toolbar{background:#1f2937;border:none;border-radius:8px;padding:8px 14px;color:#9ca3af;font-size:12px;font-weight:600;letter-spacing:.5px}
+  .btn-save-file{background:#16a34a;border:none;border-radius:8px;padding:8px 18px;color:#fff;font-family:'Bebas Neue',cursive;font-size:15px;letter-spacing:1.5px}
+  .save-note{font-size:11px;color:#4b5563;margin-left:4px}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#16a34a;color:#fff;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:600;z-index:2000;opacity:0;transition:opacity .3s;pointer-events:none}
+  .toast.show{opacity:1}
+  .toast.err{background:#b91c1c}
+  .hidden{display:none}
+  .sc-card{border:1px solid #1f2937;border-radius:10px;padding:14px 16px;background:#0d1117}
+  .sc-name{font-weight:700;font-size:14px;color:#f3f4f6}
+  .sc-formula{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#4ade80;margin-top:6px}
+  .sc-example{font-size:11px;color:#6b7280;margin-top:4px}
+  .ce-group{margin-top:18px}
+  .ce-group-title{font-family:'Bebas Neue',cursive;font-size:17px;letter-spacing:1px;color:#9ca3af;border-bottom:1px solid #1f2937;padding-bottom:6px;margin-bottom:10px}
+  .ce-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:5px 0}
+  .ce-row .nm{font-size:12px;color:#d1d5db}
+  .ce-row .nm small{display:block;color:#6b7280;font-size:10px}
+  .ce-row input{width:90px;background:#1f2937;border:1px solid #374151;border-radius:6px;padding:5px 8px;color:#f9fafb;font-size:12px;font-family:'IBM Plex Mono',monospace;text-align:right}
+  .ce-warn{font-size:10px;color:#f97316;margin-top:2px}
+  .ce-markup-row{display:flex;align-items:center;gap:10px;padding:8px 0}
+  .ce-markup-row label{font-size:12px;color:#d1d5db;flex:1}
+  .ce-actions{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    <div>
+      <div class="header-label">Internal Reference &middot; v2.0</div>
+      <h1 class="header-title">FENCEBOUND<br><span>RATE CARD</span></h1>
+    </div>
+    <div class="header-meta">
+      <div class="lbl">LAST UPDATED</div>
+      <div class="val" id="lastUpdated"></div>
+    </div>
+  </div>
+  <div class="header-note"><b>Cost-basis engine &mdash; synced through the FenceBound Pricing Schema v2 contract.</b> No more flat Floor/Market/Premium tiers. Every rate below is derived live from buy cost (COST_DB) + labor ($/LF) + markup, the same math as FenceboundCAD's computePricing(). Edit costs once in the Cost &amp; Margin Editor tab, every rate updates. Export/import the shared FenceBound Pricing Schema v2 .fbprices.json contract to stay in sync with the live app. Not for customer distribution &mdash; use Export Client Brochure for that.</div>
+</div>
+
+<div class="data-toolbar">
+  <button class="btn-save-file" onclick="saveToFile()">SAVE FILE</button>
+  <button class="btn-toolbar" onclick="exportBrochure()">EXPORT CLIENT BROCHURE</button>
+  <button class="btn-toolbar" onclick="exportPrices()">EXPORT .fbprices.json</button>
+  <button class="btn-toolbar" onclick="document.getElementById('importFile').click()">IMPORT .fbprices.json</button>
+  <input type="file" id="importFile" accept=".json,.fbprices.json" style="display:none"/>
+  <span class="save-note">Save first, then export &mdash; exports pull whatever's currently on screen</span>
+</div>
+
+<div class="tabs">
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="rates" onclick="switchTab('rates')">Fence Rates</button>
+    <button class="tab-btn" data-tab="gates" onclick="switchTab('gates')">Gates &amp; Add-Ons</button>
+    <button class="tab-btn" data-tab="site" onclick="switchTab('site')">Site Conditions</button>
+    <button class="tab-btn" data-tab="other" onclick="switchTab('other')">Other Upcharges</button>
+    <button class="tab-btn" data-tab="costs" onclick="switchTab('costs')">Cost &amp; Margin Editor</button>
+  </div>
+
+  <div id="panel-rates">
+    <div class="filters" id="filterBtns"></div>
+    <div class="cards" id="fenceCards"></div>
+  </div>
+
+  <div id="panel-gates" class="hidden">
+    <div class="cards" id="gateCards" style="margin-top:16px"></div>
+    <div class="ce-group-title" style="margin-top:24px">Wire &amp; Containment Add-Ons (priced per LF, material only &mdash; labor folded into base install)</div>
+    <div class="cards" id="addonCards"></div>
+  </div>
+
+  <div id="panel-site" class="hidden">
+    <div class="header-note" style="margin:16px 0;padding-top:0;border-top:none">These four match FenceboundCAD's Pricing tab checkboxes exactly (Demo, Slope, Hard Dig, Urban Premium). Formulas are hardcoded in both tools' source &mdash; if you change one, change the other.</div>
+    <div class="cards" id="siteCards"></div>
+  </div>
+
+  <div id="panel-other" class="hidden">
+    <div class="header-note" style="margin:16px 0;padding-top:0;border-top:none">Field-tested pricing not yet modeled in COST_DB. Free-form &mdash; edit directly.</div>
+    <div class="cards" id="upchargeCards"></div>
+    <button class="btn-toolbar" style="margin-top:10px" onclick="openAddUpcharge()">+ ADD UPCHARGE</button>
+  </div>
+
+  <div id="panel-costs" class="hidden" style="margin-top:16px"></div>
+</div>
+
+<div class="modal-overlay hidden" id="modalOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px">
+  <div class="modal" style="background:#111;border:1px solid #333;border-radius:12px;padding:24px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div style="font-family:'Bebas Neue',cursive;font-size:20px;color:#f9fafb;letter-spacing:1px" id="modalTitle">EDIT</div>
+      <button onclick="closeModal()" style="background:none;border:none;color:#9ca3af;font-size:20px">&times;</button>
+    </div>
+    <div id="modalBody"></div>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button style="flex:1;background:#16a34a;color:#fff;border:none;border-radius:8px;padding:10px;font-family:'Bebas Neue',cursive;font-size:16px;letter-spacing:1px" onclick="saveModal()">SAVE</button>
+      <button style="flex:1;background:#374151;color:#d1d5db;border:none;border-radius:8px;padding:10px;font-family:'Bebas Neue',cursive;font-size:16px;letter-spacing:1px" onclick="closeModal()">CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script id="dataScript">
+// costDb / labor / markup mirror DEFAULT_COST_DB / DEFAULT_LABOR / DEFAULT_MARKUP
+// in FenceboundCAD_v5_2.html exactly (same keys). Export/Import .fbprices.json
+// is the sync bridge -- files are interchangeable between the two tools.
+var APP_DATA = {"costDb":{"chain link fabric":3.6,"top rail":2.05,"mid rail":2.05,"line post":13.5,"terminal corner post":22.0,"tension bar":4.25,"tension band":0.85,"top rail sleeve":0.85,"post cap":1.1,"brace band":1.05,"rail end loop cap":1.45,"wire ties":0.06,"carriage bolt nut":0.55,"galv nails":0.04,"truss rod w tightener":8.5,"dog ear picket 1x4":1.85,"dog ear picket 1x6":2.65,"wood post 4x4":14.5,"wood 2x4 rail":1.45,"post cap finial":2.25,"post concrete bag":7.25,"vinyl privacy panel 6ft":105.0,"vinyl privacy panel 8ft":165.0,"vinyl post 6ft":32.0,"vinyl post 8ft":48.0,"vinyl top rail 6ft":3.25,"vinyl bottom rail 6ft":3.25,"vinyl mid rail 6ft":3.25,"vinyl top rail 8ft":4.75,"vinyl bottom rail 8ft":4.75,"vinyl mid rail 8ft":4.75,"post cap vinyl":5.5,"vinyl split rail":18.0,"vinyl split rail post":30.0,"stainless screws":0.16,"ornamental panel":105.0,"ornamental post":36.0,"panel bracket kit":10.0,"self tapping screws":0.12,"split rail rail":12.0,"split rail post":18.0,"face board":1.75,"t post":8.0,"wood corner brace post":20.0,"brace wire":1.1,"t post clips":0.1,"hog wire welded panel":4.25,"temp panel":85.0,"temp panel coupler":4.0,"panel stand base":15.0,"barbed wire strand":0.22,"barbed wire post":14.0,"barb arm":5.0,"staples wire clips":0.06,"top tension wire":0.2,"bottom tension wire":0.2,"tension wire":0.2,"razor ribbon coil":52.0,"welded wire":1.55,"walk gate w hardware":220.0,"dbl drive w hardware":650.0,"cantilever w hardware":1800.0,"gate post":38.0,"exterior screws rails":0.12,"exterior screws pickets":0.12},"labor":{"perLF":{"chainlink":8,"ornamental":13,"woodprivacy":11,"woodshadowbox":13,"woodsplit2":6,"woodsplit3":7,"woodsplit3fb":8,"vinylprivacy6":11,"vinylprivacy8":15,"vinylsplit2":7,"vinylsplit3":8,"cattlefield":5,"cattlehog":6,"temporary":4,"barbedwire":6},"gate":{"walk":90,"doubledrive":240,"cantilever":500},"crewHourlyRate":85},"markup":{"materialPct":35,"laborPct":55},"fenceMeta":{"chainlink":{"heightIn":48,"notes":"Provisional contractor-cost baseline for standard galvanized residential chain link. Gauge, coating, height and freight can move this materially.","requiredWhen":"","clientVisible":true},"woodprivacy":{"heightIn":72,"notes":"Provisional industry baseline. Wood rails now use a dedicated 2x4 lumber key rather than chain-link steel rail pricing. Replace with distributor invoices when available.","requiredWhen":"Privacy, HOA requirements","clientVisible":true},"woodsplit2":{"notes":"11ft rails at 10ft post spacing (hole-insert method). Fastest wood install.","requiredWhen":"","clientVisible":true},"woodsplit3":{"notes":"11ft rails at 10ft post spacing. One more rail run than split2.","requiredWhen":"","clientVisible":true},"woodsplit3fb":{"notes":"Split3 + 1x6 face board for partial privacy/containment.","requiredWhen":"","clientVisible":true},"vinylprivacy6":{"notes":"Provisional complete-system baseline built from 6ft-specific panel, rail, post and cap costs.","requiredWhen":"Premium residential, HOA, pool enclosure","clientVisible":true},"vinylprivacy8":{"notes":"Separate 8ft material keys and labor. Do not reuse 6ft panel/post economics.","requiredWhen":"Commercial privacy, screening","clientVisible":true},"vinylsplit2":{"notes":"Packaged system, fastest vinyl install.","requiredWhen":"","clientVisible":true},"vinylsplit3":{"notes":"","requiredWhen":"","clientVisible":true},"ornamental":{"heightIn":48,"notes":"Provisional 4ft residential panel baseline. Taller, commercial, steel, rackable and premium aluminum systems require separate SKUs.","requiredWhen":"Pool enclosure, HOA, upgraded residential","clientVisible":true},"cattlefield":{"notes":"4-strand barbed default, fixed for this reference calc.","requiredWhen":"Livestock containment, rural perimeter","clientVisible":true},"cattlehog":{"notes":"Welded red-top panel. More material than barbed, less labor than privacy.","requiredWhen":"Livestock containment, equestrian","clientVisible":true},"temporary":{"notes":"Purchase-basis placeholder of $85 per 6x12 panel, not a rental quote. Rental duration, transport and loss exposure still require job-specific pricing.","requiredWhen":"Construction sites, events","clientVisible":true},"woodshadowbox":{"heightIn":72,"notes":"Uses separate 1x6 picket pricing and higher labor than solid privacy because alternating faces increase handling and fastening.","requiredWhen":"Decorative airflow/privacy","clientVisible":true}},"gateMeta":{"walk":{"notes":"Provisional 4ft residential gate baseline including frame/hardware plus two gate posts; width and material can move sharply.","clientVisible":true},"doubledrive":{"notes":"Provisional residential double-drive baseline; opening width, frame gauge and drop rods require confirmation.","clientVisible":true},"cantilever":{"notes":"Budget floor only. Track length, opening width, operator readiness and commercial hardware require job-specific pricing.","clientVisible":false}},"upcharges":[{"id":1,"name":"Vinyl-Coated Fabric -- Black or Green","rate":"+$4-$5","unit":"LF","notes":"Not yet in COST_DB -- add a chain-link-fabric-vinyl-coated key to make this live-computed like everything else.","clientVisible":true},{"id":2,"name":"Stump / Tree Removal","rate":"$10-$14","unit":"LF","notes":"Per foot of affected run. Confirm scope before bidding.","clientVisible":true},{"id":3,"name":"Removal -- Existing Fence","rate":"$5-$8","unit":"LF","notes":"Chain link no footings: $5. Chain link w/ concrete or wood posts: $8. Ornamental: quote separately. Higher than CAD's flat Demo formula ($3/LF cost) because this also covers post-pulling and haul-off CAD doesn't model yet.","clientVisible":true},{"id":4,"name":"Paint / Stain","rate":"$2","unit":"LF","notes":"","clientVisible":true},{"id":5,"name":"Change Order / Addendum","rate":"10%+","unit":"upcharge","notes":"Standard upcharge on scope changes after contract execution.","clientVisible":false}],"updated":"Jul 2026","datasetRevision":"provisional-industry-baseline-2026-07"};
+</script>
+
+<script>
+// RATE_TYPES mirrors FENCE_TYPES in FenceboundCAD_v5_2.html (v5.2 material-first
+// taxonomy). If a type is added/removed in the app, mirror it here.
+const RATE_TYPES=[
+  {key:'chainlink',     label:'Chain Link',         material:'chainlink',  style:null,       spacing:10, hasHeight:true,  heightLocked:false, defaultHeight:48},
+  {key:'woodprivacy',   label:'Privacy',            material:'wood',       style:'privacy',  spacing:8,  hasHeight:true,  heightLocked:false, defaultHeight:72},
+  {key:'woodshadowbox', label:'Shadowbox',          material:'wood',       style:'shadowbox',spacing:8,  hasHeight:true,  heightLocked:false, defaultHeight:72},
+  {key:'woodsplit2',    label:'Split Rail 2',       material:'wood',       style:'split2',   spacing:10, hasHeight:false},
+  {key:'woodsplit3',    label:'Split Rail 3',       material:'wood',       style:'split3',   spacing:10, hasHeight:false},
+  {key:'woodsplit3fb',  label:'Split + Face Board', material:'wood',       style:'split3fb', spacing:10, hasHeight:false},
+  {key:'vinylprivacy6', label:"Privacy 6'",         material:'vinyl',      style:'privacy6', spacing:8,  hasHeight:true,  heightLocked:true,  defaultHeight:72},
+  {key:'vinylprivacy8', label:"Privacy 8'",         material:'vinyl',      style:'privacy8', spacing:8,  hasHeight:true,  heightLocked:true,  defaultHeight:96},
+  {key:'vinylsplit2',   label:'Split Rail 2',       material:'vinyl',      style:'split2',   spacing:10, hasHeight:false},
+  {key:'vinylsplit3',   label:'Split Rail 3',       material:'vinyl',      style:'split3',   spacing:10, hasHeight:false},
+  {key:'ornamental',    label:'Ornamental',         material:'ornamental', style:null,       spacing:6,  hasHeight:true,  heightLocked:false, defaultHeight:48},
+  {key:'cattlefield',   label:'Field (Barbed)',     material:'cattle',     style:'field',    spacing:12, hasHeight:false},
+  {key:'cattlehog',     label:'Hog Wire',           material:'cattle',     style:'hog',      spacing:12, hasHeight:false},
+  {key:'temporary',     label:'Temp Panels',        material:'temporary',  style:null,       spacing:12, hasHeight:false},
+];
+const MATERIAL_ORDER=['chainlink','wood','vinyl','ornamental','cattle','temporary'];
+const MATERIAL_LABEL={chainlink:'Chain Link',wood:'Wood',vinyl:'Vinyl',ornamental:'Ornamental',cattle:'Cattle',temporary:'Temp'};
+const MATERIAL_COLOR={chainlink:'#4ade80',wood:'#fb923c',vinyl:'#60a5fa',ornamental:'#c084fc',cattle:'#facc15',temporary:'#f472b6'};
+
+const GATE_TYPES=[
+  {key:'walk',        label:'Walk Gate',            costKey:'walk gate w hardware'},
+  {key:'doubledrive', label:'Double Drive Gate',    costKey:'dbl drive w hardware'},
+  {key:'cantilever',  label:'Cantilever Slide Gate',costKey:'cantilever w hardware'},
+];
+const ADDON_TYPES=[
+  {key:'top-wire',    label:'Top Tension Wire',       costKey:'top tension wire',    unit:'lf'},
+  {key:'bottom-wire', label:'Bottom Tension Wire',    costKey:'bottom tension wire', unit:'lf'},
+  {key:'tension-wire',label:'Tension Wire',           costKey:'tension wire',        unit:'lf'},
+  {key:'barbed-wire', label:'Barbed Wire (4 strand)', costKey:'barbed wire strand',  unit:'lf', strands:4},
+  {key:'razor-ribbon',label:'Razor Ribbon',           costKey:'razor ribbon coil',   unit:'coil', coilFt:50},
+  {key:'welded-wire', label:'Welded Wire 2x4',        costKey:'welded wire',         unit:'lf'},
+];
+
+let COST_DB, LABOR, MARKUP, fenceMeta, gateMeta, upcharges;
+let activeTab='rates', activeMaterial='All', editingId=null, isDirty=false;
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];});}
+function setDirty(d){isDirty=d;var b=document.querySelector('.btn-save-file');if(b)b.textContent=d?'SAVE FILE -- UNSAVED CHANGES':'SAVE FILE';}
+window.addEventListener('beforeunload',function(e){if(isDirty){e.preventDefault();e.returnValue='';}});
+function showToast(msg,err){var t=document.getElementById('toast');t.textContent=msg;t.classList.toggle('err',!!err);t.classList.add('show');setTimeout(function(){t.classList.remove('show');},3000);}
+
+
+// ── FENCEBOUND PRICING SCHEMA v2 ──────────────────────────────────────────
+const PRICE_SCHEMA_VERSION=2;
+let PRICING_META={datasetRevision:APP_DATA.datasetRevision||'owner-unassigned',provisional:true,updatedAt:new Date().toISOString()};
+const VALID_PRICE_UNITS=new Set(['lf','ea','bag','coil','hr','job']);
+const LEGACY_LF_KEYS=new Set(['chain link fabric','top rail','mid rail','bottom rail','vinyl top rail','vinyl bottom rail','vinyl mid rail','face board','hog wire welded panel','barbed wire strand','top tension wire','bottom tension wire','tension wire','welded wire']);
+const LEGACY_BAG_KEYS=new Set(['post concrete bag']);
+const LEGACY_COIL_KEYS=new Set(['razor ribbon coil']);
+function cloneJSON(v){return JSON.parse(JSON.stringify(v));}
+function inferredUnit(key){return LEGACY_LF_KEYS.has(key)?'lf':LEGACY_BAG_KEYS.has(key)?'bag':LEGACY_COIL_KEYS.has(key)?'coil':'ea';}
+function validMoney(v){return Number.isFinite(v)&&v>=0&&v<=1000000;}
+function normalizeCostRecord(key,value){
+  if(typeof value==='number')value={cost:value,unit:inferredUnit(key)};
+  if(!value||typeof value!=='object')return null;
+  const cost=Number(value.cost),unit=String(value.unit||inferredUnit(key)).toLowerCase();
+  if(!validMoney(cost)||!VALID_PRICE_UNITS.has(unit))return null;
+  return {cost,unit};
+}
+function normalizeCostMap(src){const out={};Object.entries(src||{}).forEach(([k,v])=>{const r=normalizeCostRecord(k,v);if(r)out[k]=r;});return out;}
+function migratePricingPayload(raw){
+  if(!raw||typeof raw!=='object')throw new Error('Pricing file must contain a JSON object.');
+  const srcCosts=raw.costs||raw.costDb;
+  if(!srcCosts||typeof srcCosts!=='object'||Array.isArray(srcCosts))throw new Error('Missing costs object.');
+  const costs={};let imported=0,migrated=0,rejected=0;
+  Object.entries(srcCosts).forEach(([key,value])=>{const rec=normalizeCostRecord(key,value);if(rec){costs[key]=rec;imported++;if(typeof value==='number')migrated++;}else rejected++;});
+  const labor=raw.labor&&typeof raw.labor==='object'?raw.labor:{};const perLF={},gate={};
+  Object.entries(labor.perLF||{}).forEach(([k,v])=>{v=Number(v);if(validMoney(v))perLF[k]=v;else rejected++;});
+  Object.entries(labor.gate||{}).forEach(([k,v])=>{v=Number(v);if(validMoney(v))gate[k]=v;else rejected++;});
+  const crewHourlyRate=Number(labor.crewHourlyRate),markup=raw.markup&&typeof raw.markup==='object'?raw.markup:{};
+  const materialPct=Number(markup.materialPct),laborPct=Number(markup.laborPct),metadata=raw.metadata&&typeof raw.metadata==='object'?raw.metadata:{};
+  return {costs,labor:{perLF,gate,...(validMoney(crewHourlyRate)?{crewHourlyRate}:{})},markup:{...(validMoney(materialPct)&&materialPct<=1000?{materialPct}:{}),...(validMoney(laborPct)&&laborPct<=1000?{laborPct}:{})},metadata:{datasetRevision:String(raw.datasetRevision||metadata.datasetRevision||'owner-unassigned'),provisional:metadata.provisional!==false,updatedAt:String(metadata.updatedAt||new Date().toISOString())},report:{imported,migrated,rejected,ignored:0}};
+}
+function applyPricingPayload(raw){const p=migratePricingPayload(raw);COST_DB=Object.assign({},COST_DB,p.costs);LABOR=Object.assign({},LABOR,p.labor,{perLF:Object.assign({},LABOR.perLF,p.labor.perLF),gate:Object.assign({},LABOR.gate,p.labor.gate)});MARKUP=Object.assign({},MARKUP,p.markup);PRICING_META=Object.assign({},PRICING_META,p.metadata,{updatedAt:new Date().toISOString()});return p.report;}
+function buildPricingPayload(appName){return {app:'FenceBoundPricing',producer:appName,kind:'prices',schemaVersion:PRICE_SCHEMA_VERSION,datasetRevision:PRICING_META.datasetRevision,costs:cloneJSON(COST_DB),labor:cloneJSON(LABOR),markup:cloneJSON(MARKUP),metadata:Object.assign({},PRICING_META,{updatedAt:new Date().toISOString()})};}
+function pricingReportText(r){return 'Imported '+r.imported+'; migrated '+r.migrated+'; ignored '+r.ignored+'; rejected '+r.rejected+'.';}
+
+function init(){
+  COST_DB=normalizeCostMap(APP_DATA.costDb); LABOR=cloneJSON(APP_DATA.labor); MARKUP=cloneJSON(APP_DATA.markup);
+  fenceMeta=APP_DATA.fenceMeta; gateMeta=APP_DATA.gateMeta; upcharges=APP_DATA.upcharges;
+  document.getElementById('lastUpdated').textContent=APP_DATA.updated||'';
+  render();
+}
+
+// COST ENGINE -- ports calcAutoMaterials()+computePricing() branch logic from
+// FenceboundCAD_v5_2.html at a representative 100ft straight run (2 terminal
+// posts, 0 corners) so every $/LF here is the same math the live app would
+// produce for that geometry. Keys match CAD's normalizeMatKey() output exactly
+// (verified against the app's actual normalizer before porting).
+function midRailForHeight(h){return h>=72;}
+function midRailMandatory(h){return h>=96;}
+const FT=100;
+function cdb(key){var v=COST_DB[key];return v&&typeof v==='object'&&Number.isFinite(v.cost)?v.cost:0;}
+
+function itemsFor(rt,heightIn){
+  var sp=rt.spacing, items=[];
+  var termCt=2, cornerCt=0;
+  var lineCt=Math.max(0,Math.floor(FT/sp)-1);
+  var typePostCount=Math.ceil(FT/sp)+1;
+  var hasMidRail=rt.hasHeight?midRailForHeight(heightIn):false;
+
+  if(rt.key==='chainlink'){
+    var totalPosts=termCt+cornerCt+lineCt;
+    items.push(['chain link fabric',Math.ceil(FT)]);
+    items.push(['top rail',Math.ceil(FT)]);
+    items.push(['line post',lineCt]);
+    items.push(['terminal corner post',termCt+cornerCt]);
+    items.push(['tension bar',(termCt+cornerCt)*2]);
+    items.push(['tension band',(termCt+cornerCt)*Math.ceil(heightIn/12)*2]);
+    items.push(['top rail sleeve',Math.ceil(FT/10)]);
+    items.push(['post cap',totalPosts]);
+    items.push(['brace band',lineCt*2]);
+    items.push(['rail end loop cap',(termCt+cornerCt)*2]);
+    items.push(['wire ties',Math.ceil(FT*5)]);
+    items.push(['carriage bolt nut',(termCt+cornerCt)*Math.ceil(heightIn/12)*2]);
+    if(hasMidRail)items.push(['mid rail',Math.ceil(FT)]);
+    items.push(['post concrete bag',totalPosts*2]);
+  } else if(rt.material==='wood'&&(rt.style==='privacy'||rt.style==='shadowbox')){
+    var isShadow=rt.style==='shadowbox';
+    items.push([isShadow?'dog ear picket 1x6':'dog ear picket 1x4',isShadow?Math.ceil(FT/(5.5/12)*1.5):Math.ceil(FT/(3.5/12))]);
+    items.push(['wood post 4x4',typePostCount]);
+    items.push(['wood 2x4 rail',Math.ceil(FT)*2]);
+    if(hasMidRail)items.push(['wood 2x4 rail',Math.ceil(FT)]);
+    items.push(['post cap finial',typePostCount]);
+    items.push(['post concrete bag',typePostCount*2]);
+  } else if(rt.material==='vinyl'&&(rt.style==='privacy6'||rt.style==='privacy8')){
+    var is8=rt.style==='privacy8';
+    items.push([is8?'vinyl privacy panel 8ft':'vinyl privacy panel 6ft',Math.ceil(FT/8)]);
+    items.push([is8?'vinyl post 8ft':'vinyl post 6ft',typePostCount]);
+    items.push([is8?'vinyl top rail 8ft':'vinyl top rail 6ft',Math.ceil(FT)]);
+    items.push([is8?'vinyl bottom rail 8ft':'vinyl bottom rail 6ft',Math.ceil(FT)]);
+    if(hasMidRail)items.push([is8?'vinyl mid rail 8ft':'vinyl mid rail 6ft',Math.ceil(FT)]);
+    items.push(['post cap vinyl',typePostCount]);
+    items.push(['post concrete bag',typePostCount*2]);
+  } else if(rt.material==='vinyl'&&(rt.style==='split2'||rt.style==='split3')){
+    var vrails=rt.style==='split2'?2:3, vrailSpans=Math.ceil(FT/10);
+    items.push(['vinyl split rail',vrailSpans*vrails]);
+    items.push(['vinyl split rail post',typePostCount]);
+    items.push(['post cap vinyl',typePostCount]);
+    items.push(['post concrete bag',typePostCount*2]);
+  } else if(rt.key==='ornamental'){
+    items.push(['ornamental panel',Math.ceil(FT/6)]);
+    items.push(['ornamental post',typePostCount]);
+    items.push(['post concrete bag',typePostCount*2]);
+    items.push(['panel bracket kit',Math.ceil(FT/6)]);
+  } else if(rt.material==='wood'&&(rt.style==='split2'||rt.style==='split3'||rt.style==='split3fb')){
+    var rails=rt.style==='split2'?2:3, railSpans=Math.ceil(FT/10);
+    items.push(['split rail rail',railSpans*rails]);
+    items.push(['split rail post',typePostCount]);
+    if(rt.style==='split3fb')items.push(['face board',Math.ceil(FT)]);
+    items.push(['post concrete bag',typePostCount*2]);
+  } else if(rt.material==='cattle'){
+    items.push(['t post',lineCt]);
+    items.push(['wood corner brace post',termCt+cornerCt]);
+    items.push(['brace wire',(termCt+cornerCt)*2]);
+    items.push(['t post clips',Math.ceil(FT*0.6)]);
+    if(rt.style==='field'){for(var s=0;s<4;s++)items.push(['barbed wire strand',Math.ceil(FT)]);}
+    else items.push(['hog wire welded panel',Math.ceil(FT)]);
+    items.push(['post concrete bag',(termCt+cornerCt)*2]);
+  } else if(rt.key==='temporary'){
+    items.push(['temp panel',Math.ceil(FT/12)]);
+    items.push(['temp panel coupler',Math.ceil(FT/12)]);
+    items.push(['panel stand base',Math.ceil(FT/12)]);
+  }
+  return items;
+}
+
+function computeType(rt,heightIn){
+  var items=itemsFor(rt,heightIn||rt.defaultHeight||96);
+  var lines=items.map(function(p){return {name:p[0],qty:p[1],unitCost:cdb(p[0]),ext:cdb(p[0])*p[1]};});
+  var matCost=lines.reduce(function(s,l){return s+l.ext;},0);
+  var laborRate=LABOR.perLF[rt.key]||0;
+  var laborCost=laborRate*FT;
+  var matPrice=matCost*(1+MARKUP.materialPct/100);
+  var laborPrice=laborCost*(1+MARKUP.laborPct/100);
+  var clientTotal=matPrice+laborPrice;
+  var internalCost=matCost+laborCost;
+  var marginPct=clientTotal>0?(clientTotal-internalCost)/clientTotal*100:0;
+  return {lines:lines,matCost:matCost/FT,laborCost:laborCost/FT,clientTotal:clientTotal/FT,marginPct:marginPct,laborRate:laborRate};
+}
+
+function computeGate(gt){
+  var matCost=cdb(gt.costKey)+2*cdb('gate post');
+  var laborCost=LABOR.gate[gt.key]||0;
+  var matPrice=matCost*(1+MARKUP.materialPct/100);
+  var laborPrice=laborCost*(1+MARKUP.laborPct/100);
+  var clientTotal=matPrice+laborPrice;
+  var marginPct=clientTotal>0?(clientTotal-(matCost+laborCost))/clientTotal*100:0;
+  return {matCost:matCost,laborCost:laborCost,clientTotal:clientTotal,marginPct:marginPct};
+}
+
+function computeAddon(ad){
+  if(ad.key==='razor-ribbon'){
+    var perLf1=cdb(ad.costKey)/ad.coilFt;
+    return {matCost:perLf1,clientPrice:perLf1*(1+MARKUP.materialPct/100)};
+  }
+  if(ad.key==='barbed-wire'){
+    var perLf2=cdb(ad.costKey)*ad.strands;
+    return {matCost:perLf2,clientPrice:perLf2*(1+MARKUP.materialPct/100)};
+  }
+  var perLf=cdb(ad.costKey);
+  return {matCost:perLf,clientPrice:perLf*(1+MARKUP.materialPct/100)};
+}
+
+function marginClass(m){return m>=35?'margin-good':m>=25?'margin-mid':'margin-low';}
+
+// Render
+function render(){renderFilters();renderFences();renderGates();renderAddons();renderSite();renderUpcharges();renderCostEditor();}
+
+function switchTab(tab){
+  activeTab=tab;
+  ['rates','gates','site','other','costs'].forEach(function(t){
+    document.getElementById('panel-'+t).classList.toggle('hidden',t!==tab);
+    document.querySelector('[data-tab="'+t+'"]').classList.toggle('active',t===tab);
+  });
+}
+
+function renderFilters(){
+  var all=['All'].concat(MATERIAL_ORDER);
+  var wrap=document.getElementById('filterBtns');
+  wrap.innerHTML=all.map(function(m){
+    var col=m==='All'?'#16a34a':MATERIAL_COLOR[m];
+    var active=activeMaterial===m;
+    return '<button class="filter-btn'+(active?' active':'')+'" style="'+(active?'background:'+col:'')+'" data-mat="'+esc(m)+'">'+(m==='All'?'All':esc(MATERIAL_LABEL[m]))+'</button>';
+  }).join('');
+  wrap.querySelectorAll('[data-mat]').forEach(function(b){
+    b.addEventListener('click',function(){activeMaterial=b.dataset.mat;renderFilters();renderFences();});
+  });
+}
+
+function renderFences(){
+  var list=activeMaterial==='All'?RATE_TYPES:RATE_TYPES.filter(function(r){return r.material===activeMaterial;});
+  document.getElementById('fenceCards').innerHTML=list.map(function(rt){
+    var meta=fenceMeta[rt.key]||{};
+    var heightIn=meta.heightIn||rt.defaultHeight||96;
+    var P=computeType(rt,heightIn);
+    var fullName=rt.style?(MATERIAL_LABEL[rt.material]+' \u2014 '+rt.label):rt.label;
+    var col=MATERIAL_COLOR[rt.material];
+    var heightControl='';
+    if(rt.hasHeight){
+      if(rt.heightLocked){
+        heightControl='<div class="height-fixed">Fixed at '+heightIn+'\u2033 ('+(heightIn/12).toFixed(0)+'\u2032) \u2014 separate SKU in the app, not adjustable here</div>';
+      } else {
+        heightControl='<div class="height-row"><label>Height</label><input type="number" value="'+heightIn+'" min="24" max="144" step="6" onchange="setHeight(\''+rt.key+'\',this.value)"/><span style="font-size:11px;color:#6b7280">in'+(midRailForHeight(heightIn)?' \u00b7 mid rail auto-on':'')+'</span></div>';
+      }
+    }
+    var detailId='detail-'+rt.key;
+    var detailLines=P.lines.map(function(l){
+      return '<div class="cost-line"><span class="nm">'+esc(l.name)+' \u00d7'+l.qty+'</span><span>$'+l.ext.toFixed(2)+' /100lf run</span></div>';
+    }).join('')+'<div class="cost-line total"><span>Material total /100lf</span><span>$'+(P.matCost*FT).toFixed(2)+'</span></div>';
+    var html='<div class="card" style="border-left:3px solid '+col+'">';
+    html+='<div class="card-top"><div class="card-left">';
+    html+='<div class="badges"><span class="badge" style="background:'+col+'22;color:'+col+'">'+esc(MATERIAL_LABEL[rt.material])+'</span>';
+    if(rt.hasHeight)html+='<span class="badge badge-height">HEIGHT-DRIVEN</span>';
+    if(meta.clientVisible===false)html+='<span class="badge badge-hidden">HIDDEN FROM CLIENT</span>';
+    html+='</div>';
+    html+='<div class="card-name">'+esc(fullName)+'</div>';
+    html+='<div class="card-spacing">Posts: '+rt.spacing+'\u2032 OC \u00b7 Labor: $'+P.laborRate+'/LF</div>';
+    html+=heightControl;
+    html+='<div class="price-block"><span class="price-big">$'+P.clientTotal.toFixed(2)+'<span style="font-size:14px;color:#6b7280">/LF</span></span>';
+    html+='<span class="margin-chip '+marginClass(P.marginPct)+'">'+P.marginPct.toFixed(0)+'% margin</span>';
+    html+='<span class="price-sub">cost $'+P.matCost.toFixed(2)+' mat + $'+P.laborCost.toFixed(2)+' labor</span></div>';
+    html+='<button class="detail-toggle" onclick="toggleDetail(\''+detailId+'\')">Show cost breakdown</button>';
+    html+='<div class="cost-detail" id="'+detailId+'">'+detailLines+'</div>';
+    if(meta.requiredWhen)html+='<div class="card-required">Required when: '+esc(meta.requiredWhen)+'</div>';
+    if(meta.notes)html+='<div class="card-notes">'+esc(meta.notes)+'</div>';
+    html+='<div class="field-row">';
+    html+='<input type="text" placeholder="Notes" value="'+esc(meta.notes||'')+'" onchange="updateFenceMeta(\''+rt.key+'\',\'notes\',this.value)"/>';
+    html+='<input type="text" placeholder="Required when" value="'+esc(meta.requiredWhen||'')+'" onchange="updateFenceMeta(\''+rt.key+'\',\'requiredWhen\',this.value)"/>';
+    html+='<label class="chk-label"><input type="checkbox" '+(meta.clientVisible===false?'':'checked')+' onchange="updateFenceMeta(\''+rt.key+'\',\'clientVisible\',this.checked)"/> Brochure</label>';
+    html+='</div></div></div></div>';
+    return html;
+  }).join('');
+}
+
+function toggleDetail(id){document.getElementById(id).classList.toggle('show');}
+function setHeight(key,val){var v=parseInt(val,10);if(!fenceMeta[key])fenceMeta[key]={};fenceMeta[key].heightIn=v;setDirty(true);renderFences();}
+function updateFenceMeta(key,field,val){if(!fenceMeta[key])fenceMeta[key]={};fenceMeta[key][field]=val;setDirty(true);if(field!=='notes'&&field!=='requiredWhen')renderFences();}
+
+function renderGates(){
+  document.getElementById('gateCards').innerHTML=GATE_TYPES.map(function(gt){
+    var P=computeGate(gt);
+    var meta=gateMeta[gt.key]||{};
+    var html='<div class="card"><div class="card-left">';
+    html+='<div class="card-name">'+esc(gt.label)+'</div>';
+    html+='<div class="price-block"><span class="price-big">$'+P.clientTotal.toFixed(0)+'<span style="font-size:14px;color:#6b7280">/ea</span></span>';
+    html+='<span class="margin-chip '+marginClass(P.marginPct)+'">'+P.marginPct.toFixed(0)+'% margin</span>';
+    html+='<span class="price-sub">cost $'+P.matCost.toFixed(0)+' mat + $'+P.laborCost.toFixed(0)+' labor</span></div>';
+    if(meta.clientVisible===false)html+='<div class="badges" style="margin-top:8px"><span class="badge badge-hidden">HIDDEN FROM CLIENT</span></div>';
+    html+='<div class="field-row">';
+    html+='<input type="text" placeholder="Notes" value="'+esc(meta.notes||'')+'" onchange="updateGateMeta(\''+gt.key+'\',\'notes\',this.value)"/>';
+    html+='<label class="chk-label"><input type="checkbox" '+(meta.clientVisible===false?'':'checked')+' onchange="updateGateMeta(\''+gt.key+'\',\'clientVisible\',this.checked)"/> Brochure</label>';
+    html+='</div></div></div>';
+    return html;
+  }).join('');
+}
+function updateGateMeta(key,field,val){if(!gateMeta[key])gateMeta[key]={};gateMeta[key][field]=val;setDirty(true);}
+
+function renderAddons(){
+  document.getElementById('addonCards').innerHTML=ADDON_TYPES.map(function(ad){
+    var P=computeAddon(ad);
+    return '<div class="card"><div class="card-left"><div class="card-name">'+esc(ad.label)+'</div>'+
+      '<div class="price-block"><span class="price-big">$'+P.clientPrice.toFixed(2)+'<span style="font-size:14px;color:#6b7280">/LF</span></span>'+
+      '<span class="price-sub">cost $'+P.matCost.toFixed(2)+'/LF \u00b7 material markup only \u2014 labor folded into base install</span></div></div></div>';
+  }).join('');
+}
+
+function renderSite(){
+  var ck=RATE_TYPES.find(function(r){return r.key==='chainlink';});
+  var meta=fenceMeta['chainlink']||{};
+  var base=computeType(ck,meta.heightIn||48);
+  var demo=3*(1+MARKUP.materialPct/100);
+  var slope=0.5*(1+MARKUP.laborPct/100);
+  var hardDigLaborAdd=base.laborRate*0.30;
+  var hardDigClient=hardDigLaborAdd*(1+MARKUP.laborPct/100);
+  var urbanClient=base.clientTotal*1.15;
+  var cards=[
+    {name:'Demo / Haul Existing Fence',formula:'matCost += $3.00/LF (then marked up at materialPct)',example:'$3.00 \u00d7 '+(1+MARKUP.materialPct/100).toFixed(2)+' = $'+demo.toFixed(2)+'/LF client impact'},
+    {name:'Grade / Slope',formula:'laborCost += $0.50/LF (then marked up at laborPct)',example:'$0.50 \u00d7 '+(1+MARKUP.laborPct/100).toFixed(2)+' = $'+slope.toFixed(2)+'/LF client impact'},
+    {name:'Rocky Terrain / Hard Dig',formula:'laborCost += 30% of base labor cost (then marked up at laborPct)',example:'On Chain Link ($'+base.laborRate+'/LF labor): +$'+hardDigLaborAdd.toFixed(2)+' \u00d7 '+(1+MARKUP.laborPct/100).toFixed(2)+' = +$'+hardDigClient.toFixed(2)+'/LF'},
+    {name:'Charlotte Metro / Urban Premium',formula:'+15% applied to the marked-up subtotal \u2014 pure margin, not a cost passthrough',example:'Chain Link baseline $'+base.clientTotal.toFixed(2)+'/LF \u00d7 1.15 = $'+urbanClient.toFixed(2)+'/LF \u2014 this is the long-standing "$26/LF Charlotte market" figure'},
+  ];
+  document.getElementById('siteCards').innerHTML=cards.map(function(s){
+    return '<div class="sc-card"><div class="badges"><span class="badge badge-sync">SYNCED \u2014 CAD SITE CONDITION</span></div>'+
+      '<div class="sc-name">'+esc(s.name)+'</div><div class="sc-formula">'+esc(s.formula)+'</div><div class="sc-example">'+esc(s.example)+'</div></div>';
+  }).join('');
+}
+
+function renderUpcharges(){
+  document.getElementById('upchargeCards').innerHTML=upcharges.map(function(u){
+    var html='<div class="card"><div class="card-left"><div class="card-name">'+esc(u.name)+'</div>';
+    html+='<div class="price-block"><span class="price-big" style="font-size:22px">'+esc(u.rate)+(u.unit==='LF'?' /LF':'')+'</span>';
+    if(u.unit==='upcharge')html+='<span class="badge" style="background:#1c1a0e;color:#ca8a04">UPCHARGE</span>';
+    if(u.clientVisible===false)html+='<span class="badge badge-hidden">HIDDEN</span>';
+    html+='</div>';
+    if(u.notes)html+='<div class="card-notes">'+esc(u.notes)+'</div>';
+    html+='<div style="display:flex;gap:8px;margin-top:10px">';
+    html+='<button class="btn-toolbar" onclick="openEditUpcharge('+u.id+')">EDIT</button>';
+    html+='<button class="btn-toolbar" style="color:#ef4444" onclick="deleteUpcharge('+u.id+')">DELETE</button>';
+    html+='</div></div></div>';
+    return html;
+  }).join('');
+}
+function deleteUpcharge(id){if(confirm('Delete this entry?')){upcharges=upcharges.filter(function(u){return u.id!==id;});setDirty(true);renderUpcharges();}}
+function upchargeForm(u){
+  return '<div class="field-row" style="flex-direction:column"><label style="font-size:11px;color:#9ca3af;text-transform:uppercase">Name</label><input type="text" id="u_name" value="'+esc(u.name||'')+'"/></div>'+
+  '<div class="field-row" style="flex-direction:column"><label style="font-size:11px;color:#9ca3af;text-transform:uppercase">Rate</label><input type="text" id="u_rate" value="'+esc(u.rate||'')+'"/></div>'+
+  '<div class="field-row" style="flex-direction:column"><label style="font-size:11px;color:#9ca3af;text-transform:uppercase">Unit (LF / upcharge)</label><input type="text" id="u_unit" value="'+esc(u.unit||'LF')+'"/></div>'+
+  '<div class="field-row" style="flex-direction:column"><label style="font-size:11px;color:#9ca3af;text-transform:uppercase">Notes</label><input type="text" id="u_notes" value="'+esc(u.notes||'')+'"/></div>'+
+  '<div class="field-row"><label class="chk-label"><input type="checkbox" id="u_clientVisible" '+(u.clientVisible===false?'':'checked')+'/> Show on client brochure</label></div>';
+}
+function openEditUpcharge(id){editingId=id;openModal('EDIT UPCHARGE',upchargeForm(upcharges.find(function(u){return u.id===id;})));}
+function openAddUpcharge(){editingId=null;openModal('ADD UPCHARGE',upchargeForm({name:'',rate:'',unit:'LF',notes:'',clientVisible:true}));}
+function openModal(title,body){document.getElementById('modalTitle').textContent=title;document.getElementById('modalBody').innerHTML=body;document.getElementById('modalOverlay').classList.remove('hidden');}
+function closeModal(){document.getElementById('modalOverlay').classList.add('hidden');editingId=null;}
+function saveModal(){
+  var obj={id:editingId||Date.now(),name:document.getElementById('u_name').value,rate:document.getElementById('u_rate').value,unit:document.getElementById('u_unit').value||'LF',notes:document.getElementById('u_notes').value,clientVisible:document.getElementById('u_clientVisible').checked};
+  if(editingId) upcharges=upcharges.map(function(u){return u.id===editingId?obj:u;}); else upcharges.push(obj);
+  setDirty(true);renderUpcharges();closeModal();
+}
+
+// Cost & Margin Editor -- mirrors CAD's gear-icon editor. Grouped by material
+// so the ~50 COST_DB keys are navigable instead of one giant flat list.
+const CE_GROUPS=[
+  {title:'Chain Link',keys:['chain link fabric','top rail','mid rail','line post','terminal corner post','tension bar','tension band','top rail sleeve','post cap','brace band','rail end loop cap','wire ties','carriage bolt nut','truss rod w tightener'],
+    warn:{'top rail':"shared key -- also used by Wood's 2x4 top rail",'mid rail':"shared key -- also used by Wood's 2x4 mid rail"}},
+  {title:'Wood',keys:['dog ear picket','post','bottom rail','post cap finial','galv nails','post concrete bag']},
+  {title:'Vinyl',keys:['vinyl privacy panel','vinyl post','vinyl top rail','vinyl bottom rail','vinyl mid rail','post cap vinyl','vinyl split rail','vinyl split rail post','stainless screws']},
+  {title:'Ornamental',keys:['ornamental panel','ornamental post','panel bracket kit']},
+  {title:'Split Rail (Wood + Vinyl share these)',keys:['split rail rail','split rail post','face board']},
+  {title:'Cattle',keys:['t post','wood corner brace post','brace wire','t post clips','hog wire welded panel']},
+  {title:'Temporary',keys:['temp panel','temp panel coupler','panel stand base']},
+  {title:'Wire & Barbed Add-Ons',keys:['barbed wire strand','barbed wire post','barb arm','staples wire clips','top tension wire','bottom tension wire','tension wire','razor ribbon coil','welded wire']},
+  {title:'Gates',keys:['walk gate w hardware','dbl drive w hardware','cantilever w hardware','gate post']},
+];
+const LABOR_TYPE_LABELS={chainlink:'Chain Link',ornamental:'Ornamental',woodprivacy:'Wood Privacy',woodsplit2:'Wood Split 2',woodsplit3:'Wood Split 3',woodsplit3fb:'Wood Split+FB',vinylprivacy6:"Vinyl Privacy 6'",vinylprivacy8:"Vinyl Privacy 8'",vinylsplit2:'Vinyl Split 2',vinylsplit3:'Vinyl Split 3',cattlefield:'Cattle Field',cattlehog:'Cattle Hog Wire',temporary:'Temp Panels'};
+
+function renderCostEditor(){
+  var html='<div class="header-note" style="padding-top:0;border-top:none">Edit buy costs, labor $/LF, and markup here. Every fence/gate/addon card recalculates live. This is the same data shape FenceboundCAD stores -- export it as .fbprices.json and import it into the app (or vice versa) to keep both tools on the same numbers.</div>';
+
+  CE_GROUPS.forEach(function(g){
+    html+='<div class="ce-group"><div class="ce-group-title">'+esc(g.title)+'</div>';
+    g.keys.forEach(function(k){
+      var w=g.warn&&g.warn[k];
+      html+='<div class="ce-row"><div class="nm">'+esc(k)+(w?'<div class="ce-warn">'+esc(w)+'</div>':'')+'</div>';
+      html+='<input type="number" step="0.01" value="'+cdb(k)+'" onchange="updateCost(\''+k.replace(/'/g,"\\'")+'\',this.value)"/></div>';
+    });
+    html+='</div>';
+  });
+
+  html+='<div class="ce-group"><div class="ce-group-title">Labor $/LF by Type</div>';
+  RATE_TYPES.forEach(function(rt){
+    html+='<div class="ce-row"><div class="nm">'+esc(LABOR_TYPE_LABELS[rt.key]||rt.key)+'</div>';
+    html+='<input type="number" step="0.5" value="'+(LABOR.perLF[rt.key]||0)+'" onchange="updateLaborPerLF(\''+rt.key+'\',this.value)"/></div>';
+  });
+  html+='</div>';
+
+  html+='<div class="ce-group"><div class="ce-group-title">Labor -- Gates &amp; Crew Rate</div>';
+  GATE_TYPES.forEach(function(gt){
+    html+='<div class="ce-row"><div class="nm">'+esc(gt.label)+'</div>';
+    html+='<input type="number" step="5" value="'+(LABOR.gate[gt.key]||0)+'" onchange="updateLaborGate(\''+gt.key+'\',this.value)"/></div>';
+  });
+  html+='<div class="ce-row"><div class="nm">Crew Hourly Rate<small>used when a job overrides $/LF with crew hours in CAD</small></div>';
+  html+='<input type="number" step="1" value="'+LABOR.crewHourlyRate+'" onchange="updateCrewRate(this.value)"/></div>';
+  html+='</div>';
+
+  html+='<div class="ce-group"><div class="ce-group-title">Markup</div>';
+  html+='<div class="ce-markup-row"><label>Material Markup %</label><input type="number" step="1" value="'+MARKUP.materialPct+'" onchange="updateMarkup(\'materialPct\',this.value)" style="width:90px;background:#1f2937;border:1px solid #374151;border-radius:6px;padding:5px 8px;color:#f9fafb;font-family:\'IBM Plex Mono\',monospace;text-align:right"/></div>';
+  html+='<div class="ce-markup-row"><label>Labor Markup %</label><input type="number" step="1" value="'+MARKUP.laborPct+'" onchange="updateMarkup(\'laborPct\',this.value)" style="width:90px;background:#1f2937;border:1px solid #374151;border-radius:6px;padding:5px 8px;color:#f9fafb;font-family:\'IBM Plex Mono\',monospace;text-align:right"/></div>';
+  html+='</div>';
+
+  html+='<div class="ce-actions"><button class="btn-toolbar" onclick="resetCosts()">RESET TO DEFAULTS</button></div>';
+
+  document.getElementById('panel-costs').innerHTML=html;
+}
+function updateCost(key,val){var n=parseFloat(val);if(!Number.isFinite(n)||n<0)return;COST_DB[key]={cost:n,unit:(COST_DB[key]&&COST_DB[key].unit)||inferredUnit(key)};setDirty(true);render();}
+function updateLaborPerLF(key,val){LABOR.perLF[key]=parseFloat(val)||0;setDirty(true);render();}
+function updateLaborGate(key,val){LABOR.gate[key]=parseFloat(val)||0;setDirty(true);render();}
+function updateCrewRate(val){LABOR.crewHourlyRate=parseFloat(val)||0;setDirty(true);render();}
+function updateMarkup(field,val){MARKUP[field]=parseFloat(val)||0;setDirty(true);render();}
+function resetCosts(){
+  if(!confirm('Reset all costs, labor, and markup to FenceboundRateCard defaults? This does not affect FenceboundCAD.'))return;
+  APP_DATA_DEFAULTS_RESET();
+  setDirty(true);render();showToast('Reset to defaults');
+}
+
+// Frozen defaults captured at load time, before any edits -- used by "reset to defaults".
+const FACTORY_DEFAULTS=JSON.parse(JSON.stringify({costDb:normalizeCostMap(APP_DATA.costDb),labor:APP_DATA.labor,markup:APP_DATA.markup}));
+function APP_DATA_DEFAULTS_RESET(){
+  COST_DB=JSON.parse(JSON.stringify(FACTORY_DEFAULTS.costDb));
+  LABOR=JSON.parse(JSON.stringify(FACTORY_DEFAULTS.labor));
+  MARKUP=JSON.parse(JSON.stringify(FACTORY_DEFAULTS.markup));
+}
+
+// Save to file -- rewrites this HTML's own APP_DATA block and downloads it,
+// same self-contained pattern as before. Escape "</" so user-entered text in
+// notes can never terminate the <script> block and corrupt the saved file.
+function saveToFile(){
+  APP_DATA.costDb=COST_DB; APP_DATA.labor=LABOR; APP_DATA.markup=MARKUP; APP_DATA.datasetRevision=PRICING_META.datasetRevision; APP_DATA.pricingMetadata=PRICING_META;
+  APP_DATA.fenceMeta=fenceMeta; APP_DATA.gateMeta=gateMeta; APP_DATA.upcharges=upcharges;
+  APP_DATA.updated=new Date().toLocaleDateString('en-US',{month:'short',year:'numeric'});
+  document.getElementById('lastUpdated').textContent=APP_DATA.updated;
+
+  var html='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
+  var json=JSON.stringify(APP_DATA).replace(/<\//g,'<\\/');
+  var newDataLine='var APP_DATA'+' = '+json+';';
+  var updated=html.replace(new RegExp('var APP_DATA'+' = .*;'),newDataLine);
+
+  var blob=new Blob([updated],{type:'text/html'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='FenceboundRateCard.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  setDirty(false);
+  showToast('File saved -- replace your old copy with the download');
+}
+
+// Export / Import .fbprices.json -- identical shape to FenceboundCAD's Cost &
+// Margin editor export, so files move freely between the two tools.
+function exportPrices(){
+  var blob=new Blob([JSON.stringify(buildPricingPayload('FenceboundRateCard'),null,2)],{type:'application/json'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='FarOut_prices.fbprices.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+document.getElementById('importFile').addEventListener('change',function(e){
+  var f=e.target.files&&e.target.files[0]; if(!f)return;
+  var rd=new FileReader();
+  rd.onload=function(){
+    try{
+      var report=applyPricingPayload(JSON.parse(rd.result));
+      setDirty(true);render();showToast('Prices imported -- '+pricingReportText(report));
+    }catch(err){showToast('Import failed -- '+err.message,true);}
+    e.target.value='';
+  };
+  rd.readAsText(f);
+});
+
+// Export Client Brochure -- separate customer-facing document built from the
+// same RATE_TYPES/derived prices, so only this rate card ever needs updating.
+// Anything with clientVisible:false is left out entirely.
+function exportBrochure(){
+  var visTypes=RATE_TYPES.filter(function(rt){var m=fenceMeta[rt.key]||{};return m.clientVisible!==false;});
+  var visUpcharges=upcharges.filter(function(u){return u.clientVisible!==false;});
+  var CATEGORY_BLURBS={
+    chainlink:'Durable, low-maintenance boundary fencing -- the practical choice for containment, security, and clean property lines.',
+    wood:'Classic curb appeal with full control over style and stain, built rail by rail to fit the property.',
+    vinyl:'Maintenance-free privacy and structure that holds its color and shape for decades.',
+    ornamental:'Aluminum ornamental fencing for a finished, upscale look without the upkeep of real iron.',
+    cattle:'Containment and boundary fencing built for rural and working properties.',
+    temporary:'Construction-site and event fencing, panel system, fast up and down.'
+  };
+  var grouped={};
+  visTypes.forEach(function(rt){(grouped[rt.material]=grouped[rt.material]||[]).push(rt);});
+  var orderedMats=MATERIAL_ORDER.filter(function(m){return grouped[m];});
+
+  function sectionFor(mat){
+    var items=grouped[mat];
+    var blurb=CATEGORY_BLURBS[mat]||'Quality materials, straight lines, built to last.';
+    var rows=items.map(function(rt){
+      var meta=fenceMeta[rt.key]||{};
+      var heightIn=meta.heightIn||rt.defaultHeight||96;
+      var P=computeType(rt,heightIn);
+      var price='$'+P.clientTotal.toFixed(0);
+      var name=rt.label;
+      var chip='<div class="price-chip"><span class="price-chip-label">STARTING AT</span><span class="price-chip-val">'+price+'</span><span class="price-chip-unit">/ LF</span></div>';
+      var req=meta.requiredWhen?'<div class="row-required">Often required when: '+esc(meta.requiredWhen)+'</div>':'';
+      return '<div class="fence-row"><div class="fence-row-main"><div class="fence-row-name">'+esc(name)+'</div>'+req+'</div>'+chip+'</div>';
+    }).join('');
+    return '<section class="cat-section"><div class="cat-head"><span class="cat-tag">'+esc(MATERIAL_LABEL[mat])+'</span><p class="cat-blurb">'+esc(blurb)+'</p></div><div class="fence-rows">'+rows+'</div></section>';
+  }
+  var divider='<div class="post-divider"><div class="post-cap"></div><div class="post-line"></div></div>';
+  var sectionsHtml=orderedMats.map(sectionFor).join(divider);
+
+  var addonsHtml=visUpcharges.map(function(u){
+    var priceLabel=u.unit==='LF'?esc(u.rate)+' / LF':esc(u.rate);
+    return '<div class="addon-row"><div class="addon-main"><div class="addon-name">'+esc(u.name)+'</div>'+(u.notes?'<div class="addon-note">Applies when: '+esc(u.notes)+'</div>':'')+'</div><div class="addon-price">'+priceLabel+'</div></div>';
+  }).join('');
+
+  var dateStr=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  buildBrochureHtml(sectionsHtml,addonsHtml,dateStr);
+}
+
+function buildBrochureHtml(sectionsHtml,addonsHtml,dateStr){
+  var html='<!DOCTYPE html>'+
+'<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>'+
+'<title>Far-Out Fencing Co. -- Price Guide</title>'+
+'<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Karla:wght@400;500;700&family=IBM+Plex+Mono:wght@600&display=swap" rel="stylesheet"/>'+
+'<style>'+
+':root{--bg:#EAEDE9;--ink:#1B1F1D;--rust:#B5481E;--pine:#3F5C44;--rail:#8B5A2B;--card:#F5F3EC;--chip-bg:#1B1F1D;--amber:#F4B63E}'+
+'*{box-sizing:border-box;margin:0;padding:0}'+
+"body{background:var(--bg);color:var(--ink);font-family:'Karla',sans-serif;line-height:1.45}"+
+"h1,h2,.cat-tag,.price-chip-val,.letterhead-name{font-family:'Oswald',sans-serif}"+
+'.letterhead{background:var(--ink);color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}'+
+'.letterhead-name{font-size:20px;font-weight:700;letter-spacing:1px;text-transform:uppercase}'+
+'.letterhead-tag{font-size:12px;color:#9aa39c;letter-spacing:.5px}'+
+".print-btn{background:none;border:1px solid #4a4f4d;color:#cfd4d1;border-radius:6px;padding:6px 14px;font-size:12px;font-family:'Karla',sans-serif;font-weight:700;letter-spacing:.5px;cursor:pointer}"+
+'.hero{max-width:760px;margin:0 auto;padding:40px 24px 8px}'+
+'.hero h1{font-size:clamp(28px,6vw,42px);font-weight:700;line-height:1.1;letter-spacing:.5px}'+
+'.hero h1 span{color:var(--rust)}'+
+'.hero p{margin-top:12px;font-size:15px;color:#3a403c;max-width:560px}'+
+'.service-area{margin-top:14px;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--pine)}'+
+'.wrap{max-width:760px;margin:0 auto;padding:8px 24px 0}'+
+'.cat-section{padding:14px 0 4px}'+
+'.cat-head{margin-bottom:14px}'+
+'.cat-tag{display:inline-block;background:var(--pine);color:#fff;font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;padding:4px 12px;border-radius:3px}'+
+'.cat-blurb{margin-top:8px;font-size:14px;color:#454b46;max-width:520px}'+
+'.fence-rows{display:flex;flex-direction:column;gap:8px}'+
+'.fence-row{background:var(--card);border:1px solid #d8d3c4;border-radius:8px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}'+
+'.fence-row-main{flex:1;min-width:160px}'+
+'.fence-row-name{font-weight:700;font-size:15px}'+
+'.row-required{margin-top:4px;font-size:12px;color:var(--rust);font-weight:600}'+
+'.price-chip{background:var(--chip-bg);border-radius:6px;padding:6px 12px;display:flex;align-items:baseline;gap:6px;flex-shrink:0}'+
+".price-chip-label{font-family:'Karla',sans-serif;font-size:9px;color:#8a8f8c;letter-spacing:1px;align-self:center}"+
+".price-chip-val{font-family:'IBM Plex Mono',monospace;color:var(--amber);font-size:17px;font-weight:600}"+
+".price-chip-unit{font-family:'IBM Plex Mono',monospace;color:#8a8f8c;font-size:11px}"+
+'.post-divider{display:flex;flex-direction:column;align-items:center;margin:8px 0}'+
+'.post-cap{width:14px;height:10px;background:var(--rail);border-radius:3px 3px 7px 7px}'+
+'.post-line{width:3px;height:16px;background:var(--rail)}'+
+'.addons-head{padding:30px 0 4px}'+
+'.addons-head h2{font-size:22px;font-weight:600;letter-spacing:.5px}'+
+'.addons-head p{margin-top:6px;font-size:13px;color:#454b46}'+
+'.addon-row{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:11px 0;border-bottom:1px solid #d8d3c4;flex-wrap:wrap}'+
+'.addon-name{font-weight:700;font-size:14px}'+
+'.addon-note{margin-top:3px;font-size:12px;color:#5a6058}'+
+".addon-price{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:13px;color:var(--ink);flex-shrink:0;white-space:nowrap}"+
+'.footer{margin-top:36px;background:var(--ink);color:#dfe3e0}'+
+'.footer-inner{max-width:760px;margin:0 auto;padding:30px 24px 26px}'+
+".footer h3{font-family:'Oswald',sans-serif;font-size:19px;color:#fff;font-weight:600}"+
+'.footer .contact{margin-top:10px;font-size:13px;color:#b9c0bb}'+
+'.footer .fineprint{margin-top:18px;font-size:11px;color:#7d847f;border-top:1px solid #343a37;padding-top:14px;line-height:1.6}'+
+'@media print{.print-btn{display:none}body{background:#fff}.letterhead{background:#fff;color:var(--ink);border-bottom:2px solid var(--ink)}.letterhead-tag{color:#555}.price-chip{background:#fff;border:1.5px solid var(--ink)}.price-chip-val,.price-chip-unit,.price-chip-label{color:var(--ink)}.footer{background:#fff;color:var(--ink)}.footer h3{color:var(--ink)}.footer .contact{color:#333}.footer .fineprint{color:#555;border-top:1px solid #999}.cat-section{page-break-inside:avoid}}'+
+'</style></head><body>'+
+'<div class="letterhead"><div><div class="letterhead-name">Far-Out Fencing Co.</div><div class="letterhead-tag">Stanly County &middot; Charlotte Metro</div></div>'+
+'<button class="print-btn no-print" onclick="window.print()">PRINT / SAVE AS PDF</button></div>'+
+'<div class="hero"><h1>Straight lines.<br/>Honest <span>pricing</span>.</h1>'+
+'<p>Every fence type we install, a starting price per linear foot, and the add-ons that tend to come up along the way -- so you know roughly what to expect before we ever walk the site.</p>'+
+'<div class="service-area">Serving Stanly County &amp; the Charlotte Metro</div></div>'+
+'<div class="wrap">'+sectionsHtml+'</div>'+
+(addonsHtml?('<div class="wrap"><div class="addons-head"><h2>Add-Ons &amp; Extras</h2><p>Common project add-ons and when they typically apply.</p></div>'+addonsHtml+'</div>'):'')+
+'<div class="footer"><div class="footer-inner"><h3>Ready for a quote?</h3>'+
+'<div class="contact">(XXX) XXX-XXXX &nbsp;&middot;&nbsp; youremail@faroutfencingco.com &nbsp;&middot;&nbsp; Albemarle, NC</div>'+
+'<div class="fineprint">Starting prices reflect baseline materials and standard site conditions. Every project includes a free on-site walkthrough -- slope, soil, gate count, removal needs, and material grade all factor into your final number. Prices current as of '+dateStr+'.</div>'+
+'</div></div></body></html>';
+
+  var blob=new Blob([html],{type:'text/html'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='FarOutFencing-ClientPriceGuide.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Client brochure exported -- open it and fill in your contact info');
+}
+
+init();
+</script>
+</body>
+</html>
