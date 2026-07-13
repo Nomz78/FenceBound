@@ -1,0 +1,1661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="FenceScraper">
+<title>FenceScraper v2.4</title>
+<style>
+  :root {
+    --black: #0a0a0a;
+    --dark: #111111;
+    --card: #181818;
+    --border: #2a2a2a;
+    --gold: #f0a500;
+    --gold-dim: #a87300;
+    --gold-bg: #1a1200;
+    --text: #e8e8e8;
+    --muted: #666;
+    --green: #2ecc71;
+    --red: #e74c3c;
+    --blue: #3498db;
+    --font-mono: 'Courier New', Courier, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--black);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    min-height: 100vh;
+    padding-bottom: 40px;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--dark);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-title {
+    font-size: 15px;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    color: var(--text);
+  }
+  .header-badge {
+    font-size: 10px;
+    color: var(--gold);
+    letter-spacing: 0.1em;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    padding: 20px 16px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .pulse {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--gold);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+  .hero-name {
+    font-size: 22px;
+    font-weight: bold;
+    letter-spacing: 0.15em;
+    color: var(--gold);
+  }
+  .hero-version {
+    font-size: 11px;
+    color: var(--muted);
+    margin-left: 8px;
+  }
+  .hero-sub {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+  .hero-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--gold-dim);
+    letter-spacing: 0.06em;
+  }
+
+  /* ── SOURCE STATUS BAR ── */
+  .source-bar {
+    display: flex;
+    gap: 6px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .source-bar::-webkit-scrollbar { display: none; }
+  .src-chip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    font-size: 10px;
+    white-space: nowrap;
+    color: var(--muted);
+    background: var(--card);
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .src-chip.active {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: var(--gold-bg);
+  }
+  .src-chip.live { border-color: var(--green); color: var(--green); background: #001a0a; }
+  .src-chip.scrape { border-color: var(--blue); color: var(--blue); background: #001020; }
+  .src-chip.ai { border-color: #9b59b6; color: #9b59b6; background: #100020; }
+  .src-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  /* ── PANELS ── */
+  .panel {
+    margin: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--card);
+    overflow: hidden;
+  }
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+  }
+  .panel-title {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+  .panel-arrow {
+    font-size: 10px;
+    color: var(--muted);
+    transition: transform 0.2s;
+  }
+  .panel-arrow.open { transform: rotate(90deg); }
+  .panel-body { padding: 12px 14px; }
+  .panel-body.hidden { display: none; }
+
+  /* ── FORM ELEMENTS ── */
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .field-row.single { grid-template-columns: 1fr; }
+  .field-label {
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .field-input {
+    width: 100%;
+    background: var(--black);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 8px 10px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .field-input:focus { border-color: var(--gold); }
+  .field-input::placeholder { color: var(--muted); }
+
+  select.field-input {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23666'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+    cursor: pointer;
+  }
+
+  /* ── SOURCE CHECKBOXES ── */
+  .source-checks {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .source-check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    cursor: pointer;
+    user-select: none;
+    transition: border-color 0.15s;
+  }
+  .source-check.enabled { border-color: var(--gold); background: var(--gold-bg); }
+  .source-check-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    border: 2px solid var(--muted);
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .source-check.enabled .source-check-dot {
+    background: var(--gold);
+    border-color: var(--gold);
+  }
+  .source-check-info { flex: 1; }
+  .source-check-name { font-size: 11px; color: var(--text); }
+  .source-check-desc { font-size: 9px; color: var(--muted); margin-top: 1px; }
+  .source-check-badge {
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    letter-spacing: 0.05em;
+  }
+  .badge-live { background: #001a0a; color: var(--green); border: 1px solid var(--green); }
+  .badge-scrape { background: #001020; color: var(--blue); border: 1px solid var(--blue); }
+  .badge-ai { background: #100020; color: #9b59b6; border: 1px solid #9b59b6; }
+  .badge-pending { background: #1b1b1b; color: var(--muted); border: 1px solid #555; }
+  .source-check.disabled { opacity: .58; cursor: not-allowed; border-style: dashed; }
+
+  /* ── API KEY SECTION ── */
+  .key-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    margin-bottom: 8px;
+  }
+  .key-row .field-wrap { flex: 1; }
+  .key-save-btn {
+    padding: 8px 12px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .key-save-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .key-status {
+    font-size: 10px;
+    padding: 3px 0;
+  }
+  .key-status.ok { color: var(--green); }
+  .key-status.missing { color: var(--red); }
+
+  /* ── RUN BUTTON ── */
+  .run-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: calc(100% - 32px);
+    margin: 0 16px 12px;
+    padding: 14px;
+    background: var(--gold);
+    color: var(--black);
+    border: none;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .run-btn:hover { background: #ffc107; }
+  .run-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+  .run-btn.running { background: var(--gold-dim); }
+
+  /* ── PROGRESS ── */
+  .progress-panel {
+    margin: 0 16px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--card);
+    overflow: hidden;
+    display: none;
+  }
+  .progress-panel.visible { display: block; }
+  .progress-bar-track {
+    height: 2px;
+    background: var(--border);
+  }
+  .progress-bar-fill {
+    height: 2px;
+    background: var(--gold);
+    width: 0%;
+    transition: width 0.3s ease;
+  }
+  .progress-log {
+    padding: 10px 14px;
+    max-height: 120px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .log-line {
+    font-size: 10px;
+    padding: 2px 0;
+    display: flex;
+    gap: 8px;
+  }
+  .log-time { color: var(--muted); flex-shrink: 0; }
+  .log-msg { color: var(--text); }
+  .log-ok .log-msg { color: var(--green); }
+  .log-err .log-msg { color: var(--red); }
+  .log-info .log-msg { color: var(--blue); }
+  .log-warn .log-msg { color: var(--gold); }
+
+  /* ── RESULTS ── */
+  .results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+  }
+  .results-count {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .results-count span { color: var(--gold); font-weight: bold; }
+  .sort-select {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 4px 8px;
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .results-list {
+    padding: 0 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* ── BID CARD ── */
+  .bid-card {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--card);
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+  .bid-card:hover { border-color: var(--gold-dim); }
+  .bid-card-top {
+    padding: 10px 12px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .bid-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 5px;
+  }
+  .bid-source-tag {
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    letter-spacing: 0.06em;
+    font-weight: bold;
+  }
+  .tag-sam { background: #001a0a; color: var(--green); }
+  .tag-ips { background: #001020; color: var(--blue); }
+  .tag-ai { background: #100020; color: #9b59b6; }
+  .bid-date { font-size: 10px; color: var(--muted); }
+  .bid-title {
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.4;
+    margin-bottom: 4px;
+  }
+  .bid-agency {
+    font-size: 10px;
+    color: var(--gold-dim);
+    letter-spacing: 0.04em;
+  }
+  .bid-card-bottom {
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .bid-deadline {
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .bid-deadline.urgent { color: var(--red); }
+  .bid-deadline.soon { color: var(--gold); }
+  .bid-actions { display: flex; gap: 6px; }
+  .bid-btn {
+    font-size: 10px;
+    padding: 4px 10px;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.15s;
+  }
+  .bid-btn:hover, .bid-btn.primary {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+  .bid-detail {
+    padding: 0 12px;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.25s ease, padding 0.25s ease;
+  }
+  .bid-detail.open {
+    max-height: 300px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--border);
+  }
+  .bid-detail-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 6px;
+    font-size: 11px;
+  }
+  .bid-detail-label { color: var(--muted); min-width: 70px; }
+  .bid-detail-val { color: var(--text); flex: 1; word-break: break-word; }
+  .bid-naics { font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+  /* ── EMPTY / ERROR STATES ── */
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.8;
+  }
+  .empty-state .icon { font-size: 28px; margin-bottom: 10px; }
+
+  /* ── FOOTER ── */
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 16px 0;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    border-top: 1px solid var(--border);
+    margin-top: 20px;
+  }
+
+  /* ── BID-TAB IMPORT (TD-018) ── */
+  .bt-drop{display:block;border:1px dashed var(--border);border-radius:6px;padding:16px;text-align:center;color:var(--muted);font-size:11px;cursor:pointer;background:var(--dark)}
+  .bt-drop.armed{border-color:var(--gold);color:var(--gold);background:var(--gold-bg)}
+  .bt-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
+  .bt-chk{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text)}
+  .bt-stats{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+  .bt-stat{flex:1;min-width:64px;background:var(--card);border:1px solid var(--border);border-radius:5px;padding:8px}
+  .bt-stat .n{font-size:15px;color:var(--gold);font-weight:bold}
+  .bt-stat .l{font-size:8px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-top:2px}
+  .bt-scroll{max-height:62vh;overflow:auto;margin-top:6px}
+  .bt-table{width:100%;border-collapse:collapse;font-size:10px}
+  .bt-table th{position:sticky;top:0;background:var(--dark);color:var(--gold-dim);text-align:left;padding:5px 6px;border-bottom:1px solid var(--border);font-size:8px;letter-spacing:.05em}
+  .bt-table td{padding:5px 6px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+  .bt-table tr.rel td:first-child{border-left:2px solid var(--gold)}
+  .bt-bidline{font-size:9px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div>
+    <div class="header-title">FenceScraper</div>
+    <div class="header-badge">FENCEBOUND FIELD OPS</div>
+  </div>
+  <div style="text-align:right">
+    <div class="header-badge">DIV 32 31 00</div>
+    <div class="header-badge">FENCES + GATES</div>
+  </div>
+</div>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-label">
+    <div class="pulse"></div>
+    <span style="font-size:10px;color:var(--gold);letter-spacing:0.08em">LIVE INTEL</span>
+  </div>
+  <div>
+    <span class="hero-name">FENCESCRAPER</span>
+    <span class="hero-version">v2.4</span>
+  </div>
+  <div class="hero-sub">BID INTELLIGENCE // REAL API FEEDS</div>
+  <div class="hero-meta">
+    <span>NAICS 238990</span>
+    <span id="last-scan">NEVER SCANNED</span>
+  </div>
+</div>
+
+<!-- SOURCE STATUS BAR -->
+<div class="source-bar">
+  <div class="src-chip live" id="chip-sam">
+    <div class="src-dot"></div>SAM.GOV API
+  </div>
+  <div class="src-chip scrape" id="chip-ips">
+    <div class="src-dot"></div>NC IPS
+  </div>
+  <div class="src-chip ai" id="chip-muni">
+    <div class="src-dot"></div>MUNICIPAL
+  </div>
+</div>
+
+<!-- SCAN PARAMS -->
+<div class="panel">
+  <div class="panel-header" onclick="togglePanel('params')">
+    <span class="panel-title">▸ SCAN PARAMETERS</span>
+    <span class="panel-arrow open" id="arrow-params">▶</span>
+  </div>
+  <div class="panel-body" id="body-params">
+    <div class="field-row">
+      <div>
+        <div class="field-label">REGION</div>
+        <select class="field-input" id="region">
+          <option value="NC">North Carolina</option>
+          <option value="Charlotte Metro">Charlotte Metro</option>
+          <option value="Stanly County">Stanly County</option>
+          <option value="SE">Southeast</option>
+          <option value="national">National</option>
+        </select>
+      </div>
+      <div>
+        <div class="field-label">DATE WINDOW</div>
+        <select class="field-input" id="datewindow">
+          <option value="7">Last 7 days</option>
+          <option value="14">Last 14 days</option>
+          <option value="30" selected>Last 30 days</option>
+          <option value="60">Last 60 days</option>
+          <option value="90">Last 90 days</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div>
+        <div class="field-label">BID TYPE</div>
+        <select class="field-input" id="bidtype">
+          <option value="all">All Types</option>
+          <option value="o">Solicitation</option>
+          <option value="k">Combined Synopsis</option>
+          <option value="r">Sources Sought</option>
+          <option value="s">Special Notice</option>
+        </select>
+      </div>
+      <div>
+        <div class="field-label">NAICS CODE</div>
+        <input class="field-input" id="naics" value="238990" placeholder="238990">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SOURCES -->
+<div class="panel">
+  <div class="panel-header" onclick="togglePanel('sources')">
+    <span class="panel-title">▸ SOURCES</span>
+    <span class="panel-arrow open" id="arrow-sources">▶</span>
+  </div>
+  <div class="panel-body" id="body-sources">
+    <div class="source-checks">
+      <div class="source-check enabled" id="src-sam" onclick="toggleSource('sam')">
+        <div class="source-check-dot"></div>
+        <div class="source-check-info">
+          <div class="source-check-name">SAM.gov (Federal)</div>
+          <div class="source-check-desc">Direct API — live federal contract data</div>
+        </div>
+        <span class="source-check-badge badge-live">LIVE API</span>
+      </div>
+      <div class="source-check enabled" id="src-ips" onclick="toggleSource('ips')">
+        <div class="source-check-dot"></div>
+        <div class="source-check-info">
+          <div class="source-check-name">NC State IPS</div>
+          <div class="source-check-desc">Live scrape — NC agency/university bids</div>
+        </div>
+        <span class="source-check-badge badge-scrape">SCRAPE</span>
+      </div>
+      <div class="source-check disabled" id="src-muni" title="Deterministic municipal connectors are planned but not active in v2.3">
+        <div class="source-check-dot"></div>
+        <div class="source-check-info">
+          <div class="source-check-name">Municipal / County</div>
+          <div class="source-check-desc">Connector catalog in development — not yet active</div>
+        </div>
+        <span class="source-check-badge badge-pending">PENDING</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- API KEYS -->
+<div class="panel">
+  <div class="panel-header" onclick="togglePanel('keys')">
+    <span class="panel-title">▸ SOURCE CREDENTIALS</span>
+    <span class="panel-arrow" id="arrow-keys">▶</span>
+  </div>
+  <div class="panel-body hidden" id="body-keys">
+
+    <div class="field-label" style="margin-bottom:6px">SAM.GOV PUBLIC API KEY</div>
+    <div class="key-row">
+      <div class="field-wrap">
+        <input class="field-input" id="sam-key" type="password" placeholder="Get free key at sam.gov → Account Details">
+      </div>
+      <button class="key-save-btn" onclick="saveKey('sam')">SAVE</button>
+    </div>
+    <div class="key-status" id="sam-key-status"></div>
+
+    <div style="height:8px"></div>
+    <div style="font-size:9px;color:var(--muted);line-height:1.6">
+      Source credentials are stored locally in this browser and transmitted only to the corresponding authoritative source.
+    </div>
+  </div>
+</div>
+
+<!-- RUN BUTTON -->
+<button class="run-btn" id="run-btn" onclick="runScan()">
+  ▶ RUN SCAN
+</button>
+
+<!-- PROGRESS -->
+<div class="progress-panel" id="progress-panel">
+  <div class="progress-bar-track">
+    <div class="progress-bar-fill" id="progress-fill"></div>
+  </div>
+  <div class="progress-log" id="progress-log"></div>
+</div>
+
+<!-- RESULTS -->
+<div id="results-section" style="display:none">
+  <div class="results-header">
+    <div class="results-count">Found <span id="result-count">0</span> bids</div>
+    <select class="sort-select" id="sort-select" onchange="sortResults()">
+      <option value="deadline">Sort: Deadline</option>
+      <option value="posted">Sort: Posted</option>
+      <option value="source">Sort: Source</option>
+    </select>
+  </div>
+  <div class="results-list" id="results-list"></div>
+</div>
+
+<!-- BID-TAB IMPORT (COMPETITOR PRICING) -->
+<div class="panel" style="margin-top:14px">
+  <div class="panel-header" onclick="togglePanel('bidtab')">
+    <span class="panel-title">&#9656; BID-TAB IMPORT &middot; COMPETITOR PRICING</span>
+    <span class="panel-arrow open" id="arrow-bidtab">&#9654;</span>
+  </div>
+  <div class="panel-body" id="body-bidtab">
+    <div style="font-size:9px;color:var(--muted);line-height:1.6;margin-bottom:8px">
+      Drop an NCDOT &ldquo;XLS Bid Tabs&rdquo; file (Central or Division let). Parsed locally in your browser &mdash; no upload, no network. Builds a competitor unit-price database from public awarded-bid records, accumulating across every let you add.
+    </div>
+    <label class="bt-drop" id="bt-drop" for="bt-file">
+      <input type="file" id="bt-file" accept=".xls,.xlsx" style="display:none">
+      <span id="bt-drop-label">TAP TO CHOOSE A BID-TAB FILE (.xls / .xlsx)</span>
+    </label>
+    <div class="bt-controls">
+      <label class="bt-chk"><input type="checkbox" id="bt-relonly"> Fence-relevant only</label>
+      <label class="bt-chk">Division
+        <select class="field-input" id="bt-div" style="width:auto;padding:4px 6px">
+          <option value="">All</option>
+          <option value="10">Div 10 (home)</option>
+          <option value="9">Div 9</option>
+          <option value="8">Div 8</option>
+          <option value="7">Div 7</option>
+          <option value="12">Div 12</option>
+        </select>
+      </label>
+    </div>
+    <div class="bt-stats" id="bt-stats" style="display:none"></div>
+    <div class="bt-controls" id="bt-actions" style="display:none">
+      <button class="key-save-btn" onclick="exportBidTabCSV()">EXPORT CSV</button>
+      <button class="key-save-btn" style="background:var(--red)" onclick="clearBidTab()">CLEAR DB</button>
+      <span class="save-note" id="bt-dbnote"></span>
+    </div>
+    <div class="bt-scroll"><table class="bt-table" id="bt-table" style="display:none"></table></div>
+  </div>
+</div>
+
+<div class="footer">
+  <span>FENCEBOUND // STANLY CO NC</span>
+  <span>NAICS 238990</span>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/* ===== FenceScraper v2.4 — inlined bid-tab parser (gated module) ===== */
+/* ============================================================================
+ * FenceScraper v2.4 — NCDOT Bid-Tab Parser & Competitor-Price Normalizer
+ * ----------------------------------------------------------------------------
+ * Deterministic, vendor-independent. No LLM, no network at parse time.
+ * Input:  array-of-arrays (rows) exactly as produced by
+ *           XLSX.utils.sheet_to_json(ws, { header: 1, raw: true })
+ *         on an NCDOT "L###### XLS Bid Tabs.xls" file (Central or Division let).
+ * Output: { items, records, report }
+ *           - items:   one object per real line item (bidders merged across blocks)
+ *           - records: one flat competitor-price row per (item × bidder)
+ *           - report:  counts for the import summary (imported/merged/skipped)
+ *
+ * These files are HEADERLESS and FLAT: contract+project fields repeat on every
+ * row, then item fields, then bidders in repeating 5-wide blocks from column 25.
+ * Contracts with >3 bidders repeat their whole item list in a second/third
+ * "block" (col 2 = block counter), each block carrying up to 3 more bidders.
+ * The item identity is (let | contract | lineNo); bidders are UNIONED across
+ * blocks. Getting this wrong double-counts jobs and drops bidders past #3.
+ * ==========================================================================*/
+
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.BidTab = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  // ── Column map (0-based indices into each row array) ──────────────────────
+  var COL = {
+    let: 0, block: 1, letDate: 2, letTime: 3, contractSeq: 4, contract: 5,
+    wbs: 6, tip: 7, funding: 8, county: 9, projLenMi: 10, /* 11 flag */
+    workType: 12, projLocation: 13, controlNumber: 14, section: 15,
+    lineNo: 16, /* 17 catIdx */ category: 18, itemDesc: 19, itemSubDesc: 20,
+    qty: 21, unit: 22, /* 23 unitDup */ bidderStart: 24
+  };
+  var BIDDER_STRIDE = 5; // [name, "CITY, ST", unitPrice, extAmount, flag]
+
+  // ── Fence-relevance rules (extended for DOT vocabulary) ───────────────────
+  // Tuned for a fence contractor: chain link / ornamental / gates score highest;
+  // guardrail / guiderail / silt & safety fence are adjacent scopes worth seeing.
+  var RELEVANCE_RULES = [
+    ['chain link', 10], ['chainlink', 10], ['ornamental', 8], ['security gate', 8],
+    ['fence', 7], ['fencing', 7], ['gate', 5], ['guardrail', 5], ['guiderail', 5],
+    ['guide rail', 5], ['barbed', 5], ['woven wire', 4], ['safety fence', 4],
+    ['silt fence', 3], ['32 31 00', 8], ['866', 2]
+  ];
+  var STRONG_FENCE = /\b(chain\s*link|chainlink|ornamental fence|woven wire|barbed wire|security gate|fence, )\b/i;
+
+  function scoreRelevance(text) {
+    var t = String(text || '').toLowerCase(), score = 0, terms = [];
+    for (var i = 0; i < RELEVANCE_RULES.length; i++) {
+      if (t.indexOf(RELEVANCE_RULES[i][0]) !== -1) {
+        score += RELEVANCE_RULES[i][1]; terms.push(RELEVANCE_RULES[i][0]);
+      }
+    }
+    return { score: score, matchedTerms: terms };
+  }
+
+  // ── NC county → NCDOT Highway Division map ────────────────────────────────
+  // SEEDED + VERIFIED for the user's operating area (Division 10) and a few
+  // neighbors that appear in Central lets. Unknown counties return division:null
+  // with verified:false so nothing is silently guessed. Complete against the
+  // official NCDOT division list before relying on non-seeded counties.
+  var COUNTY_DIVISION = {
+    // Division 10 (Far-Out Fencing Co. home region) — verified
+    ANSON: 10, CABARRUS: 10, MECKLENBURG: 10, RICHMOND: 10, STANLY: 10, UNION: 10,
+    // Neighboring divisions — verified
+    FORSYTH: 9, DAVIE: 9, DAVIDSON: 9, ROWAN: 9, STOKES: 9,
+    MONTGOMERY: 8, RANDOLPH: 8, MOORE: 8,
+    ROCKINGHAM: 7, GUILFORD: 7, ALAMANCE: 7, CASWELL: 7,
+    CATAWBA: 12, IREDELL: 12, LINCOLN: 12, GASTON: 12
+  };
+  function divisionForCounty(county) {
+    if (!county) return { division: null, verified: false };
+    var key = String(county).trim().toUpperCase();
+    if (Object.prototype.hasOwnProperty.call(COUNTY_DIVISION, key))
+      return { division: COUNTY_DIVISION[key], verified: true };
+    return { division: null, verified: false };
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function s(v) { return v == null ? '' : String(v).trim(); }
+  function num(v) {
+    if (v == null || v === '') return null;
+    var n = Number(String(v).replace(/[$,\s]/g, ''));
+    return isFinite(n) ? n : null;
+  }
+  function looksLikeLocation(v) { return typeof v === 'string' && v.indexOf(',') !== -1; }
+
+  // Parse the repeating 5-wide bidder blocks starting at COL.bidderStart.
+  function parseBidders(row) {
+    var out = [], col = COL.bidderStart;
+    while (col < row.length) {
+      var name = row[col], loc = row[col + 1];
+      if (s(name) && looksLikeLocation(loc)) {
+        out.push({
+          bidder: s(name),
+          bidderLoc: s(loc),
+          unitPrice: num(row[col + 2]),
+          extAmount: num(row[col + 3])
+        });
+        col += BIDDER_STRIDE;
+      } else break; // trailing timestamp / blanks → done
+    }
+    return out;
+  }
+
+  function isItemRow(row) {
+    return s(row[COL.contract]) && s(row[COL.controlNumber]) &&
+           s(row[COL.lineNo]) && s(row[COL.itemDesc]);
+  }
+
+  /* Main entry point.
+   * opts.relevanceMin  : drop records scoring below this (default 0 = keep all)
+   * opts.strongOnly    : keep only rows matching STRONG_FENCE (default false)
+   * opts.retrievedAt   : ISO timestamp stamped on every record
+   */
+  function parseBidTab(rows, opts) {
+    opts = opts || {};
+    var retrievedAt = opts.retrievedAt || new Date().toISOString();
+    var relevanceMin = opts.relevanceMin || 0;
+
+    var itemMap = Object.create(null); // key -> item (bidders unioned)
+    var order = [];
+    var blocks = {}, itemRows = 0, skipped = 0;
+
+    for (var r = 0; r < rows.length; r++) {
+      var row = rows[r] || [];
+      if (!isItemRow(row)) { skipped++; continue; }
+      itemRows++;
+      blocks[s(row[COL.block]) || '1'] = true;
+
+      var let_ = s(row[COL.let]),
+          contract = s(row[COL.contract]),
+          lineNo = s(row[COL.lineNo]),
+          key = let_ + '|' + contract + '|' + lineNo;
+
+      var item = itemMap[key];
+      if (!item) {
+        var county = s(row[COL.county]);
+        var dv = divisionForCounty(county);
+        var descFull = [s(row[COL.itemDesc]), s(row[COL.itemSubDesc])].filter(Boolean).join(' ');
+        var rel = scoreRelevance([s(row[COL.category]), descFull].join(' '));
+        item = itemMap[key] = {
+          source: 'NCDOT',
+          let: let_, letDate: s(row[COL.letDate]), contract: contract,
+          county: county, division: dv.division, divisionVerified: dv.verified,
+          controlNumber: s(row[COL.controlNumber]), section: s(row[COL.section]),
+          lineNo: lineNo, category: s(row[COL.category]),
+          itemDesc: s(row[COL.itemDesc]), itemSubDesc: s(row[COL.itemSubDesc]),
+          unit: s(row[COL.unit]), qty: num(row[COL.qty]),
+          workType: s(row[COL.workType]), projLocation: s(row[COL.projLocation]),
+          relevanceScore: rel.score, matchedTerms: rel.matchedTerms,
+          strongFence: STRONG_FENCE.test(descFull),
+          bidders: [], _seen: Object.create(null),
+          retrievedAt: retrievedAt
+        };
+        order.push(key);
+      }
+      // union bidders across blocks, dedupe by bidder name
+      var bs = parseBidders(row);
+      for (var b = 0; b < bs.length; b++) {
+        var nm = bs[b].bidder.toUpperCase();
+        if (!item._seen[nm]) { item._seen[nm] = 1; item.bidders.push(bs[b]); }
+      }
+    }
+
+    // finalize: rank bidders (block-1 order ≈ contract total ascending → #1 = apparent low)
+    var items = [], records = [];
+    for (var i = 0; i < order.length; i++) {
+      var it = itemMap[order[i]];
+      delete it._seen;
+      it.bidderCount = it.bidders.length;
+      if (it.relevanceScore < relevanceMin) continue;
+      if (opts.strongOnly && !it.strongFence) continue;
+      items.push(it);
+      for (var j = 0; j < it.bidders.length; j++) {
+        var bd = it.bidders[j];
+        records.push({
+          source: it.source, let: it.let, letDate: it.letDate,
+          contract: it.contract, county: it.county,
+          division: it.division, divisionVerified: it.divisionVerified,
+          controlNumber: it.controlNumber, section: it.section, lineNo: it.lineNo,
+          itemDesc: it.itemDesc, itemSubDesc: it.itemSubDesc, unit: it.unit, qty: it.qty,
+          bidder: bd.bidder, bidderLoc: bd.bidderLoc,
+          unitPrice: bd.unitPrice, extAmount: bd.extAmount,
+          bidderRank: j + 1, apparentLowBidder: j === 0,
+          relevanceScore: it.relevanceScore, matchedTerms: it.matchedTerms,
+          strongFence: it.strongFence, retrievedAt: it.retrievedAt
+        });
+      }
+    }
+
+    return {
+      items: items,
+      records: records,
+      report: {
+        blocks: Object.keys(blocks).length,
+        itemRows: itemRows,
+        uniqueItems: order.length,
+        mergedItems: itemRows - order.length,
+        emitted: items.length,
+        priceRecords: records.length,
+        skippedRows: skipped
+      }
+    };
+  }
+
+  return {
+    parseBidTab: parseBidTab,
+    scoreRelevance: scoreRelevance,
+    divisionForCounty: divisionForCounty,
+    COL: COL, RELEVANCE_RULES: RELEVANCE_RULES
+  };
+});
+
+</script>
+<script>
+// ── STATE ──
+const state = {
+  sources: { sam: true, ips: true },
+  results: [],
+  scanning: false
+};
+
+// ── PANELS ──
+function togglePanel(id) {
+  const body = document.getElementById('body-' + id);
+  const arrow = document.getElementById('arrow-' + id);
+  const hidden = body.classList.toggle('hidden');
+  arrow.classList.toggle('open', !hidden);
+}
+
+// ── SOURCE TOGGLE ──
+function toggleSource(src) {
+  state.sources[src] = !state.sources[src];
+  const el = document.getElementById('src-' + src);
+  el.classList.toggle('enabled', state.sources[src]);
+}
+
+// ── KEY MANAGEMENT ──
+function saveKey(type) {
+  if (type !== 'sam') return;
+  const val = document.getElementById('sam-key').value.trim();
+  if (!val) return;
+  localStorage.setItem('fs_sam_key', val);
+  updateKeyStatus();
+}
+
+function loadKeys() {
+  const samKey = localStorage.getItem('fs_sam_key') || '';
+  if (samKey) document.getElementById('sam-key').value = samKey;
+  // Remove the retired vendor-specific credential from older versions.
+  localStorage.removeItem('fs_ant_key');
+  updateKeyStatus();
+}
+
+function updateKeyStatus() {
+  const samKey = localStorage.getItem('fs_sam_key');
+  const samEl = document.getElementById('sam-key-status');
+  samEl.textContent = samKey ? '✓ SAM.gov key saved' : '✗ No key — SAM.gov will be skipped';
+  samEl.className = 'key-status ' + (samKey ? 'ok' : 'missing');
+}
+
+// ── LOGGING ──
+function log(msg, type = '') {
+  const log = document.getElementById('progress-log');
+  const now = new Date();
+  const ts = now.toTimeString().slice(0, 8);
+  const line = document.createElement('div');
+  line.className = 'log-line log-' + type;
+  const time = document.createElement('span');
+  time.className = 'log-time';
+  time.textContent = ts;
+  const message = document.createElement('span');
+  message.className = 'log-msg';
+  message.textContent = String(msg);
+  line.append(time, message);
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+function setProgress(pct) {
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+
+// ── DATE HELPERS ──
+function daysAgo(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+}
+
+function formatDate(str) {
+  if (!str) return '—';
+  const d = new Date(str);
+  if (isNaN(d)) return str;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function deadlineDays(str) {
+  if (!str) return null;
+  const d = new Date(str);
+  const now = new Date();
+  return Math.round((d - now) / (1000 * 60 * 60 * 24));
+}
+
+// ── REQUEST RELIABILITY HELPERS ──
+const SOURCE_TIMEOUT_MS = 15000;
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = SOURCE_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error && error.name === 'AbortError') {
+      throw new Error(`request timed out after ${Math.round(timeoutMs / 1000)}s`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const RELEVANCE_RULES = [
+  ['chain link', 10], ['security gate', 10], ['fencing', 9], ['fence', 8],
+  ['ornamental', 6], ['perimeter', 5], ['guardrail', 5], ['gate', 4],
+  ['32 31 00', 8], ['238990', 4]
+];
+
+function scoreFenceRelevance(record) {
+  const text = [record.title, record.description, record.type, record.naics]
+    .filter(Boolean).join(' ').toLowerCase();
+  let score = 0;
+  const matchedTerms = [];
+  RELEVANCE_RULES.forEach(([term, points]) => {
+    if (text.includes(term)) { score += points; matchedTerms.push(term); }
+  });
+  return { score, matchedTerms };
+}
+
+function normalizeSourceResult(source, value) {
+  if (!Array.isArray(value)) {
+    log(`${source}: invalid result payload; ignored`, 'err');
+    return [];
+  }
+  const retrievedAt = new Date().toISOString();
+  return value.filter(item => item && typeof item === 'object').map(item => {
+    const relevance = scoreFenceRelevance(item);
+    const url = safeExternalUrl(item.url);
+    return {
+      ...item,
+      sourceName: source,
+      sourceUrl: url,
+      sourceRecordId: String(item.id || item.url || item.title || ''),
+      retrievedAt,
+      relevanceScore: relevance.score,
+      matchedTerms: relevance.matchedTerms
+    };
+  });
+}
+
+function deduplicateResults(records) {
+  const seen = new Map();
+  records.forEach(record => {
+    const key = [record.source, record.sourceRecordId || '', record.url || '', record.title || '']
+      .join('|').toLowerCase();
+    const existing = seen.get(key);
+    if (!existing || (record.relevanceScore || 0) > (existing.relevanceScore || 0)) seen.set(key, record);
+  });
+  return [...seen.values()];
+}
+
+// ── SAM.GOV API ──
+async function fetchSAM(params) {
+  const key = localStorage.getItem('fs_sam_key');
+  if (!key) { log('SAM.gov: no API key, skipping', 'warn'); return []; }
+
+  const region = params.region;
+  const days = parseInt(params.datewindow);
+  const naics = params.naics;
+  const bidtype = params.bidtype;
+
+  // Build date range
+  const toDate = new Date();
+  const fromDate = new Date();
+  fromDate.setDate(fromDate.getDate() - days);
+  const fmt = d => `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}/${d.getFullYear()}`;
+
+  // Build query
+  const qParams = new URLSearchParams({
+    api_key: key,
+    limit: 50,
+    postedFrom: fmt(fromDate),
+    postedTo: fmt(toDate),
+    naicsCode: naics,
+  });
+  if (bidtype !== 'all') qParams.set('ptype', bidtype);
+
+  // State filter
+  const stateMap = { 'NC': 'NC', 'Charlotte Metro': 'NC', 'Stanly County': 'NC', 'SE': '', 'national': '' };
+  const stateCode = stateMap[region] || '';
+  if (stateCode) qParams.set('state', stateCode);
+
+  // Add fence-related keywords
+  qParams.set('keyword', 'fence OR fencing OR gate OR guardrail');
+
+  log('SAM.gov: querying federal opportunities...', 'info');
+
+  try {
+    const url = `https://api.sam.gov/prod/opportunities/v2/search?${qParams.toString()}`;
+    const res = await fetchWithTimeout(url);
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      if (res.status === 403) {
+        log(`SAM.gov: API key rejected (403) — check your key`, 'err');
+      } else if (res.status === 429) {
+        log(`SAM.gov: rate limit hit — try again later`, 'err');
+      } else {
+        log(`SAM.gov: error ${res.status}`, 'err');
+      }
+      return [];
+    }
+
+    const data = await res.json();
+    const opps = data.opportunitiesData || [];
+    log(`SAM.gov: ${opps.length} results found`, opps.length ? 'ok' : 'warn');
+
+    return opps.map(o => ({
+      source: 'SAM',
+      id: o.noticeId || o.solicitationNumber,
+      title: o.title || 'Untitled',
+      agency: o.fullParentPathName || o.organizationHierarchy?.map(h => h.name).join(' › ') || '—',
+      posted: o.postedDate,
+      deadline: o.responseDeadLine || o.archiveDate,
+      type: o.type || '—',
+      naics: o.naicsCode || naics,
+      contact: (o.pointOfContact?.[0]?.email) || '—',
+      url: o.uiLink || `https://sam.gov/opp/${o.noticeId}/view`,
+      description: o.description || '',
+      sourceUrl: o.uiLink || `https://sam.gov/opp/${o.noticeId}/view`,
+      sourceRecordId: o.noticeId || o.solicitationNumber || ''
+    }));
+
+  } catch (e) {
+    log(`SAM.gov: fetch failed — ${e.message}`, 'err');
+    return [];
+  }
+}
+
+// ── NC IPS SCRAPE (via allOrigins CORS proxy) ──
+async function fetchIPS(params) {
+  log('NC IPS: connecting to state procurement portal...', 'info');
+
+  const keyword = 'fence';
+  const url = `https://api.allorigins.win/get?url=${encodeURIComponent(`https://www.ips.state.nc.us/ips/openbidsearch.aspx?keywords=${keyword}&Agency=&ClassCode=`)}`;
+
+  try {
+    const res = await fetchWithTimeout(url);
+    if (!res.ok) {
+      log(`NC IPS: proxy returned HTTP ${res.status}`, 'err');
+      return [];
+    }
+    const data = await res.json().catch(() => null);
+    const html = typeof data?.contents === 'string' ? data.contents : '';
+
+    if (!html) {
+      log('NC IPS: proxy returned no usable page content', 'err');
+      return [];
+    }
+
+    // Parse HTML and reject proxy/error pages before trusting row structure.
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const parserError = doc.querySelector('parsererror');
+    if (parserError) {
+      log('NC IPS: returned page could not be parsed', 'err');
+      return [];
+    }
+
+    const rows = [...doc.querySelectorAll('table tr')].filter(row => row.querySelectorAll('td').length >= 3);
+    if (!rows.length) {
+      log('NC IPS: page structure changed or no solicitation table was found', 'warn');
+      return [];
+    }
+    const results = [];
+
+    rows.forEach((row, i) => {
+      const cells = row.querySelectorAll('td');
+      if (cells.length < 3) return;
+
+      const titleCell = cells[1] || cells[0];
+      const link = titleCell?.querySelector('a');
+      const title = link?.textContent?.trim() || titleCell?.textContent?.trim();
+      if (!title || title.length < 3) return;
+
+      const agency = cells[2]?.textContent?.trim() || '—';
+      const deadline = cells[3]?.textContent?.trim() || '—';
+      const href = link?.getAttribute('href') || '';
+      const fullUrl = href ? `https://www.ips.state.nc.us${href.startsWith('/') ? '' : '/ips/'}${href}` : 'https://www.ips.state.nc.us/ips/openbidsearch.aspx';
+
+      results.push({
+        source: 'IPS',
+        id: `IPS-${i}`,
+        title,
+        agency,
+        posted: null,
+        deadline,
+        type: 'State Solicitation',
+        naics: '238990',
+        contact: '—',
+        url: fullUrl,
+        description: '',
+        sourceUrl: fullUrl,
+        sourceRecordId: `IPS-${i}`
+      });
+    });
+
+    if (results.length === 0) {
+      log('NC IPS: no fence bids found in current solicitations', 'warn');
+    } else {
+      log(`NC IPS: ${results.length} bids found`, 'ok');
+    }
+
+    return results;
+
+  } catch (e) {
+    log(`NC IPS: scrape failed — ${e.message}`, 'err');
+    return [];
+  }
+}
+
+// ── CONNECTOR REGISTRY ──
+// Core scanning is deterministic. Future connectors plug into this registry.
+const connectorRegistry = {
+  sam: { name: 'SAM.gov', enabled: () => state.sources.sam, run: fetchSAM },
+  ips: { name: 'NC IPS', enabled: () => state.sources.ips, run: fetchIPS }
+};
+
+// ── MAIN SCAN ──
+async function runScan() {
+  if (state.scanning) return;
+  state.scanning = true;
+
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  btn.textContent = '⟳ SCANNING...';
+  btn.classList.add('running');
+
+  const prog = document.getElementById('progress-panel');
+  prog.classList.add('visible');
+  document.getElementById('progress-log').textContent = '';
+  document.getElementById('results-section').style.display = 'none';
+  setProgress(5);
+
+  const params = {
+    region: document.getElementById('region').value,
+    datewindow: document.getElementById('datewindow').value,
+    bidtype: document.getElementById('bidtype').value,
+    naics: document.getElementById('naics').value || '238990'
+  };
+
+  log(`Scan started — ${params.region} / last ${params.datewindow} days`, 'info');
+  state.results = [];
+
+  const enabledSources = Object.values(connectorRegistry)
+    .filter(connector => connector.enabled())
+    .map(connector => ({ name: connector.name, run: () => connector.run(params) }));
+
+  if (!enabledSources.length) {
+    log('No sources enabled; select at least one source', 'warn');
+  } else {
+    setProgress(15);
+    let completed = 0;
+    const tasks = enabledSources.map(source =>
+      Promise.resolve()
+        .then(source.run)
+        .then(value => ({ source: source.name, bids: normalizeSourceResult(source.name, value) }))
+        .finally(() => {
+          completed += 1;
+          setProgress(15 + Math.round((completed / enabledSources.length) * 80));
+        })
+    );
+
+    const settled = await Promise.allSettled(tasks);
+    settled.forEach((result, index) => {
+      const sourceName = enabledSources[index].name;
+      if (result.status === 'fulfilled') {
+        state.results.push(...result.value.bids);
+      } else {
+        const message = result.reason?.message || 'unknown error';
+        log(`${sourceName}: source failed — ${message}`, 'err');
+      }
+    });
+  }
+
+  state.results = deduplicateResults(state.results);
+  setProgress(100);
+  log(`Scan complete — ${state.results.length} unique bids found`, state.results.length ? 'ok' : 'warn');
+
+  const now = new Date();
+  document.getElementById('last-scan').textContent = 'SCANNED ' + now.toLocaleTimeString();
+  renderResults();
+
+  btn.disabled = false;
+  btn.textContent = '▶ RUN SCAN';
+  btn.classList.remove('running');
+  state.scanning = false;
+}
+
+// ── RENDER ──
+function renderResults() {
+  const section = document.getElementById('results-section');
+  const list = document.getElementById('results-list');
+  const countEl = document.getElementById('result-count');
+
+  section.style.display = 'block';
+  countEl.textContent = state.results.length;
+  list.innerHTML = '';
+
+  if (state.results.length === 0) {
+    list.innerHTML = `<div class="empty-state">
+      <div class="icon">📋</div>
+      No bids found for these parameters.<br>
+      Try expanding your date window or region.
+    </div>`;
+    return;
+  }
+
+  sortResults(true); // sort before render
+}
+
+function sortResults(skipRender = false) {
+  const sort = document.getElementById('sort-select').value;
+  state.results.sort((a, b) => {
+    if (sort === 'deadline') {
+      const da = new Date(a.deadline || '9999');
+      const db = new Date(b.deadline || '9999');
+      return da - db;
+    }
+    if (sort === 'posted') {
+      return new Date(b.posted || 0) - new Date(a.posted || 0);
+    }
+    if (sort === 'source') {
+      return (a.source || '').localeCompare(b.source || '');
+    }
+    return 0;
+  });
+
+  if (!skipRender) {
+    const list = document.getElementById('results-list');
+    list.innerHTML = '';
+    state.results.forEach((bid, i) => list.appendChild(makeBidCard(bid, i)));
+  } else {
+    const list = document.getElementById('results-list');
+    list.innerHTML = '';
+    state.results.forEach((bid, i) => list.appendChild(makeBidCard(bid, i)));
+  }
+}
+
+function safeExternalUrl(value) {
+  try {
+    const url = new URL(String(value || ''), window.location.href);
+    return (url.protocol === 'https:' || url.protocol === 'http:') ? url.href : '#';
+  } catch (_) {
+    return '#';
+  }
+}
+
+function appendDetailRow(parent, label, value, linkUrl = null) {
+  if (value === undefined || value === null || value === '' || value === '—') return;
+  const row = document.createElement('div');
+  row.className = 'bid-detail-row';
+  const labelEl = document.createElement('span');
+  labelEl.className = 'bid-detail-label';
+  labelEl.textContent = label;
+  const valueEl = document.createElement('span');
+  valueEl.className = 'bid-detail-val';
+  if (linkUrl) {
+    const link = document.createElement('a');
+    link.href = safeExternalUrl(linkUrl);
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.style.color = 'var(--gold)';
+    link.textContent = String(value);
+    valueEl.appendChild(link);
+  } else {
+    valueEl.textContent = String(value);
+  }
+  row.append(labelEl, valueEl);
+  parent.appendChild(row);
+}
+
+function makeBidCard(bid, idx) {
+  const card = document.createElement('div');
+  card.className = 'bid-card';
+
+  const tagClass = bid.source === 'SAM' ? 'tag-sam' : 'tag-ips';
+  const tagLabel = bid.source === 'SAM' ? 'SAM.GOV' : 'NC IPS';
+  const externalUrl = safeExternalUrl(bid.sourceUrl || bid.url);
+
+  const days = deadlineDays(bid.deadline);
+  let deadlineClass = '';
+  let deadlineLabel = bid.deadline ? `Due: ${formatDate(bid.deadline)}` : 'No deadline listed';
+  if (days !== null) {
+    if (days < 0) { deadlineLabel = 'EXPIRED'; deadlineClass = 'urgent'; }
+    else if (days <= 5) { deadlineLabel += ` (${days}d)`; deadlineClass = 'urgent'; }
+    else if (days <= 14) { deadlineLabel += ` (${days}d)`; deadlineClass = 'soon'; }
+  }
+
+  const top = document.createElement('div');
+  top.className = 'bid-card-top';
+  const meta = document.createElement('div');
+  meta.className = 'bid-card-meta';
+  const sourceTag = document.createElement('span');
+  sourceTag.className = `bid-source-tag ${tagClass}`;
+  sourceTag.textContent = tagLabel;
+  const posted = document.createElement('span');
+  posted.className = 'bid-date';
+  posted.textContent = formatDate(bid.posted);
+  meta.append(sourceTag, posted);
+  const title = document.createElement('div');
+  title.className = 'bid-title';
+  title.textContent = String(bid.title || 'Untitled');
+  const agency = document.createElement('div');
+  agency.className = 'bid-agency';
+  agency.textContent = String(bid.agency || '—');
+  top.append(meta, title, agency);
+
+  const bottom = document.createElement('div');
+  bottom.className = 'bid-card-bottom';
+  const deadline = document.createElement('span');
+  deadline.className = `bid-deadline ${deadlineClass}`.trim();
+  deadline.textContent = deadlineLabel;
+  const actions = document.createElement('div');
+  actions.className = 'bid-actions';
+  const detailsButton = document.createElement('button');
+  detailsButton.className = 'bid-btn';
+  detailsButton.type = 'button';
+  detailsButton.textContent = 'DETAILS';
+  detailsButton.addEventListener('click', () => toggleDetail(idx));
+  const viewLink = document.createElement('a');
+  viewLink.className = 'bid-btn primary';
+  viewLink.href = externalUrl;
+  viewLink.target = '_blank';
+  viewLink.rel = 'noopener noreferrer';
+  viewLink.textContent = 'VIEW ↗';
+  actions.append(detailsButton, viewLink);
+  bottom.append(deadline, actions);
+
+  const detail = document.createElement('div');
+  detail.className = 'bid-detail';
+  detail.id = `detail-${idx}`;
+  appendDetailRow(detail, 'Type', bid.type);
+  appendDetailRow(detail, 'Contact', bid.contact);
+  appendDetailRow(detail, 'NAICS', bid.naics);
+  appendDetailRow(detail, 'Relevance', `${bid.relevanceScore || 0} points`);
+  appendDetailRow(detail, 'Matched', (bid.matchedTerms || []).join(', '));
+  appendDetailRow(detail, 'Retrieved', bid.retrievedAt ? formatDate(bid.retrievedAt) : null);
+  if (bid.description) {
+    const description = String(bid.description);
+    appendDetailRow(detail, 'Summary', description.slice(0, 200) + (description.length > 200 ? '...' : ''));
+  }
+  const displayUrl = externalUrl === '#' ? 'Invalid or unavailable URL' : externalUrl.slice(0, 50) + (externalUrl.length > 50 ? '...' : '');
+  appendDetailRow(detail, 'Source', displayUrl, externalUrl === '#' ? null : externalUrl);
+
+  card.append(top, bottom, detail);
+  return card;
+}
+function toggleDetail(idx) {
+  const el = document.getElementById('detail-' + idx);
+  el.classList.toggle('open');
+}
+
+// ── BID-TAB IMPORT (TD-018) ──
+state.bidtab = { records: [], lastReport: null };
+const BT_KEY = 'fs_bidtab_records';
+
+function loadBidTab(){
+  try { const raw = localStorage.getItem(BT_KEY); if (raw) state.bidtab.records = JSON.parse(raw) || []; }
+  catch(_) { state.bidtab.records = []; }
+  if (state.bidtab.records.length) renderBidTab();
+  updateBtDbNote();
+}
+function saveBidTab(){
+  try { localStorage.setItem(BT_KEY, JSON.stringify(state.bidtab.records)); }
+  catch(e){ log('Bid-tab DB save failed — ' + e.message, 'err'); }
+  updateBtDbNote();
+}
+function updateBtDbNote(){
+  const el = document.getElementById('bt-dbnote'); if (!el) return;
+  const n = state.bidtab.records.length;
+  const lets = new Set(state.bidtab.records.map(r => r.let)).size;
+  el.textContent = n ? (n + ' price records • ' + lets + ' let(s) stored') : 'no records stored yet';
+}
+function btKey(r){ return [r.source, r.contract, r.lineNo, String(r.bidder).toUpperCase()].join('|'); }
+
+function handleBidTabFile(file){
+  if (!file) return;
+  if (typeof XLSX === 'undefined'){ alert('Spreadsheet library not loaded. Check your connection and reload.'); return; }
+  const drop = document.getElementById('bt-drop');
+  const lbl = document.getElementById('bt-drop-label');
+  lbl.textContent = 'PARSING ' + file.name + ' …';
+  const rd = new FileReader();
+  rd.onerror = () => { lbl.textContent = 'Could not read file — try again'; };
+  rd.onload = () => {
+    try {
+      const wb = XLSX.read(new Uint8Array(rd.result), { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true });
+      const out = BidTab.parseBidTab(rows, { retrievedAt: new Date().toISOString() });
+      const seen = new Set(state.bidtab.records.map(btKey));
+      let added = 0;
+      out.records.forEach(r => { const k = btKey(r); if (!seen.has(k)){ seen.add(k); state.bidtab.records.push(r); added++; } });
+      state.bidtab.lastReport = out.report;
+      saveBidTab();
+      renderBidTab();
+      drop.classList.add('armed');
+      lbl.textContent = file.name + ' ✓  (+' + added + ' new records) — tap to add another';
+    } catch(e){
+      lbl.textContent = 'Parse failed — is this an NCDOT bid-tab file?';
+      alert('Bid-tab parse failed: ' + e.message);
+    }
+  };
+  rd.readAsArrayBuffer(file);
+}
+
+function currentBtView(){
+  const relOnly = document.getElementById('bt-relonly').checked;
+  const div = document.getElementById('bt-div').value;
+  let recs = state.bidtab.records;
+  if (relOnly) recs = recs.filter(r => r.relevanceScore > 0);
+  if (div) recs = recs.filter(r => String(r.division) === div);
+  return recs;
+}
+
+function renderBidTab(){
+  const recs = currentBtView();
+  const statsEl = document.getElementById('bt-stats');
+  const tableEl = document.getElementById('bt-table');
+  const actions = document.getElementById('bt-actions');
+  const items = new Map();
+  recs.forEach(r => {
+    const k = r.contract + '|' + r.lineNo;
+    let it = items.get(k);
+    if (!it){ it = { item: r.itemDesc, sub: r.itemSubDesc, unit: r.unit, county: r.county, division: r.division, rel: r.relevanceScore, prices: [], bidders: [] }; items.set(k, it); }
+    if (r.unitPrice != null) it.prices.push(r.unitPrice);
+    it.bidders.push({ b: r.bidder, p: r.unitPrice, low: r.apparentLowBidder });
+  });
+  const list = [...items.values()].sort((a,b) => (b.rel - a.rel) || (b.bidders.length - a.bidders.length));
+  const relItems = list.filter(i => i.rel > 0).length;
+  const contracts = new Set(recs.map(r => r.contract)).size;
+  statsEl.style.display = 'flex'; statsEl.innerHTML = '';
+  [['DB RECORDS', state.bidtab.records.length], ['IN VIEW', recs.length], ['ITEMS', list.length], ['FENCE-REL', relItems], ['CONTRACTS', contracts]]
+    .forEach(([l,n]) => { const d = document.createElement('div'); d.className = 'bt-stat';
+      const nn = document.createElement('div'); nn.className = 'n'; nn.textContent = n;
+      const ll = document.createElement('div'); ll.className = 'l'; ll.textContent = l;
+      d.append(nn, ll); statsEl.appendChild(d); });
+  actions.style.display = 'flex';
+  const fmt = v => v == null ? '—' : '$' + (Math.round(v*100)/100).toLocaleString();
+  tableEl.style.display = list.length ? 'table' : 'none';
+  tableEl.innerHTML = '';
+  const thead = document.createElement('thead');
+  thead.innerHTML = '<tr><th>Item</th><th>Loc</th><th>Unit</th><th>Low</th><th>Med</th><th>High</th><th>Bidders (★ = apparent low)</th></tr>';
+  tableEl.appendChild(thead);
+  const tb = document.createElement('tbody');
+  const CAP = 400;
+  list.slice(0, CAP).forEach(it => {
+    const ps = it.prices.slice().sort((a,b) => a - b);
+    const med = ps.length ? ps[Math.floor((ps.length - 1) / 2)] : null;
+    const tr = document.createElement('tr'); if (it.rel > 0) tr.className = 'rel';
+    const td = t => { const c = document.createElement('td'); c.textContent = t; return c; };
+    tr.appendChild(td(it.item + (it.sub ? ' ' + it.sub : '')));
+    tr.appendChild(td((it.county || '—') + (it.division ? ' D' + it.division : '')));
+    tr.appendChild(td(it.unit || '—'));
+    tr.appendChild(td(fmt(ps.length ? ps[0] : null)));
+    tr.appendChild(td(fmt(med)));
+    tr.appendChild(td(fmt(ps.length ? ps[ps.length - 1] : null)));
+    const bc = document.createElement('td'); bc.className = 'bt-bidline';
+    bc.textContent = it.bidders.map(b => (b.low ? '★' : '') + String(b.b).split(' ')[0] + ' ' + fmt(b.p)).join(' · ');
+    tr.appendChild(bc);
+    tb.appendChild(tr);
+  });
+  if (list.length > CAP){ const tr = document.createElement('tr'); const c = document.createElement('td'); c.colSpan = 7; c.style.color = 'var(--muted)'; c.textContent = '… ' + (list.length - CAP) + ' more items — export CSV for the full set'; tr.appendChild(c); tb.appendChild(tr); }
+  tableEl.appendChild(tb);
+  updateBtDbNote();
+}
+
+function csvCell(v){ if (v == null) return ''; const s = String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+function exportBidTabCSV(){
+  const recs = currentBtView();
+  if (!recs.length){ alert('No records to export in the current view.'); return; }
+  const cols = ['source','let','letDate','contract','county','division','divisionVerified','controlNumber','section','lineNo','itemDesc','itemSubDesc','unit','qty','bidder','bidderLoc','unitPrice','extAmount','bidderRank','apparentLowBidder','relevanceScore','matchedTerms','retrievedAt'];
+  const lines = [cols.join(',')];
+  recs.forEach(r => lines.push(cols.map(c => { let v = r[c]; if (Array.isArray(v)) v = v.join('; '); return csvCell(v); }).join(',')));
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a'); const url = URL.createObjectURL(blob);
+  a.href = url; a.download = 'fencebound_competitor_prices.csv'; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function clearBidTab(){
+  if (!confirm('Clear the stored competitor-price database? This cannot be undone.')) return;
+  state.bidtab.records = []; state.bidtab.lastReport = null;
+  try { localStorage.removeItem(BT_KEY); } catch(_){}
+  document.getElementById('bt-stats').style.display = 'none';
+  document.getElementById('bt-table').style.display = 'none';
+  document.getElementById('bt-actions').style.display = 'none';
+  document.getElementById('bt-drop').classList.remove('armed');
+  document.getElementById('bt-drop-label').textContent = 'TAP TO CHOOSE A BID-TAB FILE (.xls / .xlsx)';
+  updateBtDbNote();
+}
+
+// ── INIT ──
+loadKeys();
+(function(){
+  const f = document.getElementById('bt-file');
+  if (f) f.addEventListener('change', e => { const file = e.target.files && e.target.files[0]; handleBidTabFile(file); e.target.value = ''; });
+  const rel = document.getElementById('bt-relonly'); if (rel) rel.addEventListener('change', renderBidTab);
+  const dv = document.getElementById('bt-div'); if (dv) dv.addEventListener('change', renderBidTab);
+})();
+loadBidTab();
+</script>
+</body>
+</html>
