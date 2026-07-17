@@ -793,6 +793,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="./fencescraper-discovery-pure.js"></script>
 <script>
 /* ===== FenceScraper v3.0 — inlined bid-tab parser (gated module) ===== */
 /* ============================================================================
@@ -1846,8 +1847,8 @@ const ND_ENTRY_POINTS = {
   central:'https://connect.ncdot.gov/letting/Pages/Central.aspx',
   division:'https://connect.ncdot.gov/letting/Pages/Division.aspx'
 };
-const ND_ALLOWED_HOST = /(^|\.)ncdot\.gov$|(^|\.)connect\.ncdot\.gov$/i;
-const ND_FENCE_TERMS = ['fence','fencing','gate','gates','chain link','woven wire','barbed wire','temporary fence','ornamental','cantilever','guardrail'];
+const ND_ALLOWED_HOST = FenceScraperDiscoveryPure.ND_ALLOWED_HOST;
+const ND_FENCE_TERMS = FenceScraperDiscoveryPure.ND_FENCE_TERMS;
 
 
 
@@ -1883,16 +1884,7 @@ function extractDivisionEndpointCandidates(pageUrl, html){
 }
 
 function scoreDivisionEndpointCandidate(c){
-  const t=(c.url+' '+c.type+' '+c.evidence).toLowerCase();
-  let score=0;
-  if(c.type==='iframe') score+=50;
-  if(/division/.test(t)) score+=25;
-  if(/letting|contract/.test(t)) score+=15;
-  if(/bid|award|tab/.test(t)) score+=10;
-  if(/_api|service|feed|json|ashx|asmx|listdata/.test(t)) score+=20;
-  if(/\.js(?:\?|$)/.test(t)) score-=15;
-  if(/default\.aspx|division\.aspx$/i.test(c.url)) score-=20;
-  return score;
+  return FenceScraperDiscoveryPure.scoreDivisionEndpointCandidate(c);
 }
 
 async function validateDivisionArchive(){
@@ -1942,15 +1934,7 @@ function preloadNcdotEntryPoints(which='all'){
   ndLog('Loaded '+urls.length+' verified official NCDOT entry point(s).','ok');
 }
 function extractNcdotChildPages(pageUrl, html){
-  const doc=new DOMParser().parseFromString(html,'text/html');
-  const out=[];
-  [...doc.querySelectorAll('a[href]')].forEach(a=>{
-    let href; try{ href=new URL(a.getAttribute('href'),pageUrl).href; }catch(_){ return; }
-    const u=normalizeOfficialNcdotUrl(href); if(!u) return;
-    const txt=((a.textContent||'')+' '+u).toLowerCase();
-    if(/central-letting-details\.aspx|division-letting-details\.aspx|let_date=|letting-details/.test(txt)) out.push(u);
-  });
-  return [...new Set(out)];
+  return FenceScraperDiscoveryPure.extractNcdotChildPages(pageUrl, html);
 }
 
 function ndLog(msg, cls='info'){
@@ -1967,31 +1951,13 @@ function loadNcdotDiscovery(){
   if(state.discovery.files.length) renderNcdotDiscovery();
 }
 function normalizeOfficialNcdotUrl(raw){
-  try{
-    const u=new URL(String(raw||'').trim());
-    if(!/^https?:$/.test(u.protocol) || !ND_ALLOWED_HOST.test(u.hostname)) return null;
-    u.hash=''; return u.href;
-  }catch(_){ return null; }
+  return FenceScraperDiscoveryPure.normalizeOfficialNcdotUrl(raw);
 }
 function parseDateFromText(text){
-  const s=String(text||'');
-  let m=s.match(/\b(20\d{2})[-_\/.](\d{1,2})[-_\/.](\d{1,2})\b/);
-  if(m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
-  m=s.match(/\b(\d{1,2})[-_\/.](\d{1,2})[-_\/.](20\d{2})\b/);
-  if(m) return `${m[3]}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`;
-  m=s.match(/\bL(\d{2})(\d{2})(\d{2})\b/i);
-  if(m) return `20${m[1]}-${m[2]}-${m[3]}`;
-  return '';
+  return FenceScraperDiscoveryPure.parseDateFromText(text);
 }
 function scoreNcdotCandidate(name, href, context){
-  const hay=(name+' '+href+' '+context).toLowerCase();
-  let score=0; const reasons=[];
-  if(/\.xlsx?(?:$|[?#])/i.test(href)){ score+=35; reasons.push('spreadsheet'); }
-  if(/bid\s*tab|bidtab|xls\s+bid\s+tabs/i.test(hay)){ score+=45; reasons.push('bid tab'); }
-  if(/letting|let\s+results|award|apparent\s+low/i.test(hay)){ score+=10; reasons.push('letting/results'); }
-  const matched=ND_FENCE_TERMS.filter(t=>hay.includes(t));
-  if(matched.length){ score+=Math.min(30, matched.length*10); reasons.push('fence terms: '+matched.slice(0,3).join(', ')); }
-  return {score:Math.min(100,score), reasons, matched};
+  return FenceScraperDiscoveryPure.scoreNcdotCandidate(name, href, context);
 }
 async function fetchTextWithFallback(url){
   const attempts=[url, 'https://api.allorigins.win/raw?url='+encodeURIComponent(url)];
@@ -2006,20 +1972,7 @@ async function fetchTextWithFallback(url){
   throw lastErr||new Error('Fetch failed');
 }
 function extractNcdotCandidates(pageUrl, html){
-  const doc=new DOMParser().parseFromString(html,'text/html');
-  const out=[];
-  [...doc.querySelectorAll('a[href]')].forEach(a=>{
-    let href; try{ href=new URL(a.getAttribute('href'),pageUrl).href; }catch(_){ return; }
-    const u=normalizeOfficialNcdotUrl(href); if(!u) return;
-    const name=(a.textContent||'').replace(/\s+/g,' ').trim()||u.split('/').pop();
-    const context=(a.parentElement?.textContent||'').replace(/\s+/g,' ').trim().slice(0,500);
-    const isSheet=/\.xlsx?(?:$|[?#])/i.test(u);
-    const likely=/bid\s*tab|xls\s+bid\s+tabs/i.test(name+' '+context+' '+u);
-    if(!isSheet && !likely) return;
-    const sc=scoreNcdotCandidate(name,u,context);
-    out.push({url:u,name,sourcePage:pageUrl,date:parseDateFromText(name+' '+u+' '+context),score:sc.score,reasons:sc.reasons,matchedTerms:sc.matched,selected:sc.score>=45,discoveredAt:new Date().toISOString(),status:'queued'});
-  });
-  return out;
+  return FenceScraperDiscoveryPure.extractNcdotCandidates(pageUrl, html);
 }
 function ndInDateRange(f){
   const from=document.getElementById('nd-from')?.value||'';
