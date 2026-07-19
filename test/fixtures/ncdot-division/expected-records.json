@@ -1,0 +1,17 @@
+[
+  {
+    "sourceId": "ncdot_division_letting",
+    "division": "12",
+    "lettingDate": "2026-07-14",
+    "contractId": "DL00386",
+    "projectId": "44858.3.13",
+    "artifactTypes": ["award", "bid_tab", "plan", "proposal", "other"]
+  },
+  {
+    "sourceId": "ncdot_division_letting",
+    "division": "10",
+    "lettingDate": "2026-07-15",
+    "projectId": "50982.3.11",
+    "artifactTypes": ["proposal", "plan"]
+  }
+]
