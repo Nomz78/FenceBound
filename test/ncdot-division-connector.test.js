@@ -31,6 +31,13 @@ check('retains stable contract and project identity', () => {
   assert.strictEqual(record12.projectId, '44858.3.13');
   assert.strictEqual(record10.projectId, '50982.3.11');
 });
+check('keeps a contract suffix out of the WBS project identity', () => {
+  const html = '<div class="groupheader">WBS Element: 20S.1013N, 20S.1060N, 40.2.2 Contract 6</div><ul>' +
+    '<li><a href="/letting/a.pdf"><div class="title">a.pdf</div><div><strong>Doc. Type:</strong> Proposals</div></a></li></ul>';
+  const record = Connector.parseLettingDetail(html, { ...list10[0], retrievedAt: fixedTime })[0];
+  assert.strictEqual(record.contractId, 'Contract 6');
+  assert.strictEqual(record.projectId, '20S.1013N, 20S.1060N, 40.2.2');
+});
 check('resolves relative links onto the official origin', () => {
   assert.ok(record12.artifacts.every(item => item.url.startsWith('https://connect.ncdot.gov/')));
 });

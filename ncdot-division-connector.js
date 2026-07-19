@@ -109,7 +109,7 @@ function parseLettingDetail(html, context) {
     const artifacts = parseArtifacts(match[2], detailUrl);
     if (!artifacts.length) continue;
     const contractMatch = heading.match(/(?:\bContract\s+)?([A-Z]{1,4}\d{3,}|Contract\s+\d+)\b/i);
-    const wbsMatch = heading.match(/WBS\s+Element:\s*([^,]+(?:,\s*[^,]+)*)/i);
+    const wbsMatch = heading.match(/WBS\s+Element:\s*(.+?)(?:\s+Contract\s+\d+)?$/i);
     const firstDescription = text((match[2].match(/class=["']project-description["'][^>]*>([\s\S]*?)<\/span>/i) || [])[1]);
     const projectMatch = firstDescription.match(/^([\d.]+)\s*-/);
     const contractId = contractMatch ? contractMatch[1].replace(/^Contract\s+/i, 'Contract ') : undefined;
