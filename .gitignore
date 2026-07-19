@@ -1,0 +1,17 @@
+.DS_Store
+node_modules/
+vendor/
+dist/
+build/
+coverage/
+.cache/
+*.log
+*.tmp
+*.swp
+__pycache__/
+*.pyc
+.env
+.env.*
+*.har
+browser-profile/
+handoff/*.zip

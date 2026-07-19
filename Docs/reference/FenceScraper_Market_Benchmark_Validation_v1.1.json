@@ -1,0 +1,108 @@
+{
+  "report": {
+    "blocks": 18,
+    "itemRows": 2700,
+    "uniqueItems": 1215,
+    "mergedItems": 1485,
+    "emitted": 1215,
+    "priceRecords": 6851,
+    "skippedRows": 97
+  },
+  "records": 6851,
+  "excludedCount": 230,
+  "usableCount": 47,
+  "falseGateMatches": 0,
+  "benchmarks": [
+    {
+      "key": "chain-link|coated|component|EA",
+      "rateCardKey": "material.line-post",
+      "rateCardUse": "component-market-evidence",
+      "n": 22,
+      "contracts": 1,
+      "lets": 1,
+      "min": 100,
+      "q1": 128.125,
+      "median": 195.755,
+      "q3": 450,
+      "max": 689.44,
+      "outliers": 0,
+      "confidence": "medium",
+      "descriptions": [
+        "GENERIC FENCING ITEM 866  (EA) VINYL COATED METAL LINE POSTS FOR 72\" CHAIN LINK FENCE",
+        "GENERIC FENCING ITEM 866  (EA) VINYL COATED METAL TERMINAL POSTS FOR 72\" CHAIN LINK FENCE"
+      ]
+    },
+    {
+      "key": "chain-link|coated|installed-assembly|LF",
+      "rateCardKey": "fence.chainlink",
+      "rateCardUse": "sell-price-comparison",
+      "n": 11,
+      "contracts": 1,
+      "lets": 1,
+      "min": 20,
+      "q1": 26.4,
+      "median": 30,
+      "q3": 34.8,
+      "max": 45.96,
+      "outliers": 0,
+      "confidence": "medium",
+      "descriptions": [
+        "GENERIC FENCING ITEM 866  (LF) VINYL COATED CHAIN LINK FENCE, 72\" FABRIC"
+      ]
+    },
+    {
+      "key": "field-fence|woven-wire-new|installed-assembly|LF",
+      "rateCardKey": "fence.cattlefield",
+      "rateCardUse": "sell-price-comparison",
+      "n": 6,
+      "contracts": 1,
+      "lets": 1,
+      "min": 6.4,
+      "q1": 10,
+      "median": 10,
+      "q3": 11.95,
+      "max": 15,
+      "outliers": 2,
+      "confidence": "medium",
+      "descriptions": [
+        "WOVEN WIRE FENCE 47\" FAB"
+      ]
+    },
+    {
+      "key": "field-fence|woven-wire-reset|installed-assembly|LF",
+      "rateCardKey": "fence.cattlefield",
+      "rateCardUse": "sell-price-comparison",
+      "n": 6,
+      "contracts": 1,
+      "lets": 1,
+      "min": 9.65,
+      "q1": 12.5,
+      "median": 14.5,
+      "q3": 16.9725,
+      "max": 30,
+      "outliers": 1,
+      "confidence": "medium",
+      "descriptions": [
+        "WOVEN WIRE FENCE RESET"
+      ]
+    },
+    {
+      "key": "wood|picket-or-privacy|installed-assembly|LF",
+      "rateCardKey": "fence.woodprivacy",
+      "rateCardUse": "sell-price-comparison",
+      "n": 2,
+      "contracts": 1,
+      "lets": 1,
+      "min": 23.9,
+      "q1": 36.05,
+      "median": 48.2,
+      "q3": 60.35,
+      "max": 72.5,
+      "outliers": 0,
+      "confidence": "medium",
+      "descriptions": [
+        "GENERIC FENCING ITEM (LF) 36\" WOODEN PICKET FENCE"
+      ]
+    }
+  ]
+}

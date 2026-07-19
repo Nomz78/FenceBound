@@ -1,0 +1,903 @@
+{
+  "schema": "fencebound.dt001.material-vocabulary",
+  "schemaVersion": 1,
+  "generatedDate": "2026-07-17",
+  "governingRules": {
+    "idsArePermanent": true,
+    "idsMayBeParsedForMeaning": false,
+    "fixtureBounded": true,
+    "activeFixtureIds": [
+      "FX-001",
+      "FX-002",
+      "FX-003"
+    ],
+    "unknownCostPermitted": true,
+    "hiddenUncertaintyPermitted": false
+  },
+  "materials": [
+    {
+      "materialId": "MAT-000001",
+      "displayName": "Chain-link fabric",
+      "status": "provisional_definition",
+      "fixtureCoverage": [
+        "FX-001",
+        "FX-002",
+        "FX-003"
+      ],
+      "attributes": {
+        "materialFamily": "chain_link",
+        "componentRole": "fabric",
+        "heightIn": null,
+        "meshIn": null,
+        "wireGauge": null,
+        "finish": null
+      },
+      "consumption": {
+        "unit": "linear_ft",
+        "roundingScope": "continuous_run",
+        "wasteRuleId": null
+      },
+      "procurement": {
+        "basePurchaseUnit": "roll",
+        "basePurchaseQuantity": null,
+        "minimumPurchaseUnits": 1,
+        "conversionStatus": "requires_field_or_supplier_evidence"
+      },
+      "legacyAliases": [
+        "chain link fabric"
+      ],
+      "notes": [
+        "Canonical family-level placeholder until fixture height/gauge/finish is selected.",
+        "The inherited CAD price is known-suspicious and must never become verified implicitly."
+      ]
+    },
+    {
+      "materialId": "MAT-000002",
+      "displayName": "Chain-link top rail",
+      "status": "provisional_definition",
+      "fixtureCoverage": [
+        "FX-001",
+        "FX-002",
+        "FX-003"
+      ],
+      "attributes": {
+        "materialFamily": "chain_link",
+        "componentRole": "top_rail",
+        "outsideDiameterIn": null,
+        "wallOrGauge": null,
+        "nominalLengthFt": null,
+        "finish": null
+      },
+      "consumption": {
+        "unit": "linear_ft",
+        "roundingScope": "continuous_run",
+        "wasteRuleId": null
+      },
+      "procurement": {
+        "basePurchaseUnit": "stick",
+        "basePurchaseQuantity": null,
+        "minimumPurchaseUnits": 1,
+        "conversionStatus": "requires_field_or_supplier_evidence"
+      },
+      "legacyAliases": [
+        "top rail"
+      ],
+      "notes": [
+        "Legacy alias is ambiguous with wood rail and is accepted only through an explicit source-scoped mapping.",
+        "Couplings are separate assembly-derived items, not hidden inside the rail package."
+      ]
+    },
+    {
+      "materialId": "MAT-000003",
+      "displayName": "Chain-link line post",
+      "status": "provisional_definition",
+      "fixtureCoverage": [
+        "FX-001",
+        "FX-002",
+        "FX-003"
+      ],
+      "attributes": {
+        "materialFamily": "chain_link",
+        "componentRole": "line_post",
+        "outsideDiameterIn": null,
+        "lengthFt": null,
+        "wallOrGauge": null,
+        "finish": null
+      },
+      "consumption": {
+        "unit": "each",
+        "roundingScope": "assembly",
+        "wasteRuleId": null
+      },
+      "procurement": {
+        "basePurchaseUnit": "each",
+        "basePurchaseQuantity": 1,
+        "minimumPurchaseUnits": 1,
+        "conversionStatus": "defined"
+      },
+      "legacyAliases": [
+        "line post"
+      ],
+      "notes": []
+    },
+    {
+      "materialId": "MAT-000004",
+      "displayName": "Chain-link terminal post",
+      "status": "provisional_definition",
+      "fixtureCoverage": [
+        "FX-001",
+        "FX-002",
+        "FX-003"
+      ],
+      "attributes": {
+        "materialFamily": "chain_link",
+        "componentRole": "terminal_post",
+        "outsideDiameterIn": null,
+        "lengthFt": null,
+        "wallOrGauge": null,
+        "finish": null
+      },
+      "consumption": {
+        "unit": "each",
+        "roundingScope": "connection_role",
+        "wasteRuleId": null
+      },
+      "procurement": {
+        "basePurchaseUnit": "each",
+        "basePurchaseQuantity": 1,
+        "minimumPurchaseUnits": 1,
+        "conversionStatus": "defined"
+      },
+      "legacyAliases": [
+        "terminal corner post"
+      ],
+      "notes": [
+        "Legacy CAD combined terminal and corner posts. Canonical identity separates roles even if a supplier SKU later maps to both."
+      ]
+    },
+    {
+      "materialId": "MAT-000005",
+      "displayName": "Chain-link corner post",
+      "status": "provisional_definition",
+      "fixtureCoverage": [
+        "FX-002",
+        "FX-003"
+      ],
+      "attributes": {
+        "materialFamily": "chain_link",
+        "componentRole": "corner_post",
+        "outsideDiameterIn": null,
+        "lengthFt": null,
+        "wallOrGauge": null,
+        "finish": null
+      },
+      "consumption": {
+        "unit": "each",
+        "roundingScope": "connection_role",
+        "wasteRuleId": null
+      },
+      "procurement": {
+        "basePurchaseUnit": "each",
+        "basePurchaseQuantity": 1,
+        "minimumPurchaseUnits": 1,
+        "conversionStatus": "defined"
+      },
+      "legacyAliases": [
+        "terminal corner post"
+      ],
+      "notes": [
+        "May share a physical supplier product with terminal posts, but remains a distinct assembly role."
+      ]
+    },
+    {
+      "materialId": "MAT-000006",
+      "displayName": "Chain-link tension bar",
+      "status": "provisional_definition",
+      "fixtureCoverage": [
+        "FX-001",
+        "FX-002",
+        "FX-003"
+      ],
+      "attributes": {
+        "materialFamily": "chain_link",
+        "componentRole": "tension_bar",
+        "lengthFt": null,
+        "finish": null
+      },
+      "consumption": {
+        "unit": "each",
+        "roundingScope": "terminal_face",
+        "wasteRuleId": null
+      },
+      "procurement": {
+        "basePurchaseUnit": "each",
+        "basePurchaseQuantity": 1,
+        "minimumPurchaseUnits": 1,
+        "conversionStatus": "defined"
+      },
+      "legacyAliases": [
+        "tension bar"
+      ],
+      "notes": []
+    },
+    {
+      "materialId": "MAT-000007",
+      "displayName": "Chain-link tension band",
+      "status": "provisional_definition",
+      "fixtureCoverage": [
+        "FX-001",
+        "FX-002",
+        "FX-003"
+      ],
+      "attributes": {
+        "materialFamily": "chain_link",
+        "componentRole": "tension_band",
+        "postDiameterIn": null,
+        "finish": null
+      },
+      "consumption": {
+        "unit": "each",
+        "roundingScope": "terminal_face",
+        "wasteRuleId": null
+      },
+      "procurement": {
+        "basePurchaseUnit": "each",
+        "basePurchaseQuantity": 1,
+        "minimumPurchaseUnits": 1,
+        "conversionStatus": "defined"
+      },
+      "legacyAliases": [
+        "tension band"
+      ],
+      "notes": []
+    },
+    {
+      "materialId": "MAT-000008",
+      "displayName": "Chain-link rail sleeve",
+      "status": "provisional_definition",
+      "fixtureCoverage": [
+        "FX-001",
+        "FX-002",
+        "FX-003"
+      ],
+      "attributes": {
+        "materialFamily": "chain_link",
+        "componentRole": "rail_sleeve",
+        "railDiameterIn": null,
+        "finish": null
+      },
+      "consumption": {
+        "unit": "each",
+        "roundingScope": "rail_joint",
+        "wasteRuleId": null
+      },
+      "procurement": {
+        "basePurchaseUnit": "each",
+        "basePurchaseQuantity": 1,
+        "minimumPurchaseUnits": 1,
+        "conversionStatus": "defined"
+      },
+      "legacyAliases": [
+        "top rail sleeve"
+      ],
+      "notes": [
+        "Quantity must derive from actual stock-stick joints per continuous run, not total project footage divided by a guessed length."
+      ]
+    },
+    {
+      "materialId": "MAT-000009",
+      "displayName": "Chain-link line-post cap",
+      "status": "provisional_definition",
+      "fixtureCoverage": [
+        "FX-001",
+        "FX-002",
+        "FX-003"
+      ],
+      "attributes": {
+        "materialFamily": "chain_link",
+        "componentRole": "line_post_cap",
+        "postDiameterIn": null,
+        "railDiameterIn": null,
+        "finish": null
+      },
+      "consumption": {
+        "unit": "each",
+        "roundingScope": "owned_post",
+        "wasteRuleId": null
+      },
+      "procurement": {
+        "basePurchaseUnit": "each",
+        "basePurchaseQuantity": 1,
+        "minimumPurchaseUnits": 1,
+        "conversionStatus": "defined"
+      },
+      "legacyAliases": [
+        "post cap"
+      ],
+      "notes": []
+    },
+    {
+      "materialId": "MAT-000010",
+      "displayName": "Chain-link brace band",
+      "status": "provisional_definition",
+      "fixtureCoverage": [
+        "FX-001",
+        "FX-002",
+        "FX-003"
+      ],
+      "attributes": {
+        "materialFamily": "chain_link",
+        "componentRole": "brace_band",
+        "postDiameterIn": null,
+        "finish": null
+      },
+      "consumption": {
+        "unit": "each",
+        "roundingScope": "assembly_role",
+        "wasteRuleId": null
+      },
+      "procurement": {
+        "basePurchaseUnit": "each",
+        "basePurchaseQuantity": 1,
+        "minimumPurchaseUnits": 1,
+        "conversionStatus": "defined"
+      },
+      "legacyAliases": [
+        "brace band"
+      ],
+      "notes": [
+        "Fixture verification must settle whether ordinary line posts consume brace bands; v5.3.4 assumes two per line post."
+      ]
+    },
+    {
+      "materialId": "MAT-000011",
+      "displayName": "Chain-link rail end",
+      "status": "provisional_definition",
+      "fixtureCoverage": [
+        "FX-001",
+        "FX-002",
+        "FX-003"
+      ],
+      "attributes": {
+        "materialFamily": "chain_link",
+        "componentRole": "rail_end",
+        "railDiameterIn": null,
+        "finish": null
+      },
+      "consumption": {
+        "unit": "each",
+        "roundingScope": "terminal_face",
+        "wasteRuleId": null
+      },
+      "procurement": {
+        "basePurchaseUnit": "each",
+        "basePurchaseQuantity": 1,
+        "minimumPurchaseUnits": 1,
+        "conversionStatus": "defined"
+      },
+      "legacyAliases": [
+        "rail end loop cap"
+      ],
+      "notes": []
+    },
+    {
+      "materialId": "MAT-000012",
+      "displayName": "Chain-link fence tie",
+      "status": "provisional_definition",
+      "fixtureCoverage": [
+        "FX-001",
+        "FX-002",
+        "FX-003"
+      ],
+      "attributes": {
+        "materialFamily": "chain_link",
+        "componentRole": "fabric_tie",
+        "lengthIn": null,
+        "finish": null
+      },
+      "consumption": {
+        "unit": "each",
+        "roundingScope": "continuous_run",
+        "wasteRuleId": null
+      },
+      "procurement": {
+        "basePurchaseUnit": "bag",
+        "basePurchaseQuantity": null,
+        "minimumPurchaseUnits": 1,
+        "conversionStatus": "requires_field_or_supplier_evidence"
+      },
+      "legacyAliases": [
+        "wire ties"
+      ],
+      "notes": []
+    },
+    {
+      "materialId": "MAT-000013",
+      "displayName": "Chain-link carriage bolt and nut",
+      "status": "provisional_definition",
+      "fixtureCoverage": [
+        "FX-001",
+        "FX-002",
+        "FX-003"
+      ],
+      "attributes": {
+        "materialFamily": "chain_link",
+        "componentRole": "band_fastener",
+        "diameterIn": null,
+        "lengthIn": null,
+        "finish": null
+      },
+      "consumption": {
+        "unit": "each",
+        "roundingScope": "fitting_connection",
+        "wasteRuleId": null
+      },
+      "procurement": {
+        "basePurchaseUnit": "each_or_box",
+        "basePurchaseQuantity": null,
+        "minimumPurchaseUnits": 1,
+        "conversionStatus": "requires_field_or_supplier_evidence"
+      },
+      "legacyAliases": [
+        "carriage bolt nut"
+      ],
+      "notes": []
+    },
+    {
+      "materialId": "MAT-000014",
+      "displayName": "Concrete mix",
+      "status": "provisional_definition",
+      "fixtureCoverage": [
+        "FX-001",
+        "FX-002",
+        "FX-003"
+      ],
+      "attributes": {
+        "materialFamily": "shared",
+        "componentRole": "post_concrete",
+        "bagWeightLb": null,
+        "yieldCuFt": null
+      },
+      "consumption": {
+        "unit": "cubic_ft",
+        "roundingScope": "project_purchase",
+        "wasteRuleId": null
+      },
+      "procurement": {
+        "basePurchaseUnit": "bag",
+        "basePurchaseQuantity": 1,
+        "minimumPurchaseUnits": 1,
+        "conversionStatus": "requires_bag_weight_and_yield"
+      },
+      "legacyAliases": [
+        "post concrete bag"
+      ],
+      "notes": [
+        "Assembly should derive volume from hole/post assumptions; procurement converts volume to a selected bag size."
+      ]
+    },
+    {
+      "materialId": "MAT-000015",
+      "displayName": "Wood privacy post",
+      "status": "provisional_definition",
+      "fixtureCoverage": [
+        "FX-003"
+      ],
+      "attributes": {
+        "materialFamily": "wood",
+        "componentRole": "line_or_terminal_post",
+        "nominalSize": null,
+        "lengthFt": null,
+        "treatment": null
+      },
+      "consumption": {
+        "unit": "each",
+        "roundingScope": "owned_post",
+        "wasteRuleId": null
+      },
+      "procurement": {
+        "basePurchaseUnit": "each",
+        "basePurchaseQuantity": 1,
+        "minimumPurchaseUnits": 1,
+        "conversionStatus": "defined"
+      },
+      "legacyAliases": [
+        "post"
+      ],
+      "notes": [
+        "Fixture must distinguish terminal/corner roles even if the same purchasable post is used."
+      ]
+    },
+    {
+      "materialId": "MAT-000016",
+      "displayName": "Wood privacy picket",
+      "status": "provisional_definition",
+      "fixtureCoverage": [
+        "FX-003"
+      ],
+      "attributes": {
+        "materialFamily": "wood",
+        "componentRole": "picket",
+        "profile": "dog_ear",
+        "nominalWidthIn": null,
+        "lengthFt": null,
+        "treatment": null
+      },
+      "consumption": {
+        "unit": "each",
+        "roundingScope": "continuous_run",
+        "wasteRuleId": null
+      },
+      "procurement": {
+        "basePurchaseUnit": "each_or_bundle",
+        "basePurchaseQuantity": null,
+        "minimumPurchaseUnits": 1,
+        "conversionStatus": "requires_field_or_supplier_evidence"
+      },
+      "legacyAliases": [
+        "dog ear picket"
+      ],
+      "notes": []
+    },
+    {
+      "materialId": "MAT-000017",
+      "displayName": "Wood privacy rail",
+      "status": "provisional_definition",
+      "fixtureCoverage": [
+        "FX-003"
+      ],
+      "attributes": {
+        "materialFamily": "wood",
+        "componentRole": "rail",
+        "nominalSize": null,
+        "nominalLengthFt": null,
+        "treatment": null
+      },
+      "consumption": {
+        "unit": "linear_ft",
+        "roundingScope": "continuous_run",
+        "wasteRuleId": null
+      },
+      "procurement": {
+        "basePurchaseUnit": "board",
+        "basePurchaseQuantity": null,
+        "minimumPurchaseUnits": 1,
+        "conversionStatus": "requires_field_or_supplier_evidence"
+      },
+      "legacyAliases": [
+        "top rail",
+        "mid rail",
+        "bottom rail"
+      ],
+      "notes": [
+        "Explicit source-scoped mappings prevent collision with chain-link top rail.",
+        "Position is an assembly role or line attribute, not a separate permanent material identity unless the purchasable item differs."
+      ]
+    },
+    {
+      "materialId": "MAT-000018",
+      "displayName": "Exterior wood screw",
+      "status": "provisional_definition",
+      "fixtureCoverage": [
+        "FX-003"
+      ],
+      "attributes": {
+        "materialFamily": "wood",
+        "componentRole": "rail_or_picket_fastener",
+        "diameter": null,
+        "lengthIn": null,
+        "coating": null
+      },
+      "consumption": {
+        "unit": "each",
+        "roundingScope": "assembly",
+        "wasteRuleId": null
+      },
+      "procurement": {
+        "basePurchaseUnit": "box",
+        "basePurchaseQuantity": null,
+        "minimumPurchaseUnits": 1,
+        "conversionStatus": "requires_field_or_supplier_evidence"
+      },
+      "legacyAliases": [
+        "exterior screws",
+        "galv nails",
+        "galv nails approx"
+      ],
+      "notes": [
+        "Legacy aliases represent incompatible fastener doctrines and require field judgment before being merged beyond fixture scope."
+      ]
+    }
+  ],
+  "legacyMappings": [
+    {
+      "sourceSystem": "FenceboundCAD v5.3.4 COST_DB",
+      "legacyKey": "chain link fabric",
+      "materialId": "MAT-000001",
+      "mappingStatus": "exact_role",
+      "contextRequired": false
+    },
+    {
+      "sourceSystem": "FenceboundCAD v5.3.4 COST_DB",
+      "legacyKey": "top rail",
+      "materialId": "MAT-000002",
+      "mappingStatus": "ambiguous_source_context",
+      "contextRequired": true,
+      "contextRule": "chain_link BOM branch"
+    },
+    {
+      "sourceSystem": "FenceboundCAD v5.3.4 COST_DB",
+      "legacyKey": "top rail",
+      "materialId": "MAT-000017",
+      "mappingStatus": "ambiguous_source_context",
+      "contextRequired": true,
+      "contextRule": "wood privacy BOM branch"
+    },
+    {
+      "sourceSystem": "FenceboundCAD v5.3.4 COST_DB",
+      "legacyKey": "mid rail",
+      "materialId": "MAT-000017",
+      "mappingStatus": "ambiguous_source_context",
+      "contextRequired": true,
+      "contextRule": "wood privacy BOM branch"
+    },
+    {
+      "sourceSystem": "FenceboundCAD v5.3.4 COST_DB",
+      "legacyKey": "bottom rail",
+      "materialId": "MAT-000017",
+      "mappingStatus": "source_context",
+      "contextRequired": true,
+      "contextRule": "wood privacy BOM branch"
+    },
+    {
+      "sourceSystem": "FenceboundCAD v5.3.4 COST_DB",
+      "legacyKey": "line post",
+      "materialId": "MAT-000003",
+      "mappingStatus": "exact_role",
+      "contextRequired": false
+    },
+    {
+      "sourceSystem": "FenceboundCAD v5.3.4 COST_DB",
+      "legacyKey": "terminal corner post",
+      "materialId": "MAT-000004",
+      "mappingStatus": "legacy_split_required",
+      "contextRequired": true,
+      "contextRule": "terminal role"
+    },
+    {
+      "sourceSystem": "FenceboundCAD v5.3.4 COST_DB",
+      "legacyKey": "terminal corner post",
+      "materialId": "MAT-000005",
+      "mappingStatus": "legacy_split_required",
+      "contextRequired": true,
+      "contextRule": "corner role"
+    },
+    {
+      "sourceSystem": "FenceboundCAD v5.3.4 COST_DB",
+      "legacyKey": "tension bar",
+      "materialId": "MAT-000006",
+      "mappingStatus": "exact_role",
+      "contextRequired": false
+    },
+    {
+      "sourceSystem": "FenceboundCAD v5.3.4 COST_DB",
+      "legacyKey": "tension band",
+      "materialId": "MAT-000007",
+      "mappingStatus": "exact_role",
+      "contextRequired": false
+    },
+    {
+      "sourceSystem": "FenceboundCAD v5.3.4 COST_DB",
+      "legacyKey": "top rail sleeve",
+      "materialId": "MAT-000008",
+      "mappingStatus": "exact_role",
+      "contextRequired": false
+    },
+    {
+      "sourceSystem": "FenceboundCAD v5.3.4 COST_DB",
+      "legacyKey": "post cap",
+      "materialId": "MAT-000009",
+      "mappingStatus": "source_context",
+      "contextRequired": true,
+      "contextRule": "chain_link line post"
+    },
+    {
+      "sourceSystem": "FenceboundCAD v5.3.4 COST_DB",
+      "legacyKey": "brace band",
+      "materialId": "MAT-000010",
+      "mappingStatus": "exact_role_pending_rule_validation",
+      "contextRequired": false
+    },
+    {
+      "sourceSystem": "FenceboundCAD v5.3.4 COST_DB",
+      "legacyKey": "rail end loop cap",
+      "materialId": "MAT-000011",
+      "mappingStatus": "exact_role",
+      "contextRequired": false
+    },
+    {
+      "sourceSystem": "FenceboundCAD v5.3.4 COST_DB",
+      "legacyKey": "wire ties",
+      "materialId": "MAT-000012",
+      "mappingStatus": "exact_role",
+      "contextRequired": false
+    },
+    {
+      "sourceSystem": "FenceboundCAD v5.3.4 COST_DB",
+      "legacyKey": "carriage bolt nut",
+      "materialId": "MAT-000013",
+      "mappingStatus": "exact_role",
+      "contextRequired": false
+    },
+    {
+      "sourceSystem": "FenceboundCAD v5.3.4 COST_DB",
+      "legacyKey": "post concrete bag",
+      "materialId": "MAT-000014",
+      "mappingStatus": "legacy_unit_conversion_required",
+      "contextRequired": false
+    },
+    {
+      "sourceSystem": "FenceboundCAD v5.3.4 COST_DB",
+      "legacyKey": "post",
+      "materialId": "MAT-000015",
+      "mappingStatus": "source_context",
+      "contextRequired": true,
+      "contextRule": "wood privacy BOM branch"
+    },
+    {
+      "sourceSystem": "FenceboundCAD v5.3.4 COST_DB",
+      "legacyKey": "dog ear picket",
+      "materialId": "MAT-000016",
+      "mappingStatus": "exact_role",
+      "contextRequired": false
+    },
+    {
+      "sourceSystem": "FenceboundCAD v5.3.4 COST_DB",
+      "legacyKey": "exterior screws",
+      "materialId": "MAT-000018",
+      "mappingStatus": "provisional_alias",
+      "contextRequired": true,
+      "contextRule": "wood privacy fixture specification"
+    }
+  ],
+  "priceEvidence": [
+    {
+      "priceEvidenceId": "PE-000001",
+      "materialId": "MAT-000001",
+      "amount": 3.2,
+      "currency": "USD",
+      "basisUnit": "linear_ft",
+      "evidenceType": "seeded_planning_estimate",
+      "sourceSystem": "FenceboundCAD v5.3.4 DEFAULT_COST_DB",
+      "effectiveDate": null,
+      "supplierId": null,
+      "geographyOrBranch": "North Carolina assumption",
+      "verificationStatus": "flagged_incorrect_or_implausible",
+      "confidence": "low",
+      "usableForFinalIssue": false,
+      "notes": [
+        "Distributor reference states this exceeds verified Lowe's retail equivalent and researched distributor range."
+      ]
+    },
+    {
+      "priceEvidenceId": "PE-000002",
+      "materialId": "MAT-000002",
+      "amount": 1.85,
+      "currency": "USD",
+      "basisUnit": "linear_ft",
+      "evidenceType": "seeded_planning_estimate",
+      "sourceSystem": "FenceboundCAD v5.3.4 DEFAULT_COST_DB",
+      "effectiveDate": null,
+      "supplierId": null,
+      "geographyOrBranch": "North Carolina assumption",
+      "verificationStatus": "unverified",
+      "confidence": "low",
+      "usableForFinalIssue": false,
+      "notes": []
+    }
+  ],
+  "fixtures": [
+    {
+      "fixtureId": "FX-001",
+      "name": "Straight chain-link run",
+      "status": "requires_field_values",
+      "purpose": [
+        "Validate terminal and line-post ownership",
+        "Validate per-run stock rounding",
+        "Validate quantity provenance"
+      ],
+      "geometry": {
+        "runs": 1,
+        "shape": "straight",
+        "corners": 0,
+        "systemTransitions": 0
+      },
+      "requiredMaterialIds": [
+        "MAT-000001",
+        "MAT-000002",
+        "MAT-000003",
+        "MAT-000004",
+        "MAT-000006",
+        "MAT-000007",
+        "MAT-000008",
+        "MAT-000009",
+        "MAT-000010",
+        "MAT-000011",
+        "MAT-000012",
+        "MAT-000013",
+        "MAT-000014"
+      ],
+      "mustNotUseV5OutputAsTruth": true
+    },
+    {
+      "fixtureId": "FX-002",
+      "name": "Chain-link non-90-degree corner",
+      "status": "requires_field_values",
+      "purpose": [
+        "Falsify 90-degree-only corner detection",
+        "Validate shared corner ownership",
+        "Validate rail-joint and terminal-face quantities"
+      ],
+      "geometry": {
+        "runs": 2,
+        "shape": "connected_non_collinear",
+        "corners": 1,
+        "systemTransitions": 0
+      },
+      "requiredMaterialIds": [
+        "MAT-000001",
+        "MAT-000002",
+        "MAT-000003",
+        "MAT-000004",
+        "MAT-000005",
+        "MAT-000006",
+        "MAT-000007",
+        "MAT-000008",
+        "MAT-000009",
+        "MAT-000010",
+        "MAT-000011",
+        "MAT-000012",
+        "MAT-000013",
+        "MAT-000014"
+      ],
+      "mustNotUseV5OutputAsTruth": true
+    },
+    {
+      "fixtureId": "FX-003",
+      "name": "Mixed chain-link and wood",
+      "status": "requires_field_values",
+      "purpose": [
+        "Falsify global post-count leakage",
+        "Falsify global specification leakage",
+        "Validate source-scoped legacy-key mapping"
+      ],
+      "geometry": {
+        "runs": 2,
+        "shape": "mixed_system",
+        "corners": null,
+        "systemTransitions": 1
+      },
+      "requiredMaterialIds": [
+        "MAT-000001",
+        "MAT-000002",
+        "MAT-000003",
+        "MAT-000004",
+        "MAT-000005",
+        "MAT-000006",
+        "MAT-000007",
+        "MAT-000008",
+        "MAT-000009",
+        "MAT-000010",
+        "MAT-000011",
+        "MAT-000012",
+        "MAT-000013",
+        "MAT-000014",
+        "MAT-000015",
+        "MAT-000016",
+        "MAT-000017",
+        "MAT-000018"
+      ],
+      "mustNotUseV5OutputAsTruth": true
+    }
+  ]
+}

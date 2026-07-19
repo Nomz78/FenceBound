@@ -1,0 +1,19 @@
+materialId,displayName,family,role,consumptionUnit,roundingScope,purchaseUnit,purchaseQuantity,conversionStatus,fixtureCoverage,status
+MAT-000001,Chain-link fabric,chain_link,fabric,linear_ft,continuous_run,roll,,requires_field_or_supplier_evidence,FX-001|FX-002|FX-003,provisional_definition
+MAT-000002,Chain-link top rail,chain_link,top_rail,linear_ft,continuous_run,stick,,requires_field_or_supplier_evidence,FX-001|FX-002|FX-003,provisional_definition
+MAT-000003,Chain-link line post,chain_link,line_post,each,assembly,each,1,defined,FX-001|FX-002|FX-003,provisional_definition
+MAT-000004,Chain-link terminal post,chain_link,terminal_post,each,connection_role,each,1,defined,FX-001|FX-002|FX-003,provisional_definition
+MAT-000005,Chain-link corner post,chain_link,corner_post,each,connection_role,each,1,defined,FX-002|FX-003,provisional_definition
+MAT-000006,Chain-link tension bar,chain_link,tension_bar,each,terminal_face,each,1,defined,FX-001|FX-002|FX-003,provisional_definition
+MAT-000007,Chain-link tension band,chain_link,tension_band,each,terminal_face,each,1,defined,FX-001|FX-002|FX-003,provisional_definition
+MAT-000008,Chain-link rail sleeve,chain_link,rail_sleeve,each,rail_joint,each,1,defined,FX-001|FX-002|FX-003,provisional_definition
+MAT-000009,Chain-link line-post cap,chain_link,line_post_cap,each,owned_post,each,1,defined,FX-001|FX-002|FX-003,provisional_definition
+MAT-000010,Chain-link brace band,chain_link,brace_band,each,assembly_role,each,1,defined,FX-001|FX-002|FX-003,provisional_definition
+MAT-000011,Chain-link rail end,chain_link,rail_end,each,terminal_face,each,1,defined,FX-001|FX-002|FX-003,provisional_definition
+MAT-000012,Chain-link fence tie,chain_link,fabric_tie,each,continuous_run,bag,,requires_field_or_supplier_evidence,FX-001|FX-002|FX-003,provisional_definition
+MAT-000013,Chain-link carriage bolt and nut,chain_link,band_fastener,each,fitting_connection,each_or_box,,requires_field_or_supplier_evidence,FX-001|FX-002|FX-003,provisional_definition
+MAT-000014,Concrete mix,shared,post_concrete,cubic_ft,project_purchase,bag,1,requires_bag_weight_and_yield,FX-001|FX-002|FX-003,provisional_definition
+MAT-000015,Wood privacy post,wood,line_or_terminal_post,each,owned_post,each,1,defined,FX-003,provisional_definition
+MAT-000016,Wood privacy picket,wood,picket,each,continuous_run,each_or_bundle,,requires_field_or_supplier_evidence,FX-003,provisional_definition
+MAT-000017,Wood privacy rail,wood,rail,linear_ft,continuous_run,board,,requires_field_or_supplier_evidence,FX-003,provisional_definition
+MAT-000018,Exterior wood screw,wood,rail_or_picket_fastener,each,assembly,box,,requires_field_or_supplier_evidence,FX-003,provisional_definition

@@ -1,0 +1,21 @@
+sourceSystem,legacyKey,materialId,mappingStatus,contextRequired,contextRule
+FenceboundCAD v5.3.4 COST_DB,chain link fabric,MAT-000001,exact_role,False,
+FenceboundCAD v5.3.4 COST_DB,top rail,MAT-000002,ambiguous_source_context,True,chain_link BOM branch
+FenceboundCAD v5.3.4 COST_DB,top rail,MAT-000017,ambiguous_source_context,True,wood privacy BOM branch
+FenceboundCAD v5.3.4 COST_DB,mid rail,MAT-000017,ambiguous_source_context,True,wood privacy BOM branch
+FenceboundCAD v5.3.4 COST_DB,bottom rail,MAT-000017,source_context,True,wood privacy BOM branch
+FenceboundCAD v5.3.4 COST_DB,line post,MAT-000003,exact_role,False,
+FenceboundCAD v5.3.4 COST_DB,terminal corner post,MAT-000004,legacy_split_required,True,terminal role
+FenceboundCAD v5.3.4 COST_DB,terminal corner post,MAT-000005,legacy_split_required,True,corner role
+FenceboundCAD v5.3.4 COST_DB,tension bar,MAT-000006,exact_role,False,
+FenceboundCAD v5.3.4 COST_DB,tension band,MAT-000007,exact_role,False,
+FenceboundCAD v5.3.4 COST_DB,top rail sleeve,MAT-000008,exact_role,False,
+FenceboundCAD v5.3.4 COST_DB,post cap,MAT-000009,source_context,True,chain_link line post
+FenceboundCAD v5.3.4 COST_DB,brace band,MAT-000010,exact_role_pending_rule_validation,False,
+FenceboundCAD v5.3.4 COST_DB,rail end loop cap,MAT-000011,exact_role,False,
+FenceboundCAD v5.3.4 COST_DB,wire ties,MAT-000012,exact_role,False,
+FenceboundCAD v5.3.4 COST_DB,carriage bolt nut,MAT-000013,exact_role,False,
+FenceboundCAD v5.3.4 COST_DB,post concrete bag,MAT-000014,legacy_unit_conversion_required,False,
+FenceboundCAD v5.3.4 COST_DB,post,MAT-000015,source_context,True,wood privacy BOM branch
+FenceboundCAD v5.3.4 COST_DB,dog ear picket,MAT-000016,exact_role,False,
+FenceboundCAD v5.3.4 COST_DB,exterior screws,MAT-000018,provisional_alias,True,wood privacy fixture specification
