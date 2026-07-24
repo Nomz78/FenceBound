@@ -1,4 +1,4 @@
-/* Gate: FenceScraper v2.4 bid-tab parser — run: node test_bidtab.js
+/* Gate: FenceScraper bid-tab parser — run: node "test bidtab.js"
  * Asserts the parser against the REAL uploaded fixture (L260616), not a mock.
  * Fixture is the array-of-arrays SheetJS would hand us in the browser. */
 const assert = require('assert');

@@ -1,10 +1,8 @@
 /* ============================================================================
- * FenceScraper v2.4 — NCDOT Bid-Tab Parser & Competitor-Price Normalizer
+ * FenceScraper — NCDOT Bid-Tab Parser & Competitor-Price Normalizer
  * TD-019: county→division map — all 100 NC counties, source-verified against
  *   NCDOT primary references (2026-07-13); corrected Halifax (Div 4) and
  *   Richmond (Div 8). TD-021: relevance matching uses word boundaries.
- *   Functional changes — candidate for a v2.5 version stamp in the next Bible
- *   touch.
  * ----------------------------------------------------------------------------
  * Deterministic, vendor-independent. No LLM, no network at parse time.
  * Input:  array-of-arrays (rows) exactly as produced by

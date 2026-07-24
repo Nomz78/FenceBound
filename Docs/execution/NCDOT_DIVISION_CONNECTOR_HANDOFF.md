@@ -1,4 +1,4 @@
-# FenceBound handoff
+# FenceBound NCDOT Division connector handoff
 
 Read `SOURCE_OF_TRUTH.md` first. This Git branch contains the completed NCDOT Division Letting evidence/connector work and the consolidated approved project context needed by GPT or Claude.
 

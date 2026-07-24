@@ -26,9 +26,14 @@ This repository is the transferable source of truth for FenceBound. GPT and Clau
 | Frozen prototype | `FenceboundCAD v5.3.4-embedded-project-index.html` | Forensic/private behavior reference only; no edits, releases, or business reliance. |
 | Historical superseded documents | repository-root Development Bible Revisions 24/25 and Git history | Retained for provenance; not current authority. |
 
+The completed NCDOT Division connector handoff is preserved at
+`Docs/execution/NCDOT_DIVISION_CONNECTOR_HANDOFF.md`; it is an execution record,
+not an active-track declaration.
+
 ## Active source contracts
 
 - FenceScraper v3.0 is a multi-file application: its HTML requires `fencescraper-discovery-pure.js` and `fencescraper-market-benchmark-pure.js` as siblings.
+- `FenceScraper v2 4.html` is retained as a historical predecessor and is not active implementation.
 - NCDOT Division Letting uses the isolated `ncdot-division-connector.js` contract and `scripts/probe-ncdot-division.mjs`; it is classified as stable navigable official HTML.
 - Bid tabs are market selling-price evidence, never supplier-cost evidence.
 - Unknown values are allowed; hidden uncertainty is not.

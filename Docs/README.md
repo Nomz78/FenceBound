@@ -9,3 +9,6 @@ See the repository-level [`SOURCE_OF_TRUTH.md`](../SOURCE_OF_TRUTH.md) for autho
 - `reference/` contains supporting system/specification documents.
 - `execution/` preserves execution prompts and procedures.
 - `research/` contains evidence, never silent product or pricing authority.
+
+The completed NCDOT Division connector handoff in `execution/` is retained for
+transfer history and does not define a current active track.
