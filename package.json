@@ -1,0 +1,19 @@
+{
+  "name": "fencebound",
+  "version": "1.0.0",
+  "description": "FenceBound is a contractor-focused CAD and estimating platform built for the fencing industry. It transforms drawings into layouts, material takeoffs, pricing, proposals, and installation documents, reducing repetitive work while improving estimate accuracy, speed, and consistency.",
+  "main": "benchmark.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "playwright test",
+    "test:phase-one": "playwright test tests/phase-one-acceptance.spec.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.40.1"
+  }
+}

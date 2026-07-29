@@ -295,7 +295,7 @@ label{font-size:9px;color:var(--text2);letter-spacing:0.08em;display:block;margi
   <!-- ── HEADER ── -->
   <div id="header">
     <div id="header-left">
-      <span class="logo"><span class="logo-word">FENCEBOUND</span><span class="logo-v">v5.3.1</span></span>
+      <span class="logo"><span class="logo-word">FENCEBOUND</span><span class="logo-v">v5.3.8</span></span>
       <span class="sep">|</span>
       <span id="job-name-display">Untitled Job</span>
       <input id="job-name" style="display:none" value="Untitled Job"/>
@@ -591,6 +591,8 @@ label{font-size:9px;color:var(--text2);letter-spacing:0.08em;display:block;margi
         <div class="psec">
           <button class="btn" id="btn-cost-editor" style="width:100%;padding:7px;font-size:10px;margin-bottom:6px">⚙ Edit Costs & Margin</button>
           <button class="btn accent" id="btn-gen-estimate" style="width:100%;padding:8px;font-size:11px;letter-spacing:0.08em">📄 GENERATE ESTIMATE PDF</button>
+          <button class="btn" id="btn-validate-job" style="width:100%;padding:7px;font-size:10px;margin-top:6px">✓ VALIDATE JOB</button>
+          <div id="validation-status" style="font-size:9px;color:var(--text3);margin-top:6px;line-height:1.5">Validation has not run.</div>
           <div style="font-size:9px;color:var(--text3);margin-top:6px;line-height:1.5">Outputs Far-Out Fencing Co. branded estimate with scope, pricing, and terms. Requires job info (📋).</div>
         </div>
       </div>
@@ -608,7 +610,7 @@ label{font-size:9px;color:var(--text2);letter-spacing:0.08em;display:block;margi
 
 <script>
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
-const APP_VERSION='5.3.1';
+const APP_VERSION='5.3.8-release-validation';
 const GRID_FT=40, STORAGE_KEY='fencebound_v2_jobs', CORNER_THRESH=18;
 
 // Escape user-entered text before injecting into innerHTML / attribute values.
@@ -634,10 +636,107 @@ window.addEventListener('unhandledrejection',e=>{showToast('⚠ '+((e.reason&&e.
 // autosaved (debounced + periodic + on page hide) and restored on boot.
 // Versioned schema; same shape doubles as the .json job-file format.
 const AUTOSAVE_KEY='fencebound_v2_session';
+
+function cloneRunSpecs(src){
+  const base=src||S.specs;
+  const addons=base.addons instanceof Set?[...base.addons]:Array.isArray(base.addons)?base.addons:[];
+  return {...base,addons:new Set(addons)};
+}
+function serializeRunSpecs(src){
+  const sp=cloneRunSpecs(src);
+  return {...sp,addons:[...sp.addons]};
+}
+function hydrateRunSpecs(src){
+  return cloneRunSpecs(src||S.specs);
+}
+function makeRunId(){return 'run_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);}
+
+function fenceRunById(runId){
+  return runId?S.elements.find(el=>el.type==='fence'&&el.runId===runId)||null:null;
+}
+function selectedFenceRun(){
+  const el=S.selected!==null?S.elements[S.selected]:null;
+  if(!el)return null;
+  if(el.type==='fence')return el;
+  if(el.type==='gate')return fenceRunById(el.runId);
+  return null;
+}
+function nearestFenceRunForGate(start,end){
+  const runs=S.elements.filter(el=>el.type==='fence');
+  if(!runs.length)return null;
+  const mid={x:(start.x+end.x)/2,y:(start.y+end.y)/2};
+  let best=null,bestScore=Infinity;
+  runs.forEach(run=>{
+    const score=Math.min(
+      ptSegDist(mid,run.start,run.end),
+      ptSegDist(start,run.start,run.end),
+      ptSegDist(end,run.start,run.end),
+      dist(start,run.start),dist(start,run.end),dist(end,run.start),dist(end,run.end)
+    );
+    if(score<bestScore){bestScore=score;best=run;}
+  });
+  return best;
+}
+function attachGateToRun(gate,run){
+  if(!gate||!run)return gate;
+  run.specs=hydrateRunSpecs(run.specs||S.specs);
+  gate.runId=run.runId;
+  gate.fenceType=run.fenceType;
+  gate.specs=cloneRunSpecs(run.specs);
+  return gate;
+}
+function activeFenceType(){
+  const run=selectedFenceRun();
+  return run?run.fenceType:S.fenceType;
+}
+function activeSpecs(){
+  const run=selectedFenceRun();
+  if(run){run.specs=hydrateRunSpecs(run.specs||S.specs);return run.specs;}
+  return S.specs;
+}
+function activePostSpacing(){
+  const run=selectedFenceRun();
+  return run?(run.postSpacing||run.autoPostSpacing||S.postSpacing):S.postSpacing;
+}
+function setActivePostSpacing(v){
+  const n=Math.max(1,Math.min(20,+v||10));
+  const run=selectedFenceRun();
+  if(run){run.postSpacing=n;run.autoPostSpacing=n;}
+  else S.postSpacing=n;
+  return n;
+}
+function syncSelectedRunToPanel(){
+  const run=selectedFenceRun();
+  if(run){
+    run.specs=hydrateRunSpecs(run.specs||S.specs);
+    const spacing=activePostSpacing();
+    const slider=document.getElementById('spacing-slider'),label=document.getElementById('spacing-val');
+    if(slider)slider.value=spacing;if(label)label.textContent=spacing+' ft';
+    document.querySelectorAll('.chip[data-ps]').forEach(b=>b.classList.toggle('active',+b.dataset.ps===spacing));
+  }
+  syncSpecInputs();updateTypeBar();updateHint();
+}
+function migrateRunOwnership(){
+  S.elements.forEach(el=>{
+    if(el.type==='fence'){
+      if(!el.runId)el.runId=makeRunId();
+      el.specs=hydrateRunSpecs(el.specs||S.specs);
+      if(!Number.isFinite(el.postSpacing))el.postSpacing=el.autoPostSpacing||S.postSpacing||10;
+    }
+    if(el.type==='gate'){
+      let owner=fenceRunById(el.runId);
+      if(!owner)owner=nearestFenceRunForGate(el.start,el.end);
+      if(owner)attachGateToRun(el,owner);
+      else if(el.specs)el.specs=hydrateRunSpecs(el.specs);
+    }
+    if(el.type==='post'&&el.runSpecs)el.runSpecs=hydrateRunSpecs(el.runSpecs);
+  });
+}
+
 function snapshotState(){
-  return{app:'FenceboundCAD',schemaVersion:1,appVersion:APP_VERSION,savedAt:new Date().toISOString(),
+  return{app:'FenceboundCAD',schemaVersion:3,appVersion:APP_VERSION,savedAt:new Date().toISOString(),
     projectName:S.projectName,jobCustomer:S.jobCustomer,jobAddress:S.jobAddress,jobNotes:S.jobNotes||'',
-    elements:S.elements,labels:S.labels,materials:S.materials,
+    elements:S.elements.map(el=>({...el,specs:el.specs?serializeRunSpecs(el.specs):undefined,runSpecs:el.runSpecs?serializeRunSpecs(el.runSpecs):undefined})),labels:S.labels,materials:S.materials,
     specs:{...S.specs,addons:[...S.specs.addons]},
     showCostView:S.showCostView,pan:S.pan,zoom:S.zoom,snapFt:S.snapFt,
     costs:COST_DB,labor:LABOR,markup:MARKUP,
@@ -669,6 +768,7 @@ function applyState(st){
   if(Number.isFinite(st.snapFt)&&SNAP_OPTIONS.includes(st.snapFt))S.snapFt=st.snapFt;
   if(typeof st.autoPost==='boolean')S.autoPost=st.autoPost;
   if(Number.isFinite(st.postSpacing))S.postSpacing=Math.max(1,Math.min(20,st.postSpacing));
+  migrateRunOwnership();
   S.selected=null;S.editingGate=null;S.drawing=null;S.moving=null;S.moveStart=null;S.moveOrigEl=null;
 }
 let _autosaveT=null;
@@ -682,7 +782,7 @@ setInterval(saveSession,20000);
 // pre-existing desync where loading a saved job updated state but left the
 // SPECS tab showing stale values; also used after session restore and import.
 function syncSpecInputs(){
-  const sp=S.specs;
+  const sp=activeSpecs();
   const setV=(id,v)=>{const el=document.getElementById(id);if(el&&v!==undefined&&v!==null)el.value=v;};
   const setC=(id,v)=>{const el=document.getElementById(id);if(el)el.checked=!!v;};
   const hsel=document.getElementById('spec-height');
@@ -951,7 +1051,7 @@ function bottomWireForHeight(hIn){ return hIn>=72; }
 // applyHeightDrivenSpecs: recompute embed/post (respecting dirty flags) + rail/wire
 // suggestions when height changes. Called from the height handler and on boot.
 function applyHeightDrivenSpecs(opts){
-  const sp=S.specs;
+  const sp=(opts&&opts.specs)||activeSpecs();
   const h=sp.heightIn;
   // Embed — auto until user edited it
   if(!sp.embedDirty) sp.embedDepthIn=embedForHeight(h);
@@ -965,7 +1065,7 @@ function applyHeightDrivenSpecs(opts){
     sp.hasMidRail=true; // 8'+ forces it on even if user had turned it off at a lower height
   }
   // Bottom wire — chain link only, auto-on at 6'+ (treated as a default, user can remove)
-  if(S.fenceType==='chainlink' && (ADDON_MAP.chainlink||[]).includes('bottom-wire')){
+  if(activeFenceType()==='chainlink' && (ADDON_MAP.chainlink||[]).includes('bottom-wire')){
     if(bottomWireForHeight(h)){ if(!sp._bottomWireUserCleared) sp.addons.add('bottom-wire'); }
     else { if(!sp._bottomWireUserSet) sp.addons.delete('bottom-wire'); }
   }
@@ -1052,7 +1152,7 @@ const DEFAULT_COST_DB={
   't post clips':             {cost:0.08, unit:'ea'},
   'hog wire welded panel':    {cost:3.80, unit:'lf'},
   // temporary
-  'temp panel':               {cost:0,    unit:'ea'}, // rental — set your rate
+  'temp panel':               {cost:100,  unit:'ea'}, // provisional purchase/reference price
   'temp panel coupler':       {cost:2.50, unit:'ea'},
   'panel stand base':         {cost:8.00, unit:'ea'},
   // barbed / wire addons
@@ -1094,11 +1194,20 @@ let LABOR   = JSON.parse(JSON.stringify(DEFAULT_LABOR));
 let MARKUP  = JSON.parse(JSON.stringify(DEFAULT_MARKUP));
 
 const COSTDB_KEY='fencebound_costdb_v1';
+// Accept both legacy Rate Card bare-number costs and canonical CAD {cost,unit} costs.
+function normalizeImportedCosts(src){
+  const out={};
+  Object.entries(src||{}).forEach(([k,v])=>{
+    if(typeof v==='number') out[k]={cost:v,unit:(COST_DB[k]&&COST_DB[k].unit)||'ea'};
+    else if(v&&typeof v.cost==='number') out[k]={cost:v.cost,unit:v.unit||((COST_DB[k]&&COST_DB[k].unit)||'ea')};
+  });
+  return out;
+}
 function loadCostDB(){
   try{
     const r=localStorage.getItem(COSTDB_KEY);
     if(r){const o=JSON.parse(r);
-      if(o.costs)COST_DB={...COST_DB,...o.costs};
+      if(o.costs)COST_DB={...COST_DB,...normalizeImportedCosts(o.costs)};
       if(o.labor)LABOR={...LABOR,...o.labor,perLF:{...LABOR.perLF,...(o.labor.perLF||{})},gate:{...LABOR.gate,...(o.labor.gate||{})}};
       if(o.markup)MARKUP={...MARKUP,...o.markup};
     }
@@ -1149,13 +1258,13 @@ function buildCornerSet(els){
   return cs;
 }
 
-function autoPostsForRun(start,end,spacingFt,fenceType){
+function autoPostsForRun(start,end,spacingFt,fenceType,runId,runSpecs){
   const total=dist(start,end),sp=spacingFt*GRID_FT;
   if(sp<=0||total<sp)return[];
   const dx=(end.x-start.x)/total,dy=(end.y-start.y)/total;
   const cnt=Math.floor(total/sp);
   return Array.from({length:cnt-1},(_,i)=>({
-    type:'post',pos:{x:start.x+dx*(i+1)*sp,y:start.y+dy*(i+1)*sp},fenceType,auto:true
+    type:'post',pos:{x:start.x+dx*(i+1)*sp,y:start.y+dy*(i+1)*sp},fenceType,auto:true,runId,runSpecs:cloneRunSpecs(runSpecs)
   }));
 }
 
@@ -1185,7 +1294,6 @@ function getStats(){
 // Auto-calculate material list from current drawing state
 function calcAutoMaterials(){
   const stats=getStats();
-  const sp=S.specs;
   const items=[];
   const totalFt=stats.totalFt;
   if(!totalFt)return items;
@@ -1196,16 +1304,19 @@ function calcAutoMaterials(){
   const lineCt=stats.linePosts;
   const totalPosts=termCt+cornerCt+lineCt;
 
-  // Post sizing helper
-  const postLenIn=sp.postHeightIn+sp.embedDepthIn;
-
-  // Per fence type calculations
-  Object.entries(stats.fence).forEach(([type,ft])=>{
+  // Per-run calculations: each fence run owns its own specs and spacing.
+  S.elements.filter(el=>el.type==='fence').forEach(run=>{
+    const type=run.fenceType||'chainlink';
+    const ft=dist(run.start,run.end)/GRID_FT;
+    const sp=hydrateRunSpecs(run.specs||S.specs);
     const fdef=FENCE_TYPES[type]||{};
     const mat=fdef.material||type;
     const style=fdef.style||'';
-    const spacingFt=S.postSpacing;
+    const spacingFt=run.postSpacing||run.autoPostSpacing||fdef.defaultSpacing||10;
+    const postLenIn=sp.postHeightIn+sp.embedDepthIn;
     const typePostCount=Math.ceil(ft/spacingFt)+1;
+    const lineCt=Math.max(typePostCount-2,0);
+    const termCt=2,cornerCt=0,totalPosts=typePostCount;
     const postLen=`${Math.ceil(postLenIn/12)}'`;
 
     if(type==='chainlink'){
@@ -1309,35 +1420,39 @@ function calcAutoMaterials(){
     if(sp.addons.has('bottom-wire'))items.push({name:'Bottom Tension Wire 9ga',qty:Math.ceil(ft),unit:'lf'});
     if(sp.addons.has('barbed-wire')){
       for(let s=1;s<=sp.barbStrands;s++)items.push({name:`Barbed Wire Strand ${s}`,qty:Math.ceil(ft),unit:'lf'});
-      if(sp.barbArm!=='vertical')items.push({name:`Barb Arm ${sp.barbArm}`,qty:Math.ceil(ft/(S.postSpacing||10))+1,unit:'ea'});
+      if(sp.barbArm!=='vertical')items.push({name:`Barb Arm ${sp.barbArm}`,qty:Math.ceil(ft/(spacingFt||10))+1,unit:'ea'});
     }
     if(sp.addons.has('razor-ribbon'))items.push({name:'Razor Ribbon Coil',qty:Math.ceil(ft/50),unit:'coil'});
     if(sp.addons.has('welded-wire'))items.push({name:'Welded Wire 2x4',qty:Math.ceil(ft),unit:'lf'});
     if(sp.addons.has('tension-wire'))items.push({name:'Tension Wire 9ga',qty:Math.ceil(ft),unit:'lf'});
   });
 
-  // Gates
-  Object.entries(stats.gates).forEach(([gt,cnt])=>{
-    if(!cnt)return;
+  // Gates are priced from their owning run, never from project-global specs.
+  S.elements.filter(el=>el.type==='gate').forEach(gate=>{
+    const owner=fenceRunById(gate.runId);
+    const sp=hydrateRunSpecs(owner?.specs||gate.specs||S.specs);
+    const gt=gate.gateType||'walk';
     const g=GATE_TYPES[gt]||{label:gt};
-    items.push({name:`${g.label} w/ Hardware`,qty:cnt,unit:'ea'});
-    items.push({name:`Gate Post ${Math.ceil((S.specs.postHeightIn+S.specs.embedDepthIn)/12)}'`,qty:cnt*2,unit:'ea'});
+    const postLen=`${Math.ceil((sp.postHeightIn+sp.embedDepthIn)/12)}'`;
+    items.push({name:`${g.label} w/ Hardware`,qty:1,unit:'ea'});
+    items.push({name:`Gate Post ${postLen}`,qty:2,unit:'ea'});
+    items.push({name:'Gate Post Concrete (80lb bag)',qty:4,unit:'bag'});
   });
 
-  // Concrete for all posts
-  const totalPostsOverall=stats.terminalPosts.size+stats.cornerPosts.size+stats.linePosts;
-  // Concrete for post types that didn't already add their own (chain link + split rail).
-  // Panel/cattle types add concrete inside their own branch, so skip them here.
-  const selfConcrete=Object.keys(stats.fence).every(t=>{
-    const m=materialOf(t),st=(FENCE_TYPES[t]||{}).style||'';
-    const isSplit=st==='split2'||st==='split3'||st==='split3fb';
-    return m==='chainlink'||((m==='wood'||m==='vinyl')&&isSplit);
+  // Chain-link and split-rail concrete is added per run so mixed jobs remain isolated.
+  S.elements.filter(el=>el.type==='fence').forEach(run=>{
+    const type=run.fenceType||'chainlink',fdef=FENCE_TYPES[type]||{},mat=fdef.material||type,style=fdef.style||'';
+    const isSplit=style==='split2'||style==='split3'||style==='split3fb';
+    if(mat==='chainlink'||((mat==='wood'||mat==='vinyl')&&isSplit)){
+      const ft=dist(run.start,run.end)/GRID_FT;
+      const spacing=run.postSpacing||run.autoPostSpacing||fdef.defaultSpacing||10;
+      items.push({name:'Post Concrete (80lb bag)',qty:(Math.ceil(ft/spacing)+1)*2,unit:'bag'});
+    }
   });
-  if(totalPostsOverall&&selfConcrete){
-    items.push({name:'Post Concrete (80lb bag)',qty:totalPostsOverall*2,unit:'bag'});
-  }
 
-  return items;
+  const merged=new Map();
+  items.forEach(it=>{const k=it.name+'|'+it.unit;const cur=merged.get(k);if(cur)cur.qty+=it.qty;else merged.set(k,{...it});});
+  return [...merged.values()];
 }
 
 function toWorld(e){
@@ -1771,8 +1886,8 @@ function updatePanel(){
   } else html='<span style="font-size:10px;color:var(--text3)">No elements drawn</span>';
   sc.innerHTML=html;
 
-  // Specs summary
-  const sp=S.specs;
+  // Specs summary (selected run when applicable; otherwise next-run defaults)
+  const sp=activeSpecs();
   const ssEl=document.getElementById('specs-summary');
   const addonsArr=Array.from(sp.addons);
   ssEl.innerHTML=[
@@ -1824,7 +1939,8 @@ function updateLegend(){
 // Re-renders the add-on chip row and shows/hides the whole WIRE / SECURITY
 // ADDITIONS section depending on which fence type is active.
 function updateSpecsForFenceType(){
-  const ft=S.fenceType;
+  const ft=activeFenceType();
+  const sp=activeSpecs();
 
   // ── RAILS & COMPONENTS: show only rows valid for this fence type ──
   const allowedComp=COMPONENT_MAP[ft]||[];
@@ -1839,9 +1955,9 @@ function updateSpecsForFenceType(){
       const autoRailTypes=['woodprivacy','woodshadowbox','vinylprivacy6','vinylprivacy8'];
       const isRailFlag=['top-rail','mid-rail','bottom-rail'].includes(rowId);
       if(!(isRailFlag&&autoRailTypes.includes(ft))){
-        S.specs[COMPONENT_FLAG[rowId]]=false;
+        sp[COMPONENT_FLAG[rowId]]=false;
         const cb=document.getElementById('has-'+rowId);if(cb)cb.checked=false;
-        if(rowId==='mid-rail'){const mro=document.getElementById('mid-rail-options');if(mro)mro.style.display='none';S.specs.hasTrussRod=false;const tr=document.getElementById('has-truss-rod');if(tr)tr.checked=false;}
+        if(rowId==='mid-rail'){const mro=document.getElementById('mid-rail-options');if(mro)mro.style.display='none';sp.hasTrussRod=false;const tr=document.getElementById('has-truss-rod');if(tr)tr.checked=false;}
       }
     }
   });
@@ -1857,7 +1973,7 @@ function updateSpecsForFenceType(){
   if(allowed.length===0){
     sec.style.display='none';
     // Clear any active wire addons that no longer apply.
-    S.specs.addons.forEach(a=>{if(!allowed.includes(a))S.specs.addons.delete(a);});
+    sp.addons.forEach(a=>{if(!allowed.includes(a))sp.addons.delete(a);});
     if(bwo)bwo.style.display='none';
     return;
   }
@@ -1866,7 +1982,7 @@ function updateSpecsForFenceType(){
   // Build chip buttons for this fence type only.
   row.innerHTML=allowed.map(key=>{
     const def=ADDON_DEFS[key];
-    const active=S.specs.addons.has(key);
+    const active=sp.addons.has(key);
     return `<button class="chip${active?' active':''}" data-addon="${key}">${def.label}</button>`;
   }).join('');
 
@@ -1874,24 +1990,24 @@ function updateSpecsForFenceType(){
   row.querySelectorAll('[data-addon]').forEach(b=>{
     b.addEventListener('click',()=>{
       const k=b.dataset.addon;
-      if(S.specs.addons.has(k)){
-        S.specs.addons.delete(k);
+      if(sp.addons.has(k)){
+        sp.addons.delete(k);
         if(k==='bottom-wire'){S.specs._bottomWireUserCleared=true;S.specs._bottomWireUserSet=false;}
       }else{
-        S.specs.addons.add(k);
+        sp.addons.add(k);
         if(k==='bottom-wire'){S.specs._bottomWireUserSet=true;S.specs._bottomWireUserCleared=false;}
       }
-      b.classList.toggle('active',S.specs.addons.has(k));
-      if(bwo)bwo.style.display=S.specs.addons.has('barbed-wire')?'':'none';
+      b.classList.toggle('active',sp.addons.has(k));
+      if(bwo)bwo.style.display=sp.addons.has('barbed-wire')?'':'none';
       updatePanel();
     });
   });
 
   // Sync barbed-wire sub-panel visibility.
-  if(bwo)bwo.style.display=S.specs.addons.has('barbed-wire')?'':'none';
+  if(bwo)bwo.style.display=sp.addons.has('barbed-wire')?'':'none';
 
   // Remove any active addons that don't belong to this fence type.
-  S.specs.addons.forEach(a=>{if(!allowed.includes(a))S.specs.addons.delete(a);});
+  sp.addons.forEach(a=>{if(!allowed.includes(a))sp.addons.delete(a);});
 }
 
 function updateTypeBar(){
@@ -1951,17 +2067,23 @@ function updateTypeBar(){
 // refreshes specs/type bar. Used by type bar, presets, and material picker.
 function selectFenceType(key){
   const fdef=FENCE_TYPES[key];if(!fdef)return;
-  S.fenceType=key;
-  S.postSpacing=fdef.defaultSpacing;
-  const ss=document.getElementById('spacing-slider');if(ss)ss.value=fdef.defaultSpacing;
-  const sv=document.getElementById('spacing-val');if(sv)sv.textContent=fdef.defaultSpacing+' ft';
-  // Some styles carry a default height (vinyl privacy 6'/8')
-  if(fdef.defaultHeightIn){
-    S.specs.heightIn=fdef.defaultHeightIn;
-    applyHeightDrivenSpecs();
-    const hs=document.getElementById('spec-height');if(hs)hs.value=String(fdef.defaultHeightIn);
+  const run=selectedFenceRun();
+  const sp=activeSpecs();
+  if(run){
+    run.fenceType=key;
+    setActivePostSpacing(fdef.defaultSpacing);
+  }else{
+    S.fenceType=key;
+    S.postSpacing=fdef.defaultSpacing;
   }
-  updateTypeBar();updateHint();updateSpecsForFenceType();updatePanel();
+  const spacing=activePostSpacing();
+  const ss=document.getElementById('spacing-slider');if(ss)ss.value=spacing;
+  const sv=document.getElementById('spacing-val');if(sv)sv.textContent=spacing+' ft';
+  if(fdef.defaultHeightIn){
+    sp.heightIn=fdef.defaultHeightIn;
+    applyHeightDrivenSpecs({specs:sp});
+  }
+  syncSpecInputs();updateTypeBar();updateHint();updateSpecsForFenceType();updatePanel();updatePricing();scheduleAutosave();
 }
 
 function updateHint(){
@@ -1996,13 +2118,16 @@ function updateGateEditor(){
   const ed=document.getElementById('gate-editor');
   if(S.editingGate===null){ed.style.display='none';return;}
   const {hinge,swingDir,gateType}=S.editingGate;
+  const gate=S.elements[S.editingGate.index];
+  const owner=fenceRunById(gate?.runId);
   const gt=gateType||'walk';
   const isCant=gt==='cantilever';
+  const ownerLabel=owner?`${(FENCE_TYPES[owner.fenceType]||{label:owner.fenceType}).label} · Run ${owner.runId.slice(-5)}`:'UNASSIGNED';
   ed.style.display='flex';
   ed.innerHTML=`
     <div style="display:flex;align-items:center;justify-content:space-between">
       <span style="font-size:10px;color:var(--accent);letter-spacing:0.1em">GATE EDITOR</span>
-      <span style="font-size:9px;color:var(--text2)">${(GATE_TYPES[gt]||{label:gt}).label}</span>
+      <span style="font-size:9px;color:var(--text2)">${(GATE_TYPES[gt]||{label:gt}).label} · ${ownerLabel}</span>
     </div>
     ${!isCant?`
     <div style="display:flex;gap:5px;align-items:center">
@@ -2088,11 +2213,7 @@ function updateDrawers(){
     });
     document.getElementById('do-import').addEventListener('click',()=>document.getElementById('job-file-input').click());
     document.getElementById('do-save').addEventListener('click',()=>{
-      const snap={id:Date.now(),name:S.projectName,savedAt:new Date().toLocaleString(),
-        elements:JSON.parse(JSON.stringify(S.elements)),labels:JSON.parse(JSON.stringify(S.labels)),
-        materials:JSON.parse(JSON.stringify(S.materials)),jobAddress:S.jobAddress,
-        jobCustomer:S.jobCustomer,jobNotes:S.jobNotes||'',
-        specs:JSON.parse(JSON.stringify({...S.specs,addons:[...S.specs.addons]}))};
+      const snap={...snapshotState(),id:Date.now(),name:S.projectName,savedAt:new Date().toLocaleString()};
       S.savedJobs=[snap,...S.savedJobs.filter(j=>j.name!==S.projectName)];
       try{localStorage.setItem(STORAGE_KEY,JSON.stringify(S.savedJobs));S.saveMsg=`Saved "${esc(S.projectName)}"`;}
       catch(err){S.saveMsg='⚠ Save failed — storage full or blocked';}
@@ -2103,11 +2224,8 @@ function updateDrawers(){
       if(e.target.dataset.jdel!==undefined)return;
       const job=S.savedJobs[+el.dataset.ji];
       if(S.elements.length||S.labels.length)pushHistory();// loading a job is undoable
-      S.elements=job.elements||[];S.labels=job.labels||[];S.materials=job.materials||[];
-      S.projectName=job.name;S.jobAddress=job.jobAddress||'';S.jobCustomer=job.jobCustomer||'';
-      S.jobNotes=job.jobNotes||'';
-      if(job.specs){const sp=job.specs;S.specs={...S.specs,...sp,addons:new Set(sp.addons||[])};}
-      S.selected=null;S.editingGate=null;S.showJobs=false;
+      applyState({...job,projectName:job.projectName||job.name});
+      S.showJobs=false;
       syncSpecInputs();// keep SPECS tab controls in step with loaded state
       draw();updatePanel();updateMatList();updateDrawers();scheduleAutosave();
     }));
@@ -2140,7 +2258,7 @@ function handleDown(e){
     S.selected=found;
     S.editingGate=found!==null&&S.elements[found]?.type==='gate'
       ?{index:found,hinge:S.elements[found].hinge||'start',swingDir:S.elements[found].swingDir||1,gateType:S.elements[found].gateType||'walk'}:null;
-    draw();updatePanel();updateGateEditor();updateHint();return;
+    syncSelectedRunToPanel();draw();updatePanel();updateGateEditor();updateHint();return;
   }
   if(S.tool==='move'){
     const SNAP_PX=18/S.zoom;// slightly larger hit target for touch
@@ -2176,7 +2294,7 @@ function handleDown(e){
       // Tapped empty space — just deselect, do NOT push history
       S.selected=null;S.moving=null;
     }
-    draw();updatePanel();updateHint();return;
+    syncSelectedRunToPanel();draw();updatePanel();updateHint();return;
   }
   if(S.tool==='post'){pushHistory();S.elements.push({type:'post',pos:pt,fenceType:S.fenceType});draw();updatePanel();return;}
   if(S.tool==='label'&&!S.pendingLabel){S.pendingLabel=pt;showLabelOverlay();return;}
@@ -2261,7 +2379,7 @@ function handleUp(e){
       // Find new index of the fence run after filter
       const newIdx=S.elements.indexOf(el);
       if(newIdx!==-1){
-        const newPosts=autoPostsForRun(el.start,el.end,el.autoPostSpacing,el.fenceType);
+        const newPosts=autoPostsForRun(el.start,el.end,el.autoPostSpacing,el.fenceType,el.runId,el.specs);
         S.elements.push(...newPosts);
         S.selected=newIdx;
       }
@@ -2276,13 +2394,23 @@ function handleUp(e){
     const len=dist(S.drawing.start,S.drawing.end);
     if(len>MINRUN){
       pushHistory();
-      const newEls=[{type:S.drawing.type,start:S.drawing.start,end:S.drawing.end,
-        fenceType:S.drawing.type!=='boundary'?S.fenceType:undefined,
-        gateType:S.drawing.type==='gate'?S.gateType:undefined,
-        autoPostSpacing:S.drawing.type==='fence'&&S.autoPost?S.postSpacing:null,
-        hinge:'start',swingDir:1}];
-      if(S.drawing.type==='fence'&&S.autoPost)newEls.push(...autoPostsForRun(S.drawing.start,S.drawing.end,S.postSpacing,S.fenceType));
-      S.elements.push(...newEls);
+      const runId=S.drawing.type==='fence'?makeRunId():undefined;
+      const runSpecs=S.drawing.type==='fence'?cloneRunSpecs(S.specs):undefined;
+      if(S.drawing.type==='gate'){
+        const owner=nearestFenceRunForGate(S.drawing.start,S.drawing.end);
+        if(!owner){showToast('Draw a fence run before placing a gate');S.drawing=null;S._snapTarget=null;draw();updatePanel();return;}
+        const gate=attachGateToRun({type:'gate',start:S.drawing.start,end:S.drawing.end,
+          gateType:S.gateType,hinge:'start',swingDir:1},owner);
+        S.elements.push(gate);
+      }else{
+        const newEls=[{type:S.drawing.type,start:S.drawing.start,end:S.drawing.end,
+          fenceType:S.drawing.type!=='boundary'?S.fenceType:undefined,
+          runId, specs:runSpecs, postSpacing:S.drawing.type==='fence'?S.postSpacing:undefined,
+          autoPostSpacing:S.drawing.type==='fence'&&S.autoPost?S.postSpacing:null,
+          hinge:'start',swingDir:1}];
+        if(S.drawing.type==='fence'&&S.autoPost)newEls.push(...autoPostsForRun(S.drawing.start,S.drawing.end,S.postSpacing,S.fenceType,runId,runSpecs));
+        S.elements.push(...newEls);
+      }
     }
     S.drawing=null;S._snapTarget=null;draw();updatePanel();scheduleAutosave();
   }
@@ -2516,7 +2644,7 @@ function init(){
       S.tool=b.dataset.tool;S.selected=null;S.editingGate=null;
       document.querySelectorAll('[data-tool]').forEach(x=>x.classList.remove('active'));
       b.classList.add('active');
-      updateTypeBar();updateHint();updatePanel();updateGateEditor();
+      syncSpecInputs();updateTypeBar();updateHint();updatePanel();updateGateEditor();
       canvas.style.cursor=S.tool==='pan'?'grab':S.tool==='select'?'default':'crosshair';
     });
   });
@@ -2551,6 +2679,7 @@ function init(){
     el.addEventListener(el.type==='number'?'input':'change',()=>{if(S.activeTab==='pricing')updatePricing();});
   });
   document.getElementById('btn-gen-estimate').addEventListener('click',exportEstimatePDF);
+  document.getElementById('btn-validate-job').addEventListener('click',runValidationReport);
   const _ce=document.getElementById('btn-cost-editor');if(_ce)_ce.addEventListener('click',openCostEditor);
   const _crl=document.getElementById('crew-rate-lbl');if(_crl)_crl.textContent=LABOR.crewHourlyRate;
 
@@ -2591,7 +2720,7 @@ function init(){
   document.getElementById('btn-pdf').addEventListener('click',exportPDF);
   document.getElementById('btn-png').addEventListener('click',()=>{const a=document.createElement('a');a.download=S.projectName.replace(/\s+/g,'_')+'.png';a.href=canvas.toDataURL();a.click();});
   document.getElementById('btn-delete').addEventListener('click',()=>{
-    if(S.selected!==null){pushHistory();S.elements.splice(S.selected,1);S.selected=null;S.editingGate=null;draw();updatePanel();updateGateEditor();}
+    if(S.selected!==null){pushHistory();S.elements.splice(S.selected,1);S.selected=null;S.editingGate=null;syncSpecInputs();draw();updatePanel();updateGateEditor();}
   });
   document.getElementById('btn-zoom-in').addEventListener('click',()=>{S.zoom=Math.min(4,S.zoom*1.2);draw();updatePanel();});
   document.getElementById('btn-zoom-out').addEventListener('click',()=>{S.zoom=Math.max(0.05,S.zoom*0.8);draw();updatePanel();});
@@ -2613,17 +2742,18 @@ function init(){
   // Post spacing
   const slider=document.getElementById('spacing-slider'),spacingVal=document.getElementById('spacing-val');
   slider.addEventListener('input',()=>{
-    S.postSpacing=+slider.value;spacingVal.textContent=S.postSpacing+' ft';updateHint();
-    document.querySelectorAll('.chip[data-ps]').forEach(b=>b.classList.toggle('active',+b.dataset.ps===S.postSpacing));
+    const spacing=setActivePostSpacing(slider.value);spacingVal.textContent=spacing+' ft';updateHint();
+    document.querySelectorAll('.chip[data-ps]').forEach(b=>b.classList.toggle('active',+b.dataset.ps===spacing));
+    updatePanel();scheduleAutosave();
   });
   const pr=document.getElementById('preset-row');
   [6,8,10,12,20].forEach(v=>{
     const b=document.createElement('button');b.className='chip'+(v===S.postSpacing?' active':'');
     b.textContent=v+"'";b.dataset.ps=v;
     b.addEventListener('click',()=>{
-      S.postSpacing=v;slider.value=v;spacingVal.textContent=v+' ft';
+      setActivePostSpacing(v);slider.value=v;spacingVal.textContent=v+' ft';
       pr.querySelectorAll('.chip').forEach(x=>x.classList.toggle('active',+x.dataset.ps===v));
-      updateHint();
+      updateHint();updatePanel();scheduleAutosave();
     });
     pr.appendChild(b);
   });
@@ -2641,8 +2771,9 @@ function init(){
   document.querySelectorAll('[data-qp]').forEach(b=>{
     b.addEventListener('click',()=>{
       const ft=b.dataset.qp,sp=+b.dataset.spacing;
+      S.selected=null;S.editingGate=null; // quick presets define the next run, never rewrite a selected run
       selectFenceType(ft);            // applies type defaults (height, etc.)
-      S.postSpacing=sp;               // preset's explicit spacing wins over type default
+      setActivePostSpacing(sp);        // preset's explicit spacing wins over type default
       document.getElementById('spacing-slider').value=sp;
       document.getElementById('spacing-val').textContent=sp+' ft';
       // Switch to fence tool
@@ -2655,62 +2786,62 @@ function init(){
   // Fence specs — height (drives embed, post height, mid rail, bottom wire)
   document.getElementById('spec-height').addEventListener('change',e=>{
     const v=e.target.value;
-    if(v==='custom'){const c=prompt('Custom height (inches):');if(c)S.specs.heightIn=+c;}
-    else S.specs.heightIn=+v;
+    if(v==='custom'){const c=prompt('Custom height (inches):');if(c)activeSpecs().heightIn=+c;}
+    else activeSpecs().heightIn=+v;
     applyHeightDrivenSpecs();
     // Push recomputed values back into the controls
-    document.getElementById('spec-post-height').value=S.specs.postHeightIn;
-    document.getElementById('spec-embed').value=S.specs.embedDepthIn;
-    const mrc=document.getElementById('has-mid-rail');if(mrc)mrc.checked=S.specs.hasMidRail;
-    const mro=document.getElementById('mid-rail-options');if(mro)mro.style.display=S.specs.hasMidRail?'':'none';
+    document.getElementById('spec-post-height').value=activeSpecs().postHeightIn;
+    document.getElementById('spec-embed').value=activeSpecs().embedDepthIn;
+    const mrc=document.getElementById('has-mid-rail');if(mrc)mrc.checked=activeSpecs().hasMidRail;
+    const mro=document.getElementById('mid-rail-options');if(mro)mro.style.display=activeSpecs().hasMidRail?'':'none';
     const pdn=document.getElementById('post-depth-note');
-    if(pdn)pdn.textContent=`Embed: ${S.specs.embedDepthIn}" (${(S.specs.embedDepthIn/12).toFixed(2)}ft). Post OA: ${S.specs.postHeightIn}". Rule of thumb: ≥1/3 of post length.`;
+    if(pdn)pdn.textContent=`Embed: ${activeSpecs().embedDepthIn}" (${(activeSpecs().embedDepthIn/12).toFixed(2)}ft). Post OA: ${activeSpecs().postHeightIn}". Rule of thumb: ≥1/3 of post length.`;
     updateSpecsForFenceType();updatePanel();updatePricing();
   });
-  document.getElementById('spec-clearance').addEventListener('input',e=>{S.specs.clearanceIn=+e.target.value;updatePanel();});
+  document.getElementById('spec-clearance').addEventListener('input',e=>{activeSpecs().clearanceIn=+e.target.value;updatePanel();});
   document.getElementById('spec-grade').addEventListener('change',e=>{
-    S.specs.grade=e.target.value;
+    activeSpecs().grade=e.target.value;
     // Wire Specs → Pricing: non-level grade applies the Grade/Slope upcharge automatically.
     // User can still manually uncheck it in the PRICE tab afterward.
     const sl=document.getElementById('uc-slope');
-    if(sl)sl.checked=S.specs.grade!=='level';
+    if(sl)sl.checked=activeSpecs().grade!=='level';
     updatePanel();updatePricing();
   });
-  document.getElementById('spec-slope').addEventListener('input',e=>{S.specs.slopePercent=+e.target.value;updatePanel();});
-  document.getElementById('spec-post-height').addEventListener('input',e=>{S.specs.postHeightIn=+e.target.value;S.specs.postDirty=true;updatePanel();});
+  document.getElementById('spec-slope').addEventListener('input',e=>{activeSpecs().slopePercent=+e.target.value;updatePanel();});
+  document.getElementById('spec-post-height').addEventListener('input',e=>{activeSpecs().postHeightIn=+e.target.value;activeSpecs().postDirty=true;updatePanel();});
   document.getElementById('spec-embed').addEventListener('input',e=>{
-    S.specs.embedDepthIn=+e.target.value;
-    S.specs.embedDirty=true;
+    activeSpecs().embedDepthIn=+e.target.value;
+    activeSpecs().embedDirty=true;
     // If post height hasn't been hand-set, keep it tracking height+embed
-    if(!S.specs.postDirty){S.specs.postHeightIn=S.specs.heightIn+S.specs.embedDepthIn;document.getElementById('spec-post-height').value=S.specs.postHeightIn;}
+    if(!activeSpecs().postDirty){activeSpecs().postHeightIn=activeSpecs().heightIn+activeSpecs().embedDepthIn;document.getElementById('spec-post-height').value=activeSpecs().postHeightIn;}
     document.getElementById('post-depth-note').textContent=
       `Embed: ${e.target.value}" (${(e.target.value/12).toFixed(2)}ft). `+
-      `Post OA: ${S.specs.postHeightIn}". Rule of thumb: ≥1/3 of post length.`;
+      `Post OA: ${activeSpecs().postHeightIn}". Rule of thumb: ≥1/3 of post length.`;
     updatePanel();
   });
   // Rails
-  document.getElementById('has-top-rail').addEventListener('change',e=>{S.specs.hasTopRail=e.target.checked;updatePanel();});
+  document.getElementById('has-top-rail').addEventListener('change',e=>{activeSpecs().hasTopRail=e.target.checked;updatePanel();});
   document.getElementById('has-mid-rail').addEventListener('change',e=>{
     // 8'+ mandates mid rail — block turning it off and tell the user why.
-    if(!e.target.checked && midRailMandatory(S.specs.heightIn)){
+    if(!e.target.checked && midRailMandatory(activeSpecs().heightIn)){
       e.target.checked=true;
       showToast('Mid rail is required at 8\u2032 and above',true);
       return;
     }
-    S.specs.hasMidRail=e.target.checked;
-    S.specs.midRailUserSet=true; // user override — height changes won't auto-flip it anymore
+    activeSpecs().hasMidRail=e.target.checked;
+    activeSpecs().midRailUserSet=true; // user override — height changes won't auto-flip it anymore
     document.getElementById('mid-rail-options').style.display=e.target.checked?'':'none';
-    if(!e.target.checked){S.specs.hasTrussRod=false;const tr=document.getElementById('has-truss-rod');if(tr)tr.checked=false;}
+    if(!e.target.checked){activeSpecs().hasTrussRod=false;const tr=document.getElementById('has-truss-rod');if(tr)tr.checked=false;}
     updatePanel();
   });
-  document.getElementById('has-truss-rod').addEventListener('change',e=>{S.specs.hasTrussRod=e.target.checked;updatePanel();});
-  document.getElementById('has-bottom-rail').addEventListener('change',e=>{S.specs.hasBottomRail=e.target.checked;updatePanel();});
-  document.getElementById('has-face-board').addEventListener('change',e=>{S.specs.hasFaceBoard=e.target.checked;updatePanel();});
+  document.getElementById('has-truss-rod').addEventListener('change',e=>{activeSpecs().hasTrussRod=e.target.checked;updatePanel();});
+  document.getElementById('has-bottom-rail').addEventListener('change',e=>{activeSpecs().hasBottomRail=e.target.checked;updatePanel();});
+  document.getElementById('has-face-board').addEventListener('change',e=>{activeSpecs().hasFaceBoard=e.target.checked;updatePanel();});
   // Addons are rendered and bound dynamically per fence type in
   // updateSpecsForFenceType(). The barb-strand / arm selects are static.
-  document.getElementById('barb-strands').addEventListener('change',e=>{S.specs.barbStrands=+e.target.value;updatePanel();});
-  document.getElementById('barb-arm').addEventListener('change',e=>{S.specs.barbArm=e.target.value;updatePanel();});
-  document.getElementById('spec-notes').addEventListener('input',e=>{S.specs.notes=e.target.value;});
+  document.getElementById('barb-strands').addEventListener('change',e=>{activeSpecs().barbStrands=+e.target.value;updatePanel();});
+  document.getElementById('barb-arm').addEventListener('change',e=>{activeSpecs().barbArm=e.target.value;updatePanel();});
+  document.getElementById('spec-notes').addEventListener('input',e=>{activeSpecs().notes=e.target.value;});
 
   // Materials
   document.getElementById('btn-add-mat').addEventListener('click',()=>{
@@ -2994,6 +3125,8 @@ function computePricing(){
     matPrice,laborPrice,clientSubtotal,urbanAdd,clientTotal,
     profit,marginPct,
     matLines,laborLines,unknown,
+    zeroCostLines:matLines.filter(m=>m.unitCost===0).map(m=>m.name),
+    isFinalReady:unknown.length===0 && matLines.every(m=>m.unitCost!==0),
     hasData: bom.length>0 || laborCost>0,
     flags:{ucDemo,ucSlope,ucUrban,ucHardDig,useHours,hoursOverride}
   };
@@ -3030,6 +3163,7 @@ function updatePricing(){
       if(stats.gateTotal)breakdownHtml+=`<div class="stat-row"><span style="color:#F5A623;font-size:10px">Gates<span style="color:var(--text3)"> · ${stats.gateTotal}</span></span></div>`;
     }
     if(P.unknown.length)breakdownHtml+=`<div style="font-size:9px;color:#E8A33D;margin-top:4px">⚠ ${P.unknown.length} item(s) missing cost — set in Costs panel</div>`;
+    if(P.zeroCostLines.length)breakdownHtml+=`<div style="font-size:9px;color:#E8A33D;margin-top:3px">⚠ ${P.zeroCostLines.length} zero-cost item(s) — total is quick reference only</div>`;
   }
   const breakdownEl=document.getElementById('price-breakdown');
   if(breakdownEl)breakdownEl.innerHTML=breakdownHtml||'<span style="font-size:10px;color:var(--text3)">Draw fence to generate pricing.</span>';
@@ -3057,6 +3191,7 @@ function updatePricing(){
       <span style="color:var(--text2);font-weight:600;font-size:10px">MARGIN</span>
       <span style="color:${mCol};font-weight:800;font-size:15px">${P.marginPct.toFixed(1)}%</span>
     </div>`;
+    tHtml+=`<div class="stat-row"><span style="font-size:9px;color:${P.isFinalReady?'#5FBF7F':'#E8A33D'}">${P.isFinalReady?'FINAL-READY':'QUICK REFERENCE · incomplete pricing'}</span></div>`;
     const deposit=P.clientTotal*0.5;
     tHtml+=`<div class="stat-row"><span style="color:var(--text3);font-size:9px">50% Deposit Due</span><span style="color:var(--text3);font-size:9px">${mc(deposit)}</span></div>`;
     totalsEl.innerHTML=tHtml;
@@ -3163,7 +3298,7 @@ function openCostEditor(){
     const rd=new FileReader();
     rd.onload=()=>{try{
       const o=JSON.parse(rd.result);
-      if(o.costs)COST_DB={...COST_DB,...o.costs};
+      if(o.costs)COST_DB={...COST_DB,...normalizeImportedCosts(o.costs)};
       if(o.labor)LABOR={...LABOR,...o.labor,perLF:{...LABOR.perLF,...(o.labor.perLF||{})},gate:{...LABOR.gate,...(o.labor.gate||{})}};
       if(o.markup)MARKUP={...MARKUP,...o.markup};
       saveCostDB();close();openCostEditor();showToast('Prices imported');
@@ -3172,12 +3307,128 @@ function openCostEditor(){
   };
 }
 
+
+// ── RELEASE VALIDATION ─────────────────────────────────────────────────────
+// Client-facing estimates may only be produced from a structurally valid job.
+// Errors block export. Warnings remain visible but do not prevent internal work.
+function validateProject(options={}){
+  const includePricing=options.includePricing!==false;
+  const requireClient=options.requireClient!==false;
+  const errors=[],warnings=[];
+  const add=(severity,code,message,ref=null)=>({severity,code,message,ref});
+  const err=(code,message,ref)=>errors.push(add('error',code,message,ref));
+  const warn=(code,message,ref)=>warnings.push(add('warning',code,message,ref));
+  const fences=S.elements.filter(el=>el.type==='fence');
+  const gates=S.elements.filter(el=>el.type==='gate');
+  const posts=S.elements.filter(el=>el.type==='post');
+
+  if(!fences.length)err('NO_FENCE_RUNS','No fence runs have been drawn.');
+  if(requireClient){
+    if(!String(S.projectName||'').trim()||S.projectName==='Untitled Job')err('PROJECT_NAME','Enter a project name before issuing an estimate.');
+    if(!String(S.jobCustomer||'').trim())err('CUSTOMER_NAME','Enter the customer name before issuing an estimate.');
+    if(!String(S.jobAddress||'').trim())err('JOB_ADDRESS','Enter the job address before issuing an estimate.');
+  }
+
+  const seenRunIds=new Set();
+  fences.forEach((run,index)=>{
+    const label=`Run ${index+1}`;
+    if(!run.runId)err('RUN_ID_MISSING',`${label} has no run ID.`,run);
+    else if(seenRunIds.has(run.runId))err('RUN_ID_DUPLICATE',`${label} duplicates run ID ${run.runId}.`,run);
+    else seenRunIds.add(run.runId);
+    if(!FENCE_TYPES[run.fenceType])err('FENCE_TYPE',`${label} has an unknown fence type: ${run.fenceType||'blank'}.`,run);
+    const lengthFt=run.start&&run.end?dist(run.start,run.end)/GRID_FT:0;
+    if(!Number.isFinite(lengthFt)||lengthFt<=0)err('RUN_LENGTH',`${label} has zero or invalid length.`,run);
+    else if(lengthFt<1)warn('RUN_SHORT',`${label} is shorter than 1 ft. Verify the drawing scale.`,run);
+    const sp=hydrateRunSpecs(run.specs||S.specs);
+    if(!Number.isFinite(+sp.heightIn)||+sp.heightIn<=0)err('HEIGHT',`${label} has no valid fence height.`,run);
+    if(!Number.isFinite(+sp.postHeightIn)||+sp.postHeightIn<=0)err('POST_HEIGHT',`${label} has no valid post height.`,run);
+    if(!Number.isFinite(+sp.embedDepthIn)||+sp.embedDepthIn<0)err('EMBEDMENT',`${label} has invalid embedment.`,run);
+    if(Number.isFinite(+sp.postHeightIn)&&Number.isFinite(+sp.heightIn)&&+sp.postHeightIn<+sp.heightIn)
+      warn('POST_BELOW_FENCE',`${label} post height is below fence height.`,run);
+    const spacing=+(run.postSpacing||run.autoPostSpacing||0);
+    if(!Number.isFinite(spacing)||spacing<=0)err('POST_SPACING',`${label} has no valid post spacing.`,run);
+    else if(spacing>20)warn('POST_SPACING_HIGH',`${label} post spacing exceeds 20 ft.`,run);
+    if(!(sp.addons instanceof Set))err('ADDON_STATE',`${label} add-ons are malformed.`,run);
+  });
+
+  gates.forEach((gate,index)=>{
+    const label=`Gate ${index+1}`;
+    const owner=fenceRunById(gate.runId);
+    if(!gate.runId||!owner)err('ORPHAN_GATE',`${label} is not attached to a fence run.`,gate);
+    if(!GATE_TYPES[gate.gateType])err('GATE_TYPE',`${label} has an unknown gate type: ${gate.gateType||'blank'}.`,gate);
+    const widthFt=gate.start&&gate.end?dist(gate.start,gate.end)/GRID_FT:0;
+    if(!Number.isFinite(widthFt)||widthFt<=0)err('GATE_WIDTH',`${label} has zero or invalid width.`,gate);
+    const nominal=(GATE_TYPES[gate.gateType]||{}).width;
+    if(nominal&&widthFt>0&&Math.abs(widthFt-nominal)>Math.max(1,nominal*0.25))
+      warn('GATE_NOMINAL',`${label} draws at ${widthFt.toFixed(1)} ft but ${GATE_TYPES[gate.gateType].label} defaults to ${nominal} ft.`,gate);
+    if(owner&&gate.specs){
+      const gs=hydrateRunSpecs(gate.specs),rs=hydrateRunSpecs(owner.specs);
+      if(+gs.heightIn!==+rs.heightIn)warn('GATE_SPEC_DRIFT',`${label} height snapshot differs from its owning run.`,gate);
+    }
+  });
+
+  posts.filter(p=>p.auto).forEach((post,index)=>{
+    if(post.runId&&!fenceRunById(post.runId))warn('ORPHAN_AUTO_POST',`Auto post ${index+1} references a missing run.`,post);
+  });
+
+  if(includePricing){
+    let P=null;
+    try{P=computePricing();}catch(ex){err('PRICING_RUNTIME',`Pricing failed: ${ex.message}`);}
+    if(P){
+      if(!P.hasData)err('NO_BOM','The job produced no bill of materials or labor.');
+      [...new Set(P.unknown||[])].forEach(name=>err('MISSING_COST',`No cost is set for “${name}”.`));
+      [...new Set(P.zeroCostLines||[])].forEach(name=>err('ZERO_COST',`“${name}” has a zero-dollar cost.`));
+      if(!Number.isFinite(P.clientTotal)||P.clientTotal<=0)err('TOTAL_INVALID','The client total is zero or invalid.');
+      if(Number.isFinite(P.marginPct)&&P.marginPct<15)warn('LOW_MARGIN',`Estimated margin is ${P.marginPct.toFixed(1)}%. Verify markup and costs.`);
+    }
+  }
+
+  return {ok:errors.length===0,errors,warnings,checkedAt:new Date().toISOString()};
+}
+
+function renderValidationStatus(result){
+  const el=document.getElementById('validation-status');if(!el)return;
+  if(result.ok){
+    el.style.color=result.warnings.length?'#E8A33D':'#4DB87A';
+    el.innerHTML=result.warnings.length
+      ?`✓ No blocking errors · ${result.warnings.length} warning${result.warnings.length===1?'':'s'}`
+      :'✓ Job is estimate-ready';
+  }else{
+    el.style.color='#E05A47';
+    el.innerHTML=`✕ ${result.errors.length} blocking error${result.errors.length===1?'':'s'} · ${result.warnings.length} warning${result.warnings.length===1?'':'s'}`;
+  }
+}
+
+function showValidationReport(result){
+  renderValidationStatus(result);
+  let ov=document.getElementById('validation-overlay');
+  if(!ov){ov=document.createElement('div');ov.id='validation-overlay';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:100001;display:flex;align-items:center;justify-content:center;padding:14px';document.body.appendChild(ov);}
+  const list=(items,color)=>items.map(i=>`<li style="margin:0 0 7px;color:${color}"><b>${esc(i.code)}</b> · ${esc(i.message)}</li>`).join('');
+  ov.innerHTML=`<div style="width:min(680px,96vw);max-height:88vh;overflow:auto;background:#111827;border:1px solid #334155;border-radius:8px;padding:18px;color:#e5e7eb;box-shadow:0 18px 70px #000">
+    <button id="validation-close" class="btn" style="float:right">Close</button>
+    <h2 style="margin:0 0 4px;color:${result.ok?'#4DB87A':'#E05A47'}">${result.ok?'Validation passed':'Estimate blocked'}</h2>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:14px">${result.errors.length} errors · ${result.warnings.length} warnings</div>
+    ${result.errors.length?`<h3 style="font-size:11px;color:#E05A47;letter-spacing:.08em">BLOCKING ERRORS</h3><ul style="padding-left:20px">${list(result.errors,'#fecaca')}</ul>`:''}
+    ${result.warnings.length?`<h3 style="font-size:11px;color:#E8A33D;letter-spacing:.08em">WARNINGS</h3><ul style="padding-left:20px">${list(result.warnings,'#fde68a')}</ul>`:''}
+    ${!result.errors.length&&!result.warnings.length?'<div style="padding:14px;background:#0f2a20;border:1px solid #245c43;border-radius:5px">No structural, ownership, specification, or pricing defects were found.</div>':''}
+  </div>`;
+  ov.style.display='flex';
+  ov.querySelector('#validation-close').onclick=()=>ov.style.display='none';
+  ov.onclick=e=>{if(e.target===ov)ov.style.display='none';};
+}
+
+function runValidationReport(){const result=validateProject();showValidationReport(result);return result;}
+
 // ── ESTIMATE PDF (Far-Out Fencing Co. branded) ────────────────────────────
 function exportEstimatePDF(){
+  const validation=validateProject();
+  renderValidationStatus(validation);
+  if(!validation.ok){showValidationReport(validation);return;}
   if(!window.jspdf){alert('PDF library not loaded. Check internet connection.');return;}
   const{jsPDF}=window.jspdf;
   const stats=getStats();
   const P=computePricing();
+  const quickReference=false;
   const ucDemo=document.getElementById('uc-demo')?.checked;
   const ucSlope=document.getElementById('uc-slope')?.checked;
   const ucUrban=document.getElementById('uc-urban')?.checked;
@@ -3203,7 +3454,7 @@ function exportEstimatePDF(){
 
   // ── ESTIMATE LABEL ──
   doc.setFont('helvetica','bold');doc.setFontSize(20);doc.setTextColor(232,119,34);
-  doc.text('ESTIMATE',PW-MR,y+6,{align:'right'});
+  doc.text(quickReference?'QUICK REFERENCE':'ESTIMATE',PW-MR,y+6,{align:'right'});
 
   // ── BILL TO / PROJECT ──
   doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(232,119,34);
@@ -3262,7 +3513,7 @@ function exportEstimatePDF(){
     const lineTotal=clientPerLF*ft;
     addRow(
       `${ft.toFixed(1)} LF`,
-      `${fdef.label} Installation${notes} (${S.specs.heightIn}" H)`,
+      `${fdef.label} Installation${notes}${(()=>{const hs=[...new Set(S.elements.filter(r=>r.type==='fence'&&r.fenceType===type).map(r=>hydrateRunSpecs(r.specs).heightIn))];return hs.length===1?` (${hs[0]}\" H)`:hs.length>1?` (Mixed heights: ${hs.join(', ')}\")`:'';})()}`,
       `$${clientPerLF.toFixed(2)}/LF`,
       `$${lineTotal.toFixed(0)}`
     );
@@ -3354,6 +3605,35 @@ function exportEstimatePDF(){
 // Script sits at the end of <body>, so the DOM is fully parsed here.
 init();
 
+</script>
+
+<style id="fb-dev-index-style">
+.fb-dev-btn{position:fixed;right:14px;bottom:14px;z-index:99998;background:#111827;color:#fbbf24;border:1px solid #fbbf24;border-radius:5px;padding:9px 12px;font:700 11px/1.1 Arial,sans-serif;letter-spacing:.08em;cursor:pointer;box-shadow:0 4px 18px rgba(0,0,0,.3)}
+.fb-dev-overlay{display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.72);padding:24px;overflow:auto}
+.fb-dev-overlay.open{display:block}.fb-dev-card{max-width:900px;margin:20px auto;background:#0b1220;color:#e5e7eb;border:1px solid #374151;border-radius:8px;padding:22px;font:14px/1.45 Arial,sans-serif;box-shadow:0 12px 50px rgba(0,0,0,.55)}
+.fb-dev-card h2{margin:0;color:#fbbf24;font-size:22px}.fb-dev-meta{color:#9ca3af;margin:3px 0 18px}.fb-dev-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.fb-dev-box{background:#111827;border:1px solid #263244;border-radius:6px;padding:14px}.fb-dev-box h3{margin:0 0 8px;color:#93c5fd;font-size:13px;text-transform:uppercase;letter-spacing:.08em}.fb-dev-box ul{margin:6px 0 0;padding-left:20px}.fb-dev-close{float:right;background:none;border:1px solid #6b7280;color:#fff;border-radius:4px;padding:5px 9px;cursor:pointer}.fb-dev-note{margin-top:14px;padding:10px;background:#172033;border-left:3px solid #fbbf24;color:#cbd5e1}.fb-dev-actions{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap}.fb-dev-actions button{background:#1f2937;color:#fff;border:1px solid #4b5563;border-radius:4px;padding:7px 10px;cursor:pointer}@media(max-width:700px){.fb-dev-grid{grid-template-columns:1fr}.fb-dev-overlay{padding:8px}.fb-dev-card{margin:5px auto}}@media print{.fb-dev-btn,.fb-dev-overlay{display:none!important}}
+</style>
+<button class="fb-dev-btn" type="button" onclick="fbToggleDevIndex(true)">DEV INDEX</button>
+<div class="fb-dev-overlay" id="fb-dev-index" onclick="if(event.target===this)fbToggleDevIndex(false)">
+ <div class="fb-dev-card"><button class="fb-dev-close" onclick="fbToggleDevIndex(false)">CLOSE</button>
+ <h2>FenceboundCAD Development Index</h2><div class="fb-dev-meta">Local documentation authority · v5.3.4 · Updated July 16, 2026</div>
+ <div class="fb-dev-grid">
+  <div class="fb-dev-box"><h3>Purpose</h3><div>Drawing-driven fence layout, BOM generation, cost-basis estimating, quick-reference totals, and proposal output.</div></div>
+  <div class="fb-dev-box"><h3>Current Status</h3><div>Pricing schema unified with Rate Card. Temporary panels priced at $100 each. Quick-reference and final-ready pricing states active.</div></div>
+  <div class="fb-dev-box"><h3>Open Punch List</h3><ul><li>Automated pricing regression runner</li><li>Material-specific gate pricing when verified data arrives</li><li>Field labor-rate integration</li><li>Distributor-cost replacement</li><li>Promote stable architecture decisions to Engineering Bible</li></ul></div>
+  <div class="fb-dev-box"><h3>Completed / Locked</h3><ul><li>Phase One baseline stabilized</li><li>Canonical pricing schema v2 accepted</li><li>100-foot benchmark completed for every fence type</li><li>Missing/zero pricing warnings added</li></ul></div>
+  <div class="fb-dev-box" style="grid-column:1/-1"><h3>Dependencies</h3><div>Fencebound Rate Card, verified distributor data, field rate card, FenceScraper market benchmarks.</div></div>
+ </div>
+ <div class="fb-dev-note"><b>Documentation rule:</b> This file owns its local bugs, punch list, implementation status, and test notes. System-wide architecture, governance, and promoted decisions remain in the FenceBound Engineering Bible. TD-DOC-001 remains open until all active tools use this structure and the Bible can be safely consolidated.</div>
+ <div class="fb-dev-actions"><button onclick="fbCopyDevSummary()">COPY SUMMARY</button><button onclick="fbExportDevSummary()">EXPORT .TXT</button></div>
+ </div>
+</div>
+<script id="fb-dev-index-script">
+function fbToggleDevIndex(open){document.getElementById('fb-dev-index').classList.toggle('open',!!open)}
+function fbDevText(){const c=document.querySelector('#fb-dev-index .fb-dev-card');return c?c.innerText.replace(/CLOSE|COPY SUMMARY|EXPORT \.TXT/g,'').trim():''}
+function fbCopyDevSummary(){if(navigator.clipboard)navigator.clipboard.writeText(fbDevText())}
+function fbExportDevSummary(){const b=new Blob([fbDevText()],{type:'text/plain'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='cad-development-index.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')fbToggleDevIndex(false)});
 </script>
 </body>
 </html>
