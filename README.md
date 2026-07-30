@@ -1,7 +1,10 @@
 # FenceBound
 FenceBound is a contractor-focused CAD and estimating platform built for the fencing industry. It transforms drawings into layouts, material takeoffs, pricing, proposals, and installation documents, reducing repetitive work while improving estimate accuracy, speed, and consistency.
 
-Start with [`SOURCE_OF_TRUTH.md`](SOURCE_OF_TRUTH.md) for authority, file classifications, frozen assets, verification commands, and the GPT/Claude handoff contract.
+Start with [`SOURCE_OF_TRUTH.md`](SOURCE_OF_TRUTH.md) for authority and
+[`Docs/FENCEBOUND_REPOSITORY_ORIENTATION.md`](Docs/FENCEBOUND_REPOSITORY_ORIENTATION.md)
+for the current repository map, CAD checkpoint, known drift, and exact
+continuation point.
 
 ## FenceScraper v3.0+ Deployment Contract
 
