@@ -80,3 +80,31 @@ The suite prints captured BOM rows, validation results, and exact portable befor
 ## Exact next controlled task
 
 Review commits `b05ea08` and `c826023` plus this status record, confirm the branch diff is restricted to `index.html`, Playwright test infrastructure, and this closeout record, then merge `fix/phase-one-run-ownership-validation` into `main` through the repository's normal review path. Do not begin Phase Two in that review.
+
+## 2026-07-30 persistence-integrity correction
+
+The prior statement that “no Phase One acceptance blocker remains in the
+exercised scope” and the row classifying internal Save/Load isolation as
+confirmed were too broad. The original ninth test checked value restoration but
+did not check object identity after Save or Load.
+
+Three persistence-boundary defects were subsequently reproduced:
+
+- **D-1:** project pricing loaded into the live cost objects could be written
+  back over the company rate card by an unrelated cost-editor save.
+- **D-2:** document undo/redo serialized run add-on `Set`s as `{}`, silently
+  removing add-on BOM rows.
+- **D-3:** internal Saved Jobs retained live references on both Save and Load;
+  later pricing, label, manual-material, and element edits mutated saved jobs,
+  and a later Save/Delete made contamination durable.
+
+All three are repaired on `fix/cad-persistence-integrity-v4`. The repair adds a
+project-pricing provenance guard and saved-rate-card reload action, serializes
+and hydrates run specs in the existing narrow undo snapshot, and applies the
+existing JSON persistence semantics at internal Saved Jobs boundaries. No
+pricing values or historical HTML files changed.
+
+Verification: the original 9 tests remain unmodified and pass; 8 focused
+regressions pass, for **17/17** total. A separate mixed-system twelve-route
+matrix also passes with no lost, duplicated, orphaned, or unexpectedly mutated
+state. Release promotion remains an owner decision.

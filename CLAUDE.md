@@ -29,8 +29,11 @@ Conflicts are recorded, not silently reconciled.
 Requires npm registry, Playwright browsers, and cdnjs (jsPDF test).
 
 ## Known defects
-See GitHub Issues. Persistence-boundary class in `index.html`: project state
-crossing a persistence boundary without correct serialization.
+D-1 company-rate-card write-back, D-2 undo add-on hydration, and D-3 internal
+Saved Jobs reference isolation were reproduced and repaired in the 2026-07-30
+persistence-integrity session. Regression coverage is in
+`tests/persistence-integrity.spec.js`. O-5 state separation remains an owner
+decision; the D-1 repair is a provenance guard, not that redesign.
 
 ## Working rules
 - Two active tracks maximum (July 17 execution controls).
