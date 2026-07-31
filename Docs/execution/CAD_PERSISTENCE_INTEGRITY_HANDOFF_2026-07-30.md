@@ -123,10 +123,13 @@ or orphaned data, and none unexpectedly mutated data.
 - Atlas v0.1 mentions local save/recovery and planned persistence auditing but
   does not assert the defective paths were isolated; it was inspected and not
   rewritten.
-- GitHub CLI is not installed. Public API inspection found no existing defect
-  issues, but authenticated issue creation/closure could not be completed in
-  this environment. Create and close D-1, D-2, and D-3 issues during PR review,
-  referencing `3cc96df`, `78e9bd8`, and `55aff9e`.
+- Normal review is open as GitHub PR
+  [#2](https://github.com/Nomz78/FenceBound/pull/2).
+- No existing defect issues were found. D-1
+  [#3](https://github.com/Nomz78/FenceBound/issues/3), D-2
+  [#4](https://github.com/Nomz78/FenceBound/issues/4), and D-3
+  [#5](https://github.com/Nomz78/FenceBound/issues/5) were created and closed
+  with references to `3cc96df`, `78e9bd8`, and `55aff9e`.
 
 ## Owner decisions still required
 
