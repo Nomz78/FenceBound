@@ -763,6 +763,7 @@ function applyState(st){
   if(st.costs)COST_DB={...COST_DB,...st.costs};
   if(st.labor)LABOR={...LABOR,...st.labor,perLF:{...LABOR.perLF,...(st.labor.perLF||{})},gate:{...LABOR.gate,...(st.labor.gate||{})}};
   if(st.markup)MARKUP={...MARKUP,...st.markup};
+  if(st.costs||st.labor||st.markup)_pricingFromLoadedProject=true;
   if(st.pan&&Number.isFinite(st.pan.x)&&Number.isFinite(st.pan.y))S.pan={x:st.pan.x,y:st.pan.y};
   if(Number.isFinite(st.zoom))S.zoom=Math.max(0.05,Math.min(4,st.zoom));
   if(Number.isFinite(st.snapFt)&&SNAP_OPTIONS.includes(st.snapFt))S.snapFt=st.snapFt;
@@ -1192,6 +1193,7 @@ const DEFAULT_MARKUP={ materialPct:35, laborPct:55 };
 let COST_DB = JSON.parse(JSON.stringify(DEFAULT_COST_DB));
 let LABOR   = JSON.parse(JSON.stringify(DEFAULT_LABOR));
 let MARKUP  = JSON.parse(JSON.stringify(DEFAULT_MARKUP));
+let _pricingFromLoadedProject=false;
 
 const COSTDB_KEY='fencebound_costdb_v1';
 // Accept both legacy Rate Card bare-number costs and canonical CAD {cost,unit} costs.
@@ -1212,9 +1214,18 @@ function loadCostDB(){
       if(o.markup)MARKUP={...MARKUP,...o.markup};
     }
   }catch(e){}
+  _pricingFromLoadedProject=false;
+}
+function reloadSavedCostDB(){
+  COST_DB=JSON.parse(JSON.stringify(DEFAULT_COST_DB));
+  LABOR=JSON.parse(JSON.stringify(DEFAULT_LABOR));
+  MARKUP=JSON.parse(JSON.stringify(DEFAULT_MARKUP));
+  loadCostDB();
 }
 function saveCostDB(){
+  if(_pricingFromLoadedProject)return false;
   try{localStorage.setItem(COSTDB_KEY,JSON.stringify({costs:COST_DB,labor:LABOR,markup:MARKUP}));}catch(e){}
+  return true;
 }
 // lookupCost: normalized match against COST_DB; returns unit cost or null if unknown.
 function lookupCost(name){
@@ -3253,6 +3264,7 @@ function openCostEditor(){
       </div>
       <div class="ce-foot">
         <button class="btn" id="ce-reset" style="font-size:10px">↺ Reset defaults</button>
+        <button class="btn" id="ce-reload-rate-card" style="font-size:10px">↻ Reload saved rate card</button>
         <button class="btn" id="ce-export" style="font-size:10px">⬇ Export prices</button>
         <button class="btn" id="ce-import" style="font-size:10px">⬆ Import</button>
         <span style="flex:1"></span>
@@ -3266,12 +3278,14 @@ function openCostEditor(){
   ov.querySelector('#ce-cancel').onclick=close;
   ov.onclick=e=>{if(e.target===ov)close();};
   ov.querySelector('#ce-save').onclick=()=>{
+    if(_pricingFromLoadedProject&&!confirm('These displayed prices came from the loaded project. Saving will replace your company rate card with these prices. Continue?'))return;
     ov.querySelectorAll('[data-cost]').forEach(i=>{const k=i.dataset.cost;const v=parseFloat(i.value);if(Number.isFinite(v)&&COST_DB[k])COST_DB[k].cost=v;});
     ov.querySelectorAll('[data-labor]').forEach(i=>{const v=parseFloat(i.value);if(Number.isFinite(v))LABOR.perLF[i.dataset.labor]=v;});
     ov.querySelectorAll('[data-gatelabor]').forEach(i=>{const v=parseFloat(i.value);if(Number.isFinite(v))LABOR.gate[i.dataset.gatelabor]=v;});
     const mm=parseFloat(ov.querySelector('#ce-mat-markup').value);if(Number.isFinite(mm))MARKUP.materialPct=mm;
     const lm=parseFloat(ov.querySelector('#ce-lab-markup').value);if(Number.isFinite(lm))MARKUP.laborPct=lm;
     const cr=parseFloat(ov.querySelector('#ce-crew-rate').value);if(Number.isFinite(cr)&&cr>0)LABOR.crewHourlyRate=cr;
+    _pricingFromLoadedProject=false;
     saveCostDB();
     const crl=document.getElementById('crew-rate-lbl');if(crl)crl.textContent=LABOR.crewHourlyRate;
     close();updatePricing();showToast('Costs & margin saved');
@@ -3281,7 +3295,11 @@ function openCostEditor(){
     COST_DB=JSON.parse(JSON.stringify(DEFAULT_COST_DB));
     LABOR=JSON.parse(JSON.stringify(DEFAULT_LABOR));
     MARKUP=JSON.parse(JSON.stringify(DEFAULT_MARKUP));
+    _pricingFromLoadedProject=false;
     saveCostDB();close();openCostEditor();showToast('Reset to defaults');
+  };
+  ov.querySelector('#ce-reload-rate-card').onclick=()=>{
+    reloadSavedCostDB();close();openCostEditor();updatePricing();showToast('Saved rate card reloaded');
   };
   ov.querySelector('#ce-export').onclick=()=>{
     const blob=new Blob([JSON.stringify({app:'FenceboundCAD',kind:'prices',costs:COST_DB,labor:LABOR,markup:MARKUP},null,2)],{type:'application/json'});
@@ -3301,6 +3319,7 @@ function openCostEditor(){
       if(o.costs)COST_DB={...COST_DB,...normalizeImportedCosts(o.costs)};
       if(o.labor)LABOR={...LABOR,...o.labor,perLF:{...LABOR.perLF,...(o.labor.perLF||{})},gate:{...LABOR.gate,...(o.labor.gate||{})}};
       if(o.markup)MARKUP={...MARKUP,...o.markup};
+      _pricingFromLoadedProject=false;
       saveCostDB();close();openCostEditor();showToast('Prices imported');
     }catch(err){showToast('Import failed — '+err.message,true);}e.target.value='';};
     rd.readAsText(f);

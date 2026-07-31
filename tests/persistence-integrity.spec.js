@@ -54,7 +54,7 @@ test('T-P1 loaded project pricing cannot silently replace the company rate card'
   // save-side reference leak.
   await state(page, 'saveSession()');
   await page.reload();
-  await state(page, `COST_DB[${JSON.stringify(RATE_KEY)}].cost=222;MARKUP.materialPct=42;saveCostDB()`);
+  await state(page, `reloadSavedCostDB();COST_DB[${JSON.stringify(RATE_KEY)}].cost=222;MARKUP.materialPct=42;saveCostDB()`);
   await loadJob(page);
 
   let warning = '';
