@@ -2236,7 +2236,7 @@ function updateDrawers(){
     });
     document.getElementById('do-import').addEventListener('click',()=>document.getElementById('job-file-input').click());
     document.getElementById('do-save').addEventListener('click',()=>{
-      const snap={...snapshotState(),id:Date.now(),name:S.projectName,savedAt:new Date().toLocaleString()};
+      const snap={...JSON.parse(JSON.stringify(snapshotState())),id:Date.now(),name:S.projectName,savedAt:new Date().toLocaleString()};
       S.savedJobs=[snap,...S.savedJobs.filter(j=>j.name!==S.projectName)];
       try{localStorage.setItem(STORAGE_KEY,JSON.stringify(S.savedJobs));S.saveMsg=`Saved "${esc(S.projectName)}"`;}
       catch(err){S.saveMsg='⚠ Save failed — storage full or blocked';}
@@ -2247,7 +2247,7 @@ function updateDrawers(){
       if(e.target.dataset.jdel!==undefined)return;
       const job=S.savedJobs[+el.dataset.ji];
       if(S.elements.length||S.labels.length)pushHistory();// loading a job is undoable
-      applyState({...job,projectName:job.projectName||job.name});
+      applyState(JSON.parse(JSON.stringify({...job,projectName:job.projectName||job.name})));
       S.showJobs=false;
       syncSpecInputs();// keep SPECS tab controls in step with loaded state
       draw();updatePanel();updateMatList();updateDrawers();scheduleAutosave();
