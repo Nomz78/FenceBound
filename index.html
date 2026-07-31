@@ -1510,7 +1510,19 @@ function snapToEndpoint(pt){
 }
 
 function snapshotDoc(){
-  return{elements:JSON.parse(JSON.stringify(S.elements)),labels:JSON.parse(JSON.stringify(S.labels))};
+  const elements=S.elements.map(el=>({
+    ...el,
+    ...(el.specs?{specs:serializeRunSpecs(el.specs)}:{}),
+    ...(el.runSpecs?{runSpecs:serializeRunSpecs(el.runSpecs)}:{})
+  }));
+  return{elements:JSON.parse(JSON.stringify(elements)),labels:JSON.parse(JSON.stringify(S.labels))};
+}
+function hydrateDocElements(elements){
+  return elements.map(el=>({
+    ...el,
+    ...(el.specs?{specs:hydrateRunSpecs(el.specs)}:{}),
+    ...(el.runSpecs?{runSpecs:hydrateRunSpecs(el.runSpecs)}:{})
+  }));
 }
 function updateUndoButtons(){
   const u=document.getElementById('btn-undo'),r=document.getElementById('btn-redo');
@@ -1527,7 +1539,7 @@ function doUndo(){
   if(!S.history.length)return;
   S.future.push(snapshotDoc());
   const prev=S.history.pop();
-  S.elements=prev.elements;S.labels=prev.labels;
+  S.elements=hydrateDocElements(prev.elements);S.labels=prev.labels;
   S.selected=null;S.editingGate=null;
   updateUndoButtons();draw();updatePanel();updateGateEditor();scheduleAutosave();
 }
@@ -1535,7 +1547,7 @@ function doRedo(){
   if(!S.future.length)return;
   S.history.push(snapshotDoc());
   const nxt=S.future.pop();
-  S.elements=nxt.elements;S.labels=nxt.labels;
+  S.elements=hydrateDocElements(nxt.elements);S.labels=nxt.labels;
   S.selected=null;S.editingGate=null;
   updateUndoButtons();draw();updatePanel();updateGateEditor();scheduleAutosave();
 }
