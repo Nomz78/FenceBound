@@ -123,3 +123,30 @@ state. Release promotion remains an owner decision.
   outside `specs`/`runSpecs`. Those predicted defects did not exist.
 - Historical versioned HTML moved to `archive/`; the frozen v5.3.4 artifact's
   bytes were unchanged.
+
+## 2026-08-01 pricing-runtime export resilience
+
+- **Repaired:** warn-not-block exports could become silent when validation
+  caught a `PRICING_RUNTIME` exception and the exporter called the same failing
+  pricing/statistics path again. Estimate PDFs, plan PDFs, and portable JSON now
+  export a customer-readable unverified artifact. Estimate totals and deposits
+  say `NOT CALCULATED`; no pricing values or pricing logic were changed.
+- **Confirmed separate quoting-accuracy defect:** manual rows in `S.materials`
+  are displayed as “MANUAL ITEMS,” persisted with the project, and printed on
+  plan PDFs, but `computePricing()` costs only `calcAutoMaterials()`. There is no
+  source or governance statement authorizing their exclusion. The behavior
+  conflicts with the Engineering Bible's one-project-model rule, so it is
+  recorded as unintentional and higher priority than export resilience. No fix
+  was made in this session.
+- **Confirmed separate import-atomicity defect:** portable import calls
+  `applyState()` before rendering and related work that may throw. Its catch
+  reports failure but does not restore the prior state, so a failed import is
+  not a no-op. No fix was made.
+- **Confirmed separate coverage/migration defect:** persistence-matrix route 10
+  asserts run IDs, gate ownership, and add-on hydration only. It never calls
+  `computePricing()` after migration. Unknown legacy fence types normally yield
+  incomplete or zero pricing without throwing, so the route cannot certify
+  migrated quote accuracy. No fix was made.
+- **Dead validation branch:** `ADDON_STATE` cannot currently fail because
+  `hydrateRunSpecs()` constructs a `Set` before the check. Removal appears safe
+  under current call order, but it was not removed.

@@ -61,6 +61,26 @@ async function exportEstimateAndRead(page, label) {
   };
 }
 
+async function importMalformedProject(page, mutate) {
+  const portable=await state(page,'JSON.parse(JSON.stringify(snapshotState()))');
+  portable.projectName='Pricing Runtime Export Test';
+  portable.jobCustomer='Pricing Runtime Customer';
+  portable.jobAddress='100 Runtime Test Lane';
+  portable.elements=[{
+    type:'fence',start:{x:0,y:0},end:{x:400,y:0},fenceType:'chainlink',
+    runId:'run_pricing_runtime',postSpacing:10,autoPostSpacing:10,
+    specs:{...portable.specs,addons:[]}
+  }];
+  mutate(portable.elements[0]);
+  await page.locator('#job-file-input').setInputFiles({
+    name:'pricing-runtime.fencebound.json',
+    mimeType:'application/json',
+    buffer:Buffer.from(JSON.stringify(portable))
+  });
+  await expect.poll(()=>state(page,'S.projectName')).toBe('Pricing Runtime Export Test');
+  expect(await state(page,"validateProject().errors.map(item=>item.code)")).toContain('PRICING_RUNTIME');
+}
+
 async function saveCurrentJob(page) {
   await page.locator('#btn-jobs').click();
   await page.locator('#do-save').click();
@@ -452,3 +472,45 @@ test('F4 plan warning occupies reserved space above the drawing',async({page})=>
   expect(geometry.warning.height).toBeGreaterThan(0);
   expect(geometry.warning.y+geometry.warning.height).toBeLessThanOrEqual(geometry.drawing.y);
 });
+
+for(const malformed of [
+  {name:'null start',mutate:run=>{run.start=null;}},
+  {name:'constructor fence type',mutate:run=>{run.fenceType='constructor';}},
+  {name:'toString fence type',mutate:run=>{run.fenceType='toString';}},
+]){
+  test(`R9 all exports survive imported ${malformed.name}`,async({page})=>{
+    await cleanOpen(page);
+    await page.waitForFunction(()=>!!window.jspdf,null,{timeout:20_000});
+    await importMalformedProject(page,malformed.mutate);
+
+    const estimate=await exportEstimateAndRead(page,`r9-${malformed.name.replace(/\s+/g,'-')}`);
+    expect(estimate.pageErrors).toEqual([]);
+    expect(estimate.strings).toContain('NOT FULLY VERIFIED');
+    expect(estimate.strings).toContain('Pricing could not be calculated');
+    expect(estimate.strings).toContain('NOT CALCULATED');
+    expect(estimate.strings).not.toMatch(/NaN|undefined/);
+
+    if(await page.locator('#validation-overlay').isVisible())await page.locator('#validation-close').click();
+    const planPromise=page.waitForEvent('download',{timeout:10_000});
+    await state(page,'exportPDF()');
+    const plan=await planPromise;
+    const planPath=path.join(os.tmpdir(),`fencebound-r9-plan-${Date.now()}.pdf`);
+    await plan.saveAs(planPath);
+    const planStrings=execFileSync('/usr/bin/strings',[planPath],{encoding:'utf8'});
+    expect(planStrings).toContain('NOT FULLY VERIFIED');
+    expect(planStrings).toContain('Pricing could not be calculated');
+    expect(planStrings).not.toMatch(/NaN|undefined/);
+
+    if(await page.locator('#validation-overlay').isVisible())await page.locator('#validation-close').click();
+    await page.locator('#btn-jobs').click();
+    const portablePromise=page.waitForEvent('download',{timeout:10_000});
+    await page.locator('#do-export').click();
+    const portableDownload=await portablePromise;
+    const portablePath=path.join(os.tmpdir(),`fencebound-r9-portable-${Date.now()}.json`);
+    await portableDownload.saveAs(portablePath);
+    const exported=JSON.parse(fs.readFileSync(portablePath,'utf8'));
+    expect(exported.exportWarning.unverified.join(' ')).toContain('Pricing could not be calculated');
+    expect(exported.exportWarning.unverified.join(' ')).toContain('materials, labor, and the estimate total were not priced');
+    expect(JSON.stringify(exported)).not.toMatch(/NaN|undefined/);
+  });
+}

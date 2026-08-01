@@ -2476,6 +2476,7 @@ function exportPDF(){
   const validation=validateProject();
   renderValidationStatus(validation);
   if(!validation.ok)showValidationReport(validation);
+  const pricingUnavailable=validation.errors.some(item=>item.code==='PRICING_RUNTIME');
   const{jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'letter'});
   const PW=279,PH=216;
@@ -2509,7 +2510,8 @@ function exportPDF(){
   if(addons){doc.text(`Add: ${addons}`,tbX+4,sy);sy+=5;}
   doc.setDrawColor(40,55,75);doc.setLineWidth(0.2);doc.line(tbX+4,sy,tbX+tbW-4,sy);sy+=5;
   // Stats
-  const stats=getStats();
+  let stats;
+  try{stats=pricingUnavailable?emptyExportStats():getStats();}catch(e){stats=emptyExportStats();}
   doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(100,120,150);doc.text('SUMMARY',tbX+4,sy);sy+=5;
   Object.entries(stats.fence).forEach(([type,ft])=>{
     const c=FENCE_TYPES[type];if(!c)return;
@@ -2534,7 +2536,8 @@ function exportPDF(){
     sy+=2;
   }
   // Auto materials
-  const autoItems=calcAutoMaterials();
+  let autoItems;
+  try{autoItems=pricingUnavailable?[]:calcAutoMaterials();}catch(e){autoItems=[];}
   if(autoItems.length&&sy<PH-50){
     doc.setDrawColor(40,55,75);doc.setLineWidth(0.2);doc.line(tbX+4,sy,tbX+tbW-4,sy);sy+=4;
     doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(100,120,150);doc.text('AUTO MATERIALS',tbX+4,sy);sy+=5;
@@ -3487,6 +3490,17 @@ function showValidationReport(result){
 
 function runValidationReport(){const result=validateProject();showValidationReport(result);return result;}
 
+function emptyExportStats(){
+  return{fence:{},totalFt:0,cornerPosts:new Set(),terminalPosts:new Set(),
+    gates:{walk:0,doubledrive:0,cantilever:0,other:0},gateTotal:0,linePosts:0};
+}
+function unavailableExportPricing(){
+  return{matCost:0,laborCost:0,internalCost:0,matPrice:0,laborPrice:0,
+    clientSubtotal:0,urbanAdd:0,clientTotal:0,profit:0,marginPct:0,
+    matLines:[],laborLines:[],unknown:[],zeroCostLines:[],hasData:false,
+    flags:{},pricingUnavailable:true};
+}
+
 function projectExportWarning(validation){
   const customerMessage=item=>({
     NO_FENCE_RUNS:'No fence layout is included.',
@@ -3505,7 +3519,7 @@ function projectExportWarning(validation){
     ORPHAN_GATE:'A gate is not connected to a fence section.',
     GATE_TYPE:'A gate has an unrecognized style.',
     GATE_WIDTH:'A gate has no measurable width.',
-    PRICING_RUNTIME:'Pricing could not be calculated.',
+    PRICING_RUNTIME:'Pricing could not be calculated; materials, labor, and the estimate total were not priced.',
     NO_BOM:'The materials and labor list could not be produced.',
     MISSING_COST:'One or more materials do not have a saved price.',
     ZERO_COST:'One or more materials have a zero-dollar price.',
@@ -3537,8 +3551,10 @@ function exportEstimatePDF(){
   if(!validation.ok)showValidationReport(validation);
   if(!window.jspdf){alert('PDF library not loaded. Check internet connection.');return;}
   const{jsPDF}=window.jspdf;
-  const stats=getStats();
-  const P=computePricing();
+  const pricingUnavailable=validation.errors.some(item=>item.code==='PRICING_RUNTIME');
+  let stats,P;
+  try{stats=pricingUnavailable?emptyExportStats():getStats();}catch(e){stats=emptyExportStats();}
+  try{P=pricingUnavailable?unavailableExportPricing():computePricing();}catch(e){P=unavailableExportPricing();}
   const quickReference=false;
   const ucDemo=document.getElementById('uc-demo')?.checked;
   const ucSlope=document.getElementById('uc-slope')?.checked;
@@ -3654,12 +3670,12 @@ function exportEstimatePDF(){
   doc.setFillColor(28,28,28);doc.rect(ML,y,tableW,9,'F');
   doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(232,119,34);
   doc.text('ESTIMATE TOTAL',ML+4,y+6);
-  doc.text(`$${P.clientTotal.toFixed(0)}`,PW-MR-2,y+6,{align:'right'});
+  doc.text(P.pricingUnavailable?'NOT CALCULATED':`$${P.clientTotal.toFixed(0)}`,PW-MR-2,y+6,{align:'right'});
   y+=14;
 
   // Deposit line
   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(100,100,100);
-  doc.text(`50% Deposit Due at Signing: $${(P.clientTotal*0.5).toFixed(0)}`,PW-MR-2,y,{align:'right'});
+  doc.text(P.pricingUnavailable?'50% Deposit: NOT CALCULATED':`50% Deposit Due at Signing: $${(P.clientTotal*0.5).toFixed(0)}`,PW-MR-2,y,{align:'right'});
   y+=5;
   if(P.unknown&&P.unknown.length){
     doc.setFontSize(7.5);doc.setTextColor(200,80,40);

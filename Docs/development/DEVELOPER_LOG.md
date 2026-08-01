@@ -40,3 +40,16 @@ Append one entry for every development session. Preserve prior entries.
 - **Debt introduced or reduced:** Restored transactional provenance behavior; added error-class estimate coverage; prevented warning banners from covering plan geometry. The separately recorded pricing-runtime resilience issue remains unresolved by instruction.
 - **Decisions made:** Used preserve/clear/restore-on-failure rather than a force-write parameter. Validation logic, pricing values, math, merge state, and tags were unchanged.
 - **Next authorized task:** Owner disposition of the pricing-runtime export-resilience finding and normal PR review. Do not merge or tag without authorization.
+
+## 2026-08-01 — PRICING_RUNTIME export-resilience repair
+
+- **Objective:** Repair the O-4 merge blocker so pricing-runtime failures cannot leave estimate, plan, or portable exports silent; investigate and record R11 defects without repairing them.
+- **Start commit:** `3e18f3cf0c198d206941e5f97018d3dd7f4dbe4f`
+- **End commit:** PRICING_RUNTIME closeout commit on `fix/cad-persistence-integrity-v4`.
+- **Files changed:** `index.html`, `tests/persistence-integrity.spec.js`, `Docs/phase-one-closeout-status.md`, this log, the persistence remediation handoff, and `CHANGELOG.md`.
+- **Tests performed:** R9 red-before and green-after through real portable import for null geometry, `constructor`, and `toString`; all three export formats per input; full Playwright suite; twelve-route persistence matrix; `git diff --check`.
+- **Results:** Parent `3e18f3c` produced no estimate for null geometry. Export-local fallbacks now produce explicitly unpriced artifacts without changing pricing or validation behavior. Exact final totals are in the close report.
+- **Defects discovered:** Manual `S.materials` are excluded from quote pricing and are recorded as an unintentional quoting-accuracy defect; failed portable import leaves partially applied state; route 10 does not price migrated jobs and unknown legacy types can silently yield incomplete/zero pricing.
+- **Debt introduced or reduced:** Removed silent-export behavior for known pricing-runtime inputs. Export-only fallback structures are intentionally not a pricing repair. Three separate defects remain open by instruction.
+- **Decisions made:** O-4 remains warn-not-block. `computePricing()`, validation logic, pricing values, `ADDON_STATE`, import semantics, and migration behavior were not changed.
+- **Next authorized task:** Repair the manual-material quoting-accuracy defect before treating quote totals as complete; separately authorize atomic portable import and migrated-pricing coverage. No merge or tag was performed.

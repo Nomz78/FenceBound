@@ -172,3 +172,46 @@ asserts that the warning ends before the drawing begins.
 provenance flag initializes false and before autosave restoration. No caller
 depends on the old unconditional clear when saved-card storage is missing or
 corrupt.
+
+## 2026-08-01 PRICING_RUNTIME merge-blocker repair
+
+The merge blocker reproduced on parent `3e18f3c`: importing a fence with a null
+endpoint made validation catch `PRICING_RUNTIME`, but estimate export immediately
+threw from `getStats()` and produced no download. Prototype-colliding imported
+fence types (`constructor` and `toString`) expose the same class; `toString` also
+proved that `getStats()` can return malformed derived data without throwing.
+
+The bounded repair leaves `computePricing()`, pricing values, and validation
+logic untouched. Once validation records `PRICING_RUNTIME`, estimate and plan
+PDF exporters do not reuse pricing-derived statistics or materials. They use
+export-only empty structures, retain the validation warning, and the estimate
+prints `NOT CALCULATED` for total and deposit. Portable JSON already survived
+these inputs and carries the same plain-language warning: pricing could not be
+calculated, and materials, labor, and the estimate total were not priced.
+
+Regression coverage imports three real portable project files: null `start`,
+`fenceType: "constructor"`, and `fenceType: "toString"`. For each input, estimate
+PDF, plan PDF, and portable JSON must download, identify the unpriced content,
+and contain no `NaN`, `undefined`, or blank estimate total.
+
+### Separate defects recorded, not repaired
+
+1. **Manual items excluded from quotes — quoting-accuracy priority.** The UI
+   creates and labels `S.materials` as “MANUAL ITEMS”; state persistence and the
+   plan PDF retain them. `computePricing()` has always used only
+   `calcAutoMaterials()`. No source comment, test, or governance document says
+   this exclusion is intentional, while Engineering Bible CP-005 requires BOM
+   and pricing to be views of one project. Record this as an unintentional
+   quoting-accuracy defect that outranks this export-resilience repair.
+2. **Failed portable import is not atomic.** `applyState(st)` runs before draw,
+   panel, material, and drawer updates. If any later call throws, the catch says
+   “Import failed” but the imported state remains live. A failed import should
+   restore the complete prior state; no repair was authorized here.
+3. **Route 10 does not certify migrated pricing.** It checks only generated run
+   IDs, gate owners, and hydrated add-ons. It does not call `computePricing()` or
+   compare totals after migration. Unknown legacy types can silently price at
+   zero/incomplete without throwing.
+
+`ADDON_STATE` is dead under the current validation order because hydration
+always returns a `Set`. Removing it appears safe only while that ordering and
+hydration contract remain unchanged; it was not removed.

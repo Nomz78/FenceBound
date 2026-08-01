@@ -19,6 +19,8 @@ created only after merge and explicit owner confirmation.
   when its stored data was unreadable.
 - A failed attempt to save prices from a loaded job could suppress the warning
   on the next attempt.
+- Some imported projects with unreadable pricing data could make Export produce
+  no document.
 
 ### Changed
 
@@ -27,4 +29,7 @@ created only after merge and explicit owner confirmation.
   verified.
 - Export warnings use plain customer-facing descriptions, remain compact, and
   no longer cover the fence drawing on plan PDFs.
+- When pricing cannot be calculated, exported documents identify the unpriced
+  materials, labor, and total instead of showing broken numbers or failing
+  silently.
 - Historical versioned HTML files moved from the repository root to `archive/`.

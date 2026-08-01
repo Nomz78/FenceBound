@@ -42,6 +42,11 @@ Phase 1 remediation audit found no unguarded provenance caller and no persisted
 Set outside `specs`/`runSpecs`; R1 and R2 were predictions, not defects. Do not
 restate them as confirmed findings.
 
+Open quote-integrity defects: manual `S.materials` are not priced; failed
+portable import is not atomic; matrix route 10 does not price migrated jobs and
+unknown legacy types can produce incomplete/zero pricing. See the 2026-08-01
+persistence handoff. Do not fold these into export-resilience repairs.
+
 v6.0 pricing requirement: "A project carries a frozen quoted-price snapshot. The
 company rate card is a separate store. Loading a project never writes to the
 company rate card."
