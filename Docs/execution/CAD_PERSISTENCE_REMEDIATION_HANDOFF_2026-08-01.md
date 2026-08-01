@@ -252,3 +252,18 @@ understated, which is recorded in the changelog.
 
 Still unresolved and untouched: portable import is non-atomic; matrix route 10
 does not exercise migrated pricing; `ADDON_STATE` remains dead validation code.
+
+### Load-bearing manual-quantity contract
+
+`S.materials.qty` is persisted as a **string**, because the add-material handler
+stores the HTML input's `.value` directly. It is normalized only when
+`computePricing()` builds the combined BOM. Every future consumer of
+`S.materials` must therefore coerce quantity explicitly; it must not assume a
+number or rely on implicit JavaScript arithmetic conversion.
+
+The UI rejects finite negative quantities, shows “Quantity cannot be negative,”
+and creates no row; the quantity input also carries `min="0"`. The pricing
+boundary intentionally remains stricter as a load-bearing backstop for portable
+imports and older saved jobs: empty, non-numeric, zero, and negative persisted
+quantities normalize to zero, while positive finite decimals retain their value.
+Do not remove that boundary normalization as “redundant” with the UI guard.

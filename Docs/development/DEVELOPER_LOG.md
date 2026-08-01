@@ -66,3 +66,16 @@ Append one entry for every development session. Preserve prior entries.
 - **Debt introduced or reduced:** Removed silent quote understatement for manual items. Older saved jobs with manual rows recompute higher; no computed total is persisted. Non-atomic import, route-10 pricing coverage, and dead `ADDON_STATE` remain unchanged.
 - **Decisions made:** Empty, invalid, zero, and negative manual quantities normalize to zero; positive decimals remain numeric. Manual marked-up extensions are shown separately and removed only from the LF display allocation, not from pricing totals.
 - **Next authorized task:** Owner review of quote changes and remaining import/migration defects. No merge or tag was performed.
+
+## 2026-08-01 — Manual-quantity input guard and PR close
+
+- **Objective:** Reject negative manual quantities at UI entry, preserve pricing-boundary compatibility for imported/older data, verify the branch, and merge owner-authorized PR #2.
+- **Start commit:** `3eae4fa90d1c1ade4847b0103f45bc5df544038a`
+- **End commit:** Manual-quantity guard commit on `fix/cad-persistence-integrity-v4`; merge commit on `main` recorded in the close report.
+- **Files changed:** `index.html`, `tests/persistence-integrity.spec.js`, this log, the persistence remediation handoff, and `CHANGELOG.md`.
+- **Tests performed:** negative-entry red/green; loaded-negative backstop; unchanged empty/non-numeric/zero/decimal behavior; full Playwright suite; twelve-route persistence matrix; `git diff --check`.
+- **Results:** Negative UI input is rejected with visible feedback and no row. Imported/older negative strings still normalize to zero without `NaN`. Exact final totals are recorded in the close report.
+- **Defects discovered:** None. The HTML number input accepted negative values because it had no minimum and the handler did not validate them.
+- **Debt introduced or reduced:** Added an entry guard and retained the persistence-boundary backstop. Non-atomic import, route-10 migrated-pricing coverage, and dead `ADDON_STATE` remain unchanged.
+- **Decisions made:** Empty and non-numeric quantities continue to normalize to zero. The persisted string-type contract is now documented as load-bearing. Tag creation remains pending owner confirmation of the proposed version.
+- **Next authorized task:** Owner confirmation of the release-tag version after PR #2 merge.

@@ -24,6 +24,8 @@ created only after merge and explicit owner confirmation.
 - Hand-added materials are now included in the job total. Jobs saved before this
   update may show a higher total when reopened, because the earlier total was
   missing those items.
+- Negative hand-added material quantities are rejected instead of being silently
+  omitted from the job total.
 
 ### Changed
 

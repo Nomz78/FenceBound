@@ -472,6 +472,33 @@ test('R16 manual material is visible on the estimate PDF',async({page})=>{
   expect(pdf.strings).toContain(`$${visibleAmount}`);
 });
 
+test('R18 negative manual quantity is rejected at UI entry',async({page})=>{
+  await cleanOpen(page);
+  await page.locator('[data-tab="materials"]').click();
+  await page.locator('#mat-name').fill('Post Cap');
+  await page.locator('#mat-qty').fill('-2');
+  await page.locator('#mat-unit').selectOption('ea');
+  await page.locator('#btn-add-mat').click();
+  await expect(page.locator('#app-toast')).toContainText('Quantity cannot be negative');
+  expect(await state(page,'S.materials.length')).toBe(0);
+});
+
+test('R18a loaded negative manual quantity remains a zero-price backstop',async({page})=>{
+  await cleanOpen(page);
+  await seedRun(page,'Loaded Negative Quantity');
+  const observed=await state(page,`(()=>{
+    const loaded=JSON.parse(JSON.stringify(snapshotState()));
+    loaded.materials=[{name:'Post Cap',qty:'-3',unit:'ea',id:5}];
+    applyState(loaded);
+    const pricing=computePricing(),manual=pricing.matLines.find(line=>line.source==='manual');
+    return{qty:manual.qty,ext:manual.ext,
+      totals:[pricing.matCost,pricing.matPrice,pricing.clientSubtotal,pricing.clientTotal,pricing.marginPct]};
+  })()`);
+  expect(observed.qty).toBe(0);
+  expect(observed.ext).toBe(0);
+  expect(observed.totals.every(Number.isFinite)).toBe(true);
+});
+
 const estimateErrorCases=[
   ['NO_FENCE_RUNS',`S.elements=[]`],
   ['PROJECT_NAME',`S.projectName='Untitled Job'`],

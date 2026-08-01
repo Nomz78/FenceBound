@@ -513,7 +513,7 @@ label{font-size:9px;color:var(--text2);letter-spacing:0.08em;display:block;margi
           <div style="display:flex;flex-direction:column;gap:5px">
             <input id="mat-name" placeholder="Material / item name"/>
             <div style="display:flex;gap:4px">
-              <input id="mat-qty" type="number" placeholder="Qty" style="width:54px"/>
+              <input id="mat-qty" type="number" min="0" placeholder="Qty" style="width:54px"/>
               <select id="mat-unit" style="flex:1">
                 <option>ea</option><option>ft</option><option>lf</option>
                 <option>roll</option><option>bag</option><option>box</option>
@@ -2892,7 +2892,9 @@ function init(){
   // Materials
   document.getElementById('btn-add-mat').addEventListener('click',()=>{
     const name=document.getElementById('mat-name').value.trim();if(!name)return;
-    S.materials.push({name,qty:document.getElementById('mat-qty').value,unit:document.getElementById('mat-unit').value,id:Date.now()});
+    const qty=document.getElementById('mat-qty').value;
+    if(Number.isFinite(Number(qty))&&Number(qty)<0){showToast('Quantity cannot be negative',true);return;}
+    S.materials.push({name,qty,unit:document.getElementById('mat-unit').value,id:Date.now()});
     document.getElementById('mat-name').value='';document.getElementById('mat-qty').value='';
     updateMatList();
   });
@@ -3114,6 +3116,8 @@ function computePricing(){
   const stats=getStats();
   const manualBom=S.materials.map(item=>{
     const parsedQty=Number(item.qty);
+    // Load-bearing backstop: imported and older saved jobs bypass the input guard;
+    // non-finite or non-positive quantities must never discount or corrupt a quote.
     return{name:item.name,qty:Number.isFinite(parsedQty)&&parsedQty>0?parsedQty:0,unit:item.unit,source:'manual'};
   });
   const bom=[...calcAutoMaterials(),...manualBom]; // entry origin does not alter pricing
