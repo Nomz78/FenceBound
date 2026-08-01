@@ -12,12 +12,12 @@ App version: `5.3.8-release-validation`
 
 Project schema: `3`
 
-Baseline: frozen `FenceboundCAD v5.3.4-embedded-project-index.html`
+Baseline: frozen `archive/FenceboundCAD v5.3.4-embedded-project-index.html`
 
 ## Authority and lineage
 
 - **Confirmed:** `index.html` is the canonical local-launch and GitHub Pages entry point. It now contains the integrated, self-contained single-file CAD runtime.
-- **Confirmed:** `FenceboundCAD v5.3.4-embedded-project-index.html` remains the frozen historical/forensic baseline and was not edited.
+- **Confirmed:** `archive/FenceboundCAD v5.3.4-embedded-project-index.html` remains the frozen historical/forensic baseline and was not edited.
 - **Confirmed:** the external Desktop files `FenceboundCAD-v5.3.5-run-owned-specs.html` through `FenceboundCAD-v5.3.8-release-validation.html` form sequential, narrow descendants of the v5.3.4 baseline. They are historical candidates, not repository authority.
 - **Confirmed:** the pre-closeout `index.html` was v5.3.1 even though the v5.3.4 baseline was already tracked separately.
 - **Implemented-unverified:** none.
@@ -108,3 +108,18 @@ Verification: the original 9 tests remain unmodified and pass; 8 focused
 regressions pass, for **17/17** total. A separate mixed-system twelve-route
 matrix also passes with no lost, duplicated, orphaned, or unexpectedly mutated
 state. Release promotion remains an owner decision.
+
+## 2026-08-01 cold-review remediation
+
+- Company-rate-card writes now report storage failure instead of claiming
+  success; all three callers check the result before closing or showing success.
+- Pricing provenance clears when a pricing-free state is applied.
+- Saved-rate-card reload distinguishes successful recovery, no saved card, and
+  corrupt storage.
+- Invalid projects may be exported under the owner-ratified warn-not-block
+  policy. Estimate PDFs, plan PDFs, and portable JSON mark themselves **NOT
+  FULLY VERIFIED** and list the information that was not verified.
+- The audit found no unguarded pricing-provenance caller and no persisted Set
+  outside `specs`/`runSpecs`. Those predicted defects did not exist.
+- Historical versioned HTML moved to `archive/`; the frozen v5.3.4 artifact's
+  bytes were unchanged.
