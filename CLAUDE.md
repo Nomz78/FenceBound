@@ -47,6 +47,10 @@ defects: failed portable import is not atomic; matrix route 10 does not price
 migrated jobs and unknown legacy types can produce incomplete/zero pricing. See
 the 2026-08-01 persistence handoff.
 
+FenceScraper public-market evidence is deferred in favor of field data capture.
+Preserve its context and accepted statewide/regional design; resume only under
+the conditions in `Docs/execution/FENCESCRAPER_PUBLIC_MARKET_EVIDENCE_DEFERRAL_2026-08-01.md`.
+
 v6.0 pricing requirement: "A project carries a frozen quoted-price snapshot. The
 company rate card is a separate store. Loading a project never writes to the
 company rate card."

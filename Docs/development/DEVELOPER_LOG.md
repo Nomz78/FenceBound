@@ -79,3 +79,16 @@ Append one entry for every development session. Preserve prior entries.
 - **Debt introduced or reduced:** Added an entry guard and retained the persistence-boundary backstop. Non-atomic import, route-10 migrated-pricing coverage, and dead `ADDON_STATE` remain unchanged.
 - **Decisions made:** Empty and non-numeric quantities continue to normalize to zero. The persisted string-type contract is now documented as load-bearing. Tag creation remains pending owner confirmation of the proposed version.
 - **Next authorized task:** Owner confirmation of the release-tag version after PR #2 merge.
+
+## 2026-08-01 — FenceScraper public-market evidence deferral
+
+- **Objective:** Preserve the accepted NCDOT source and sample-size findings, record the owner's deferral, and hand the active slot to field data capture.
+- **Start commit:** `4d49d0676574d0ea799fe98cdc9a34a92ffe89b1`
+- **End commit:** Documentation-only session-close commit on `main`.
+- **Files changed:** `CLAUDE.md`, this log, and `Docs/execution/FENCESCRAPER_PUBLIC_MARKET_EVIDENCE_DEFERRAL_2026-08-01.md`.
+- **Tests performed:** Documentation/content inspection and `git diff --check`; no runtime suite because no source changed.
+- **Results:** The handoff preserves the ratified source limitations, coverage counts, complete sample-size table, Section 866/867 join keys, accepted statewide/regional design, corrected premises, O-8 through O-11, resumption conditions, and carried-forward work.
+- **Defects discovered:** None. Reconnaissance established that annual averages cannot produce bid spread or contract-level provenance and that local observations cannot reach useful coverage on a practical timeline.
+- **Debt introduced or reduced:** No code debt introduced. Source acquisition remains unproven and explicitly deferred rather than being represented as complete.
+- **Decisions made:** The public-market evidence track is deferred, not cancelled. Its slot transfers to field data capture. If resumed, acquisition is statewide with a mandatory Divisions 8/9/10 subset, insufficient evidence remains labeled insufficient, and no geographic or burden conversion is invented.
+- **Next authorized task:** Field data capture for owner-controlled material cost and labor hours. FenceScraper resumes only under the conditions in its deferral handoff.
