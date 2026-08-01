@@ -267,3 +267,16 @@ boundary intentionally remains stricter as a load-bearing backstop for portable
 imports and older saved jobs: empty, non-numeric, zero, and negative persisted
 quantities normalize to zero, while positive finite decimals retain their value.
 Do not remove that boundary normalization as “redundant” with the UI guard.
+
+### v5.3.9 tag and in-app version label
+
+The owner designated annotated tag `v5.3.9` as the integrity boundary and
+required it to point exactly to PR #2's merge commit `fef779a`. That commit's UI
+header still reads `v5.3.8`, while `APP_VERSION` is
+`5.3.8-release-validation`. The mismatch is intentional and recorded rather
+than silent: `v5.3.8` describes the pre-remediation code, while Git tag `v5.3.9`
+identifies the merge where saved-job, saved-price, manual-material pricing, and
+silent-export failures were repaired. The runtime strings were not changed
+after the merge because doing so would create a later commit outside the
+owner-specified tag target. A future release must update the UI and
+`APP_VERSION` in the same commit that establishes its release identity.
