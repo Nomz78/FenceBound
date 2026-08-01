@@ -27,3 +27,16 @@ Append one entry for every development session. Preserve prior entries.
 - **Debt introduced or reduced:** reduced persistence and export-truthfulness risk. Existing pre-fix saved-job contamination cannot be distinguished reliably from legitimate quote data; v6.0 pricing-store separation remains required.
 - **Decisions made:** O-1, O-2, O-3, O-4, O-5, and O-7 recorded as ratified by the owner; O-6 remains undecided after inspection. No merge or tag performed.
 - **Next authorized task:** PR review, owner decision on the continuity branch, and owner confirmation after merge before creating the release tag.
+
+## 2026-08-01 — FenceboundCAD remediation cold-review close
+
+- **Objective:** Correct the five authorized cold-review findings without expanding persistence, pricing, validation, or release scope.
+- **Start commit:** `ee035dab3b4a06247189c5cee4a41c01cc6047cb`
+- **End commit:** Session-close commit on `fix/cad-persistence-integrity-v4`.
+- **Files changed:** `index.html`, `tests/persistence-integrity.spec.js`, this log, the persistence remediation handoff, and `CHANGELOG.md`.
+- **Tests performed:** F1 red-before and green-after; real estimate PDFs for nineteen reachable validation error classes; capped-warning single-page check; plan warning/drawing geometry check; complete Playwright suites; twelve-route persistence matrix; `git diff --check`.
+- **Results:** F1 reproduced on `ee035da`: the failed write left provenance false while the company card stayed unchanged. The repair preserves provenance across failure. All nineteen state-reachable estimate cases rendered with a populated total and without `NaN`, `undefined`, page errors, or exceptions. Exact final totals are recorded in the close report.
+- **Defects discovered:** F1 was introduced by remediation commit `44cba6d`. Warn-not-block exposed a separate `PRICING_RUNTIME` export-resilience limitation: validation can catch a pricing exception, but estimate generation calls the same failing function again. `ADDON_STATE` is unreachable after hydration.
+- **Debt introduced or reduced:** Restored transactional provenance behavior; added error-class estimate coverage; prevented warning banners from covering plan geometry. The separately recorded pricing-runtime resilience issue remains unresolved by instruction.
+- **Decisions made:** Used preserve/clear/restore-on-failure rather than a force-write parameter. Validation logic, pricing values, math, merge state, and tags were unchanged.
+- **Next authorized task:** Owner disposition of the pricing-runtime export-resilience finding and normal PR review. Do not merge or tag without authorization.

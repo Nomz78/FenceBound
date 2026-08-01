@@ -2558,10 +2558,11 @@ function exportPDF(){
   doc.setFont('helvetica','normal');doc.setFontSize(6);doc.setTextColor(60,80,100);
   doc.text(`FenceboundCAD v${APP_VERSION} · Grid: ${S.snapFt}ft/cell`,tbX+tbW/2,PH-2,{align:'center'});
   const canvas=document.getElementById('canvas');
-  const dX=5,dY=5,dW=tbX-10,dH=PH-10;
-  doc.setDrawColor(40,55,75);doc.setLineWidth(0.3);doc.rect(dX,dY,dW,dH);
-  doc.addImage(canvas.toDataURL('image/png'),'PNG',dX,dY,dW,dH,'','FAST');
-  drawPdfValidationWarning(doc,validation,dX+3,dY+3,dW-6);
+  const dX=5,dY=5,dW=tbX-10;
+  const warningH=drawPdfValidationWarning(doc,validation,dX,dY,dW);
+  const drawingY=dY+(warningH?warningH+3:0),dH=PH-drawingY-5;
+  doc.setDrawColor(40,55,75);doc.setLineWidth(0.3);doc.rect(dX,drawingY,dW,dH);
+  doc.addImage(canvas.toDataURL('image/png'),'PNG',dX,drawingY,dW,dH,'','FAST');
   doc.setDrawColor(245,166,35);doc.setLineWidth(0.6);doc.rect(2,2,PW-4,PH-4);
   doc.save(`${S.projectName.replace(/\s+/g,'_')}_FencePlan.pdf`);
 }
@@ -3316,8 +3317,12 @@ function openCostEditor(){
     const mm=parseFloat(ov.querySelector('#ce-mat-markup').value);if(Number.isFinite(mm))MARKUP.materialPct=mm;
     const lm=parseFloat(ov.querySelector('#ce-lab-markup').value);if(Number.isFinite(lm))MARKUP.laborPct=lm;
     const cr=parseFloat(ov.querySelector('#ce-crew-rate').value);if(Number.isFinite(cr)&&cr>0)LABOR.crewHourlyRate=cr;
+    const priorPricingProvenance=_pricingFromLoadedProject;
     _pricingFromLoadedProject=false;
-    if(!saveCostDB()){showToast('⚠ Save failed — storage full or blocked',true);return;}
+    if(!saveCostDB()){
+      _pricingFromLoadedProject=priorPricingProvenance;
+      showToast('⚠ Save failed — storage full or blocked',true);return;
+    }
     const crl=document.getElementById('crew-rate-lbl');if(crl)crl.textContent=LABOR.crewHourlyRate;
     close();updatePricing();showToast('Costs & margin saved');
   };
@@ -3326,8 +3331,12 @@ function openCostEditor(){
     COST_DB=JSON.parse(JSON.stringify(DEFAULT_COST_DB));
     LABOR=JSON.parse(JSON.stringify(DEFAULT_LABOR));
     MARKUP=JSON.parse(JSON.stringify(DEFAULT_MARKUP));
+    const priorPricingProvenance=_pricingFromLoadedProject;
     _pricingFromLoadedProject=false;
-    if(!saveCostDB()){showToast('⚠ Save failed — storage full or blocked',true);return;}
+    if(!saveCostDB()){
+      _pricingFromLoadedProject=priorPricingProvenance;
+      showToast('⚠ Save failed — storage full or blocked',true);return;
+    }
     close();openCostEditor();showToast('Reset to defaults');
   };
   ov.querySelector('#ce-reload-rate-card').onclick=()=>{
@@ -3354,8 +3363,12 @@ function openCostEditor(){
       if(o.costs)COST_DB={...COST_DB,...normalizeImportedCosts(o.costs)};
       if(o.labor)LABOR={...LABOR,...o.labor,perLF:{...LABOR.perLF,...(o.labor.perLF||{})},gate:{...LABOR.gate,...(o.labor.gate||{})}};
       if(o.markup)MARKUP={...MARKUP,...o.markup};
+      const priorPricingProvenance=_pricingFromLoadedProject;
       _pricingFromLoadedProject=false;
-      if(!saveCostDB()){showToast('⚠ Save failed — storage full or blocked',true);return;}
+      if(!saveCostDB()){
+        _pricingFromLoadedProject=priorPricingProvenance;
+        showToast('⚠ Save failed — storage full or blocked',true);return;
+      }
       close();openCostEditor();showToast('Prices imported');
     }catch(err){showToast('Import failed — '+err.message,true);}e.target.value='';};
     rd.readAsText(f);
@@ -3475,15 +3488,40 @@ function showValidationReport(result){
 function runValidationReport(){const result=validateProject();showValidationReport(result);return result;}
 
 function projectExportWarning(validation){
+  const customerMessage=item=>({
+    NO_FENCE_RUNS:'No fence layout is included.',
+    PROJECT_NAME:'The project name is missing.',
+    CUSTOMER_NAME:'The customer name is missing.',
+    JOB_ADDRESS:'The property address is missing.',
+    RUN_ID_MISSING:'A fence section could not be verified.',
+    RUN_ID_DUPLICATE:'Two fence sections could not be distinguished from each other.',
+    FENCE_TYPE:'A fence section has an unrecognized fence style.',
+    RUN_LENGTH:'A fence section has no measurable length.',
+    HEIGHT:'A fence section has no valid fence height.',
+    POST_HEIGHT:'A fence section has no valid post height.',
+    EMBEDMENT:'A fence section has an invalid post depth.',
+    POST_SPACING:'A fence section has no valid post spacing.',
+    ADDON_STATE:'A fence section has add-on selections that could not be verified.',
+    ORPHAN_GATE:'A gate is not connected to a fence section.',
+    GATE_TYPE:'A gate has an unrecognized style.',
+    GATE_WIDTH:'A gate has no measurable width.',
+    PRICING_RUNTIME:'Pricing could not be calculated.',
+    NO_BOM:'The materials and labor list could not be produced.',
+    MISSING_COST:'One or more materials do not have a saved price.',
+    ZERO_COST:'One or more materials have a zero-dollar price.',
+    TOTAL_INVALID:'The estimate total could not be verified.'
+  })[item.code]||'Required project information could not be verified.';
+  const all=validation.errors.map(customerMessage),shown=all.slice(0,4);
+  if(all.length>shown.length)shown.push(`And ${all.length-shown.length} more item${all.length-shown.length===1?'':'s'} need review.`);
   return{
     message:'NOT FULLY VERIFIED — This project was exported before all required project and pricing information was verified.',
-    unverified:validation.errors.map(item=>item.message)
+    unverified:shown
   };
 }
 function drawPdfValidationWarning(doc,validation,x,y,width){
   if(validation.ok)return 0;
   const warning=projectExportWarning(validation);
-  const detail='Not verified: '+warning.unverified.join(' ');
+  const detail='Not verified: '+warning.unverified.join('; ');
   const lines=doc.splitTextToSize(detail,width-6);
   const height=12+lines.length*3.5;
   doc.setFillColor(255,240,224);doc.setDrawColor(200,80,40);doc.setLineWidth(0.5);doc.rect(x,y,width,height,'FD');

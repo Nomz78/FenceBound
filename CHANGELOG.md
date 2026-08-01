@@ -17,10 +17,14 @@ created only after merge and explicit owner confirmation.
   to an earlier project's prices.
 - “Reload saved rate card” could report success when no saved card existed or
   when its stored data was unreadable.
+- A failed attempt to save prices from a loaded job could suppress the warning
+  on the next attempt.
 
 ### Changed
 
 - Projects with missing or unverified information may be exported, but estimate
   PDFs, plan PDFs, and portable project JSON visibly identify what was not
   verified.
+- Export warnings use plain customer-facing descriptions, remain compact, and
+  no longer cover the fence drawing on plan PDFs.
 - Historical versioned HTML files moved from the repository root to `archive/`.

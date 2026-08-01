@@ -31,6 +31,36 @@ async function seedRun(page, name = 'Persistence Test Job') {
   })()`);
 }
 
+async function seedEstimateState(page) {
+  await seedRun(page, 'Estimate Error Coverage');
+  await state(page, `(()=>{
+    S.jobCustomer='Estimate Test Customer';
+    S.jobAddress='100 Estimate Test Lane';
+    const run=S.elements[0];
+    run.specs.heightIn=72;run.specs.postHeightIn=108;run.specs.embedDepthIn=36;
+    run.specs.addons=new Set();run.postSpacing=10;run.autoPostSpacing=10;
+    draw();updatePanel();
+  })()`);
+}
+
+async function exportEstimateAndRead(page, label) {
+  await page.waitForFunction(() => !!window.jspdf, null, { timeout: 20_000 });
+  const pageErrors=[];
+  const onPageError=error=>pageErrors.push(error.message);
+  page.on('pageerror',onPageError);
+  const downloadPromise=page.waitForEvent('download', { timeout: 10_000 });
+  await state(page, 'exportEstimatePDF()');
+  const download=await downloadPromise;
+  const filePath=path.join(os.tmpdir(),`fencebound-estimate-error-${label}-${Date.now()}.pdf`);
+  await download.saveAs(filePath);
+  page.off('pageerror',onPageError);
+  return{
+    bytes:fs.readFileSync(filePath),
+    strings:execFileSync('/usr/bin/strings',[filePath],{encoding:'utf8'}),
+    pageErrors
+  };
+}
+
 async function saveCurrentJob(page) {
   await page.locator('#btn-jobs').click();
   await page.locator('#do-save').click();
@@ -133,6 +163,44 @@ test('T-P4 cost-editor save reports a localStorage write failure', async ({ page
   await editMarkupAndSave(page, 48);
   await expect(page.locator('#app-toast')).toContainText('Save failed — storage full or blocked');
   await expect(page.locator('#cost-editor')).toBeVisible();
+});
+
+test('F1 failed deliberate pricing write preserves loaded-project provenance', async ({ page }) => {
+  await cleanOpen(page);
+  await state(page, `COST_DB[${JSON.stringify(RATE_KEY)}].cost=222;saveCostDB()`);
+  await state(page, `(()=>{
+    const historical=snapshotState();
+    historical.costs[${JSON.stringify(RATE_KEY)}].cost=111;
+    applyState(historical);
+    const original=Storage.prototype.setItem;
+    window.__restoreRateCardWrite=()=>{Storage.prototype.setItem=original;};
+    Storage.prototype.setItem=function(key,value){
+      if(key===COSTDB_KEY)throw new DOMException('quota','QuotaExceededError');
+      return original.call(this,key,value);
+    };
+  })()`);
+
+  let firstConfirmation = '';
+  await editMarkupAndSave(page, 41, dialog => {
+    firstConfirmation = dialog.message();
+    dialog.accept();
+  });
+  const afterFailure = await state(page, `({
+    stored:JSON.parse(localStorage.getItem(COSTDB_KEY)).costs[${JSON.stringify(RATE_KEY)}].cost,
+    provenance:_pricingFromLoadedProject
+  })`);
+
+  await state(page, '__restoreRateCardWrite()');
+  let nextConfirmation = '';
+  await editMarkupAndSave(page, 42, dialog => {
+    nextConfirmation = dialog.message();
+    dialog.dismiss();
+  });
+
+  expect(firstConfirmation).toContain('company rate card');
+  expect(afterFailure).toEqual({ stored: 222, provenance: true });
+  expect(nextConfirmation).toContain('company rate card');
+  expect(await state(page, `JSON.parse(localStorage.getItem(COSTDB_KEY)).costs[${JSON.stringify(RATE_KEY)}].cost`)).toBe(222);
 });
 
 test('T-P5 pricing provenance clears when applied state contains no pricing', async ({ page }) => {
@@ -302,6 +370,85 @@ test('T-E2 invalid portable JSON exports with a recipient-visible warning', asyn
   expect(exported.exportWarning.unverified).toEqual(expect.arrayContaining([
     expect.stringContaining('project name'),
     expect.stringContaining('customer name'),
-    expect.stringContaining('job address'),
+    expect.stringContaining('property address'),
   ]));
+});
+
+const estimateErrorCases=[
+  ['NO_FENCE_RUNS',`S.elements=[]`],
+  ['PROJECT_NAME',`S.projectName='Untitled Job'`],
+  ['CUSTOMER_NAME',`S.jobCustomer=''`],
+  ['JOB_ADDRESS',`S.jobAddress=''`],
+  ['RUN_ID_MISSING',`delete S.elements[0].runId`],
+  ['RUN_ID_DUPLICATE',`S.elements.push({...S.elements[0],start:{x:0,y:400},end:{x:400,y:400},specs:cloneRunSpecs(S.elements[0].specs)})`],
+  ['FENCE_TYPE',`S.elements[0].fenceType='unknown-style'`],
+  ['RUN_LENGTH',`S.elements[0].end={...S.elements[0].start}`],
+  ['HEIGHT',`S.elements[0].specs.heightIn=0`],
+  ['POST_HEIGHT',`S.elements[0].specs.postHeightIn=0`],
+  ['EMBEDMENT',`S.elements[0].specs.embedDepthIn=-1`],
+  ['POST_SPACING',`S.elements[0].postSpacing=0;S.elements[0].autoPostSpacing=0`],
+  ['ORPHAN_GATE',`S.elements.push({type:'gate',start:{x:0,y:0},end:{x:160,y:0},runId:'missing-run',gateType:'walk',fenceType:'chainlink',specs:cloneRunSpecs(S.elements[0].specs)})`],
+  ['GATE_TYPE',`S.elements.push({type:'gate',start:{x:0,y:0},end:{x:160,y:0},runId:S.elements[0].runId,gateType:'unknown-gate',fenceType:'chainlink',specs:cloneRunSpecs(S.elements[0].specs)})`],
+  ['GATE_WIDTH',`S.elements.push({type:'gate',start:{x:0,y:0},end:{x:0,y:0},runId:S.elements[0].runId,gateType:'walk',fenceType:'chainlink',specs:cloneRunSpecs(S.elements[0].specs)})`],
+  ['NO_BOM',`S.elements=[]`],
+  ['MISSING_COST',`Object.keys(COST_DB).forEach(k=>delete COST_DB[k])`],
+  ['ZERO_COST',`Object.values(COST_DB).forEach(v=>v.cost=0)`],
+  ['TOTAL_INVALID',`MARKUP.materialPct=-100;MARKUP.laborPct=-100`],
+];
+
+for(const [code,mutation] of estimateErrorCases){
+  test(`F2 estimate remains renderable for ${code}`,async({page})=>{
+    await cleanOpen(page);
+    await seedEstimateState(page);
+    await state(page,mutation);
+    const errors=await state(page,'validateProject().errors.map(item=>item.code)');
+    expect(errors).toContain(code);
+    const pdf=await exportEstimateAndRead(page,code.toLowerCase());
+    expect(pdf.pageErrors,`${code} threw while exporting`).toEqual([]);
+    expect(pdf.strings).not.toMatch(/NaN|undefined/);
+    expect(pdf.strings).toContain('ESTIMATE TOTAL');
+    expect(pdf.strings).toMatch(/ESTIMATE TOTAL[\s\S]*\$[0-9]/);
+  });
+}
+
+test('F3 warning caps customer-facing details and estimate remains one page',async({page})=>{
+  await cleanOpen(page);
+  await seedEstimateState(page);
+  await state(page,`(()=>{
+    S.projectName='Untitled Job';S.jobCustomer='';S.jobAddress='';
+    const run=S.elements[0];delete run.runId;run.fenceType='unknown-style';
+    run.end={...run.start};run.specs.heightIn=0;run.specs.postHeightIn=0;
+    run.specs.embedDepthIn=-1;run.postSpacing=0;run.autoPostSpacing=0;
+  })()`);
+  const warning=await state(page,'projectExportWarning(validateProject())');
+  expect(warning.unverified).toHaveLength(5);
+  expect(warning.unverified[4]).toMatch(/^And \d+ more items? need review\.$/);
+  expect(warning.unverified.join(' ')).not.toMatch(/run ID|unknown-style|ADDON_STATE|PRICING_RUNTIME/);
+  const pdf=await exportEstimateAndRead(page,'warning-cap');
+  const pageObjects=(pdf.bytes.toString('latin1').match(/\/Type\s*\/Page\b/g)||[]).length;
+  expect(pageObjects).toBe(1);
+});
+
+test('F4 plan warning occupies reserved space above the drawing',async({page})=>{
+  await cleanOpen(page);
+  await page.waitForFunction(()=>!!window.jspdf,null,{timeout:20_000});
+  await state(page,`(()=>{
+    window.__planExportGeometry={};
+    const originalWarning=drawPdfValidationWarning;
+    drawPdfValidationWarning=function(doc,validation,x,y,width){
+      const height=originalWarning(doc,validation,x,y,width);
+      window.__planExportGeometry.warning={x,y,width,height};return height;
+    };
+    const originalAddImage=window.jspdf.jsPDF.API.addImage;
+    window.jspdf.jsPDF.API.addImage=function(data,format,x,y,width,height){
+      window.__planExportGeometry.drawing={x,y,width,height};
+      return originalAddImage.apply(this,arguments);
+    };
+  })()`);
+  const downloadPromise=page.waitForEvent('download',{timeout:10_000});
+  await state(page,'exportPDF()');
+  await downloadPromise;
+  const geometry=await state(page,'window.__planExportGeometry');
+  expect(geometry.warning.height).toBeGreaterThan(0);
+  expect(geometry.warning.y+geometry.warning.height).toBeLessThanOrEqual(geometry.drawing.y);
 });

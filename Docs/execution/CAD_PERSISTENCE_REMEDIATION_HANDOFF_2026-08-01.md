@@ -135,3 +135,40 @@ separate store. Loading a project never writes to the company rate card."
 this session. After the owner confirms PR merge, create the owner-approved
 release tag so future audits can identify builds that may have corrupted saved
 quotes.
+
+## 2026-08-01 session-close cold review
+
+Cold review found F1, a defect **introduced by remediation commit `44cba6d`**.
+The cost editor cleared loaded-project pricing provenance before browser storage
+confirmed the company-card write. If that write failed, a later attempt could
+replace the company rate card without repeating the warning. The repair uses
+option (b): each deliberate Save, factory Reset, and price Import preserves the
+prior flag, temporarily clears it for `saveCostDB()`, and restores it on failure.
+This keeps `saveCostDB()`'s guard intact and makes the transaction rule explicit
+without adding a force-write API that other callers could misuse.
+
+Warn-not-block removed the former structural guarantee that estimate generation
+only received validation-clean state. Nineteen state-reachable validation error
+classes now have real-PDF regression coverage: each export must download without
+an exception, contain neither `NaN` nor `undefined`, and include a populated
+estimate total. Warning details are customer-facing, separated with semicolons,
+capped at four details plus a remainder count, and remain on one page at the cap.
+
+Two validation-code premises require qualification. `ADDON_STATE` is not
+state-reachable because `validateProject()` hydrates add-ons before testing their
+type, so malformed persisted input becomes a `Set` first. `PRICING_RUNTIME` is an
+exception sentinel: if `computePricing()` throws during validation, the estimate
+exporter's required second call throws too. That class cannot satisfy the
+no-exception export assertion without changing pricing failure handling. Per the
+review instruction, no math or blocking behavior was patched; this is a separate
+export-resilience defect for owner disposition.
+
+The plan warning previously rendered after the canvas image and therefore could
+obscure drawing geometry. The exporter now reserves warning space above the
+drawing and scales the canvas into the remaining region. A geometry regression
+asserts that the warning ends before the drawing begins.
+
+`loadCostDB()` has one caller, `init()`. It runs immediately after the pricing
+provenance flag initializes false and before autosave restoration. No caller
+depends on the old unconditional clear when saved-card storage is missing or
+corrupt.
