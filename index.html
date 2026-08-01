@@ -513,7 +513,7 @@ label{font-size:9px;color:var(--text2);letter-spacing:0.08em;display:block;margi
           <div style="display:flex;flex-direction:column;gap:5px">
             <input id="mat-name" placeholder="Material / item name"/>
             <div style="display:flex;gap:4px">
-              <input id="mat-qty" type="number" placeholder="Qty" style="width:54px"/>
+              <input id="mat-qty" type="number" min="0" placeholder="Qty" style="width:54px"/>
               <select id="mat-unit" style="flex:1">
                 <option>ea</option><option>ft</option><option>lf</option>
                 <option>roll</option><option>bag</option><option>box</option>
@@ -763,6 +763,7 @@ function applyState(st){
   if(st.costs)COST_DB={...COST_DB,...st.costs};
   if(st.labor)LABOR={...LABOR,...st.labor,perLF:{...LABOR.perLF,...(st.labor.perLF||{})},gate:{...LABOR.gate,...(st.labor.gate||{})}};
   if(st.markup)MARKUP={...MARKUP,...st.markup};
+  _pricingFromLoadedProject=!!(st.costs||st.labor||st.markup);
   if(st.pan&&Number.isFinite(st.pan.x)&&Number.isFinite(st.pan.y))S.pan={x:st.pan.x,y:st.pan.y};
   if(Number.isFinite(st.zoom))S.zoom=Math.max(0.05,Math.min(4,st.zoom));
   if(Number.isFinite(st.snapFt)&&SNAP_OPTIONS.includes(st.snapFt))S.snapFt=st.snapFt;
@@ -1072,8 +1073,8 @@ function applyHeightDrivenSpecs(opts){
 }
 
 // ── COST SYSTEM (dual pricing: internal cost → client price → live margin) ───
-// REPLACES the old flat $/LF RATE_CARD. Philosophy: the BOM from calcAutoMaterials()
-// IS the cost basis. Every material name it emits is normalized to a key here and
+// REPLACES the old flat $/LF RATE_CARD. Auto-generated and manually added material
+// rows form one cost basis. Every material name is normalized to a key here and
 // priced at your TRUE BUY COST. Labor is separate ($/LF default, hours override).
 // Client price = cost × (1 + markup). Margin % is shown live next to the total.
 //
@@ -1192,6 +1193,7 @@ const DEFAULT_MARKUP={ materialPct:35, laborPct:55 };
 let COST_DB = JSON.parse(JSON.stringify(DEFAULT_COST_DB));
 let LABOR   = JSON.parse(JSON.stringify(DEFAULT_LABOR));
 let MARKUP  = JSON.parse(JSON.stringify(DEFAULT_MARKUP));
+let _pricingFromLoadedProject=false;
 
 const COSTDB_KEY='fencebound_costdb_v1';
 // Accept both legacy Rate Card bare-number costs and canonical CAD {cost,unit} costs.
@@ -1203,18 +1205,39 @@ function normalizeImportedCosts(src){
   });
   return out;
 }
-function loadCostDB(){
+function readSavedCostDB(){
   try{
-    const r=localStorage.getItem(COSTDB_KEY);
-    if(r){const o=JSON.parse(r);
-      if(o.costs)COST_DB={...COST_DB,...normalizeImportedCosts(o.costs)};
-      if(o.labor)LABOR={...LABOR,...o.labor,perLF:{...LABOR.perLF,...(o.labor.perLF||{})},gate:{...LABOR.gate,...(o.labor.gate||{})}};
-      if(o.markup)MARKUP={...MARKUP,...o.markup};
-    }
-  }catch(e){}
+    const raw=localStorage.getItem(COSTDB_KEY);
+    if(!raw)return{status:'missing'};
+    return{status:'loaded',data:JSON.parse(raw)};
+  }catch(e){return{status:'corrupt'};}
+}
+function mergeSavedCostDB(o){
+  if(o.costs)COST_DB={...COST_DB,...normalizeImportedCosts(o.costs)};
+  if(o.labor)LABOR={...LABOR,...o.labor,perLF:{...LABOR.perLF,...(o.labor.perLF||{})},gate:{...LABOR.gate,...(o.labor.gate||{})}};
+  if(o.markup)MARKUP={...MARKUP,...o.markup};
+}
+function loadCostDB(){
+  const saved=readSavedCostDB();
+  if(saved.status!=='loaded')return saved.status;
+  mergeSavedCostDB(saved.data);
+  _pricingFromLoadedProject=false;
+  return'loaded';
+}
+function reloadSavedCostDB(){
+  const saved=readSavedCostDB();
+  if(saved.status!=='loaded')return saved.status;
+  COST_DB=JSON.parse(JSON.stringify(DEFAULT_COST_DB));
+  LABOR=JSON.parse(JSON.stringify(DEFAULT_LABOR));
+  MARKUP=JSON.parse(JSON.stringify(DEFAULT_MARKUP));
+  mergeSavedCostDB(saved.data);
+  _pricingFromLoadedProject=false;
+  return'loaded';
 }
 function saveCostDB(){
-  try{localStorage.setItem(COSTDB_KEY,JSON.stringify({costs:COST_DB,labor:LABOR,markup:MARKUP}));}catch(e){}
+  if(_pricingFromLoadedProject)return false;
+  try{localStorage.setItem(COSTDB_KEY,JSON.stringify({costs:COST_DB,labor:LABOR,markup:MARKUP}));return true;}
+  catch(e){return false;}
 }
 // lookupCost: normalized match against COST_DB; returns unit cost or null if unknown.
 function lookupCost(name){
@@ -1499,7 +1522,19 @@ function snapToEndpoint(pt){
 }
 
 function snapshotDoc(){
-  return{elements:JSON.parse(JSON.stringify(S.elements)),labels:JSON.parse(JSON.stringify(S.labels))};
+  const elements=S.elements.map(el=>({
+    ...el,
+    ...(el.specs?{specs:serializeRunSpecs(el.specs)}:{}),
+    ...(el.runSpecs?{runSpecs:serializeRunSpecs(el.runSpecs)}:{})
+  }));
+  return{elements:JSON.parse(JSON.stringify(elements)),labels:JSON.parse(JSON.stringify(S.labels))};
+}
+function hydrateDocElements(elements){
+  return elements.map(el=>({
+    ...el,
+    ...(el.specs?{specs:hydrateRunSpecs(el.specs)}:{}),
+    ...(el.runSpecs?{runSpecs:hydrateRunSpecs(el.runSpecs)}:{})
+  }));
 }
 function updateUndoButtons(){
   const u=document.getElementById('btn-undo'),r=document.getElementById('btn-redo');
@@ -1516,7 +1551,7 @@ function doUndo(){
   if(!S.history.length)return;
   S.future.push(snapshotDoc());
   const prev=S.history.pop();
-  S.elements=prev.elements;S.labels=prev.labels;
+  S.elements=hydrateDocElements(prev.elements);S.labels=prev.labels;
   S.selected=null;S.editingGate=null;
   updateUndoButtons();draw();updatePanel();updateGateEditor();scheduleAutosave();
 }
@@ -1524,7 +1559,7 @@ function doRedo(){
   if(!S.future.length)return;
   S.history.push(snapshotDoc());
   const nxt=S.future.pop();
-  S.elements=nxt.elements;S.labels=nxt.labels;
+  S.elements=hydrateDocElements(nxt.elements);S.labels=nxt.labels;
   S.selected=null;S.editingGate=null;
   updateUndoButtons();draw();updatePanel();updateGateEditor();scheduleAutosave();
 }
@@ -2204,7 +2239,10 @@ function updateDrawers(){
     // Export current job as a portable file — cross-device backup/transfer
     // without cloud infrastructure (localStorage is per-browser only).
     document.getElementById('do-export').addEventListener('click',()=>{
-      const blob=new Blob([JSON.stringify(snapshotState(),null,2)],{type:'application/json'});
+      const exported=snapshotState(),validation=validateProject();
+      renderValidationStatus(validation);
+      if(!validation.ok){exported.exportWarning=projectExportWarning(validation);showValidationReport(validation);}
+      const blob=new Blob([JSON.stringify(exported,null,2)],{type:'application/json'});
       const a=document.createElement('a');
       a.href=URL.createObjectURL(blob);
       a.download=(S.projectName||'Untitled_Job').replace(/[^a-z0-9]+/gi,'_')+'.fencebound.json';
@@ -2213,7 +2251,7 @@ function updateDrawers(){
     });
     document.getElementById('do-import').addEventListener('click',()=>document.getElementById('job-file-input').click());
     document.getElementById('do-save').addEventListener('click',()=>{
-      const snap={...snapshotState(),id:Date.now(),name:S.projectName,savedAt:new Date().toLocaleString()};
+      const snap={...JSON.parse(JSON.stringify(snapshotState())),id:Date.now(),name:S.projectName,savedAt:new Date().toLocaleString()};
       S.savedJobs=[snap,...S.savedJobs.filter(j=>j.name!==S.projectName)];
       try{localStorage.setItem(STORAGE_KEY,JSON.stringify(S.savedJobs));S.saveMsg=`Saved "${esc(S.projectName)}"`;}
       catch(err){S.saveMsg='⚠ Save failed — storage full or blocked';}
@@ -2224,7 +2262,7 @@ function updateDrawers(){
       if(e.target.dataset.jdel!==undefined)return;
       const job=S.savedJobs[+el.dataset.ji];
       if(S.elements.length||S.labels.length)pushHistory();// loading a job is undoable
-      applyState({...job,projectName:job.projectName||job.name});
+      applyState(JSON.parse(JSON.stringify({...job,projectName:job.projectName||job.name})));
       S.showJobs=false;
       syncSpecInputs();// keep SPECS tab controls in step with loaded state
       draw();updatePanel();updateMatList();updateDrawers();scheduleAutosave();
@@ -2435,6 +2473,10 @@ function showLabelOverlay(){
 // ── PDF EXPORT ─────────────────────────────────────────────────────────────
 function exportPDF(){
   if(!window.jspdf){alert('PDF library not loaded. Check internet connection.');return;}
+  const validation=validateProject();
+  renderValidationStatus(validation);
+  if(!validation.ok)showValidationReport(validation);
+  const pricingUnavailable=validation.errors.some(item=>item.code==='PRICING_RUNTIME');
   const{jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'letter'});
   const PW=279,PH=216;
@@ -2468,7 +2510,8 @@ function exportPDF(){
   if(addons){doc.text(`Add: ${addons}`,tbX+4,sy);sy+=5;}
   doc.setDrawColor(40,55,75);doc.setLineWidth(0.2);doc.line(tbX+4,sy,tbX+tbW-4,sy);sy+=5;
   // Stats
-  const stats=getStats();
+  let stats;
+  try{stats=pricingUnavailable?emptyExportStats():getStats();}catch(e){stats=emptyExportStats();}
   doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(100,120,150);doc.text('SUMMARY',tbX+4,sy);sy+=5;
   Object.entries(stats.fence).forEach(([type,ft])=>{
     const c=FENCE_TYPES[type];if(!c)return;
@@ -2493,7 +2536,8 @@ function exportPDF(){
     sy+=2;
   }
   // Auto materials
-  const autoItems=calcAutoMaterials();
+  let autoItems;
+  try{autoItems=pricingUnavailable?[]:calcAutoMaterials();}catch(e){autoItems=[];}
   if(autoItems.length&&sy<PH-50){
     doc.setDrawColor(40,55,75);doc.setLineWidth(0.2);doc.line(tbX+4,sy,tbX+tbW-4,sy);sy+=4;
     doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(100,120,150);doc.text('AUTO MATERIALS',tbX+4,sy);sy+=5;
@@ -2517,9 +2561,11 @@ function exportPDF(){
   doc.setFont('helvetica','normal');doc.setFontSize(6);doc.setTextColor(60,80,100);
   doc.text(`FenceboundCAD v${APP_VERSION} · Grid: ${S.snapFt}ft/cell`,tbX+tbW/2,PH-2,{align:'center'});
   const canvas=document.getElementById('canvas');
-  const dX=5,dY=5,dW=tbX-10,dH=PH-10;
-  doc.setDrawColor(40,55,75);doc.setLineWidth(0.3);doc.rect(dX,dY,dW,dH);
-  doc.addImage(canvas.toDataURL('image/png'),'PNG',dX,dY,dW,dH,'','FAST');
+  const dX=5,dY=5,dW=tbX-10;
+  const warningH=drawPdfValidationWarning(doc,validation,dX,dY,dW);
+  const drawingY=dY+(warningH?warningH+3:0),dH=PH-drawingY-5;
+  doc.setDrawColor(40,55,75);doc.setLineWidth(0.3);doc.rect(dX,drawingY,dW,dH);
+  doc.addImage(canvas.toDataURL('image/png'),'PNG',dX,drawingY,dW,dH,'','FAST');
   doc.setDrawColor(245,166,35);doc.setLineWidth(0.6);doc.rect(2,2,PW-4,PH-4);
   doc.save(`${S.projectName.replace(/\s+/g,'_')}_FencePlan.pdf`);
 }
@@ -2846,7 +2892,9 @@ function init(){
   // Materials
   document.getElementById('btn-add-mat').addEventListener('click',()=>{
     const name=document.getElementById('mat-name').value.trim();if(!name)return;
-    S.materials.push({name,qty:document.getElementById('mat-qty').value,unit:document.getElementById('mat-unit').value,id:Date.now()});
+    const qty=document.getElementById('mat-qty').value;
+    if(Number.isFinite(Number(qty))&&Number(qty)<0){showToast('Quantity cannot be negative',true);return;}
+    S.materials.push({name,qty,unit:document.getElementById('mat-unit').value,id:Date.now()});
     document.getElementById('mat-name').value='';document.getElementById('mat-qty').value='';
     updateMatList();
   });
@@ -3066,7 +3114,13 @@ function init(){
 
 function computePricing(){
   const stats=getStats();
-  const bom=calcAutoMaterials();           // the BOM IS the cost basis
+  const manualBom=S.materials.map(item=>{
+    const parsedQty=Number(item.qty);
+    // Load-bearing backstop: imported and older saved jobs bypass the input guard;
+    // non-finite or non-positive quantities must never discount or corrupt a quote.
+    return{name:item.name,qty:Number.isFinite(parsedQty)&&parsedQty>0?parsedQty:0,unit:item.unit,source:'manual'};
+  });
+  const bom=[...calcAutoMaterials(),...manualBom]; // entry origin does not alter pricing
   const ucDemo=document.getElementById('uc-demo')?.checked;
   const ucSlope=document.getElementById('uc-slope')?.checked;
   const ucUrban=document.getElementById('uc-urban')?.checked;
@@ -3078,9 +3132,9 @@ function computePricing(){
   let matCost=0; const matLines=[]; const unknown=[];
   bom.forEach(it=>{
     const unit=lookupCost(it.name);
-    if(unit===null){ unknown.push(it.name); matLines.push({name:it.name,qty:it.qty,unit:it.unit,unitCost:null,ext:0}); return; }
+    if(unit===null){ unknown.push(it.name); matLines.push({name:it.name,qty:it.qty,unit:it.unit,source:it.source,unitCost:null,ext:0}); return; }
     const ext=unit*it.qty; matCost+=ext;
-    matLines.push({name:it.name,qty:it.qty,unit:it.unit,unitCost:unit,ext});
+    matLines.push({name:it.name,qty:it.qty,unit:it.unit,source:it.source,unitCost:unit,ext});
   });
 
   // ── 2. LABOR COST — $/LF by type (default) OR crew hours override ──
@@ -3111,6 +3165,10 @@ function computePricing(){
   // ── 4. CLIENT PRICE — separate markup on materials vs labor ──
   const matPrice  = matCost  *(1+MARKUP.materialPct/100);
   const laborPrice= laborCost*(1+MARKUP.laborPct/100);
+  matLines.forEach(line=>{
+    line.clientUnitCost=line.unitCost===null?null:line.unitCost*(1+MARKUP.materialPct/100);
+    line.clientExt=line.clientUnitCost===null?0:line.clientUnitCost*line.qty;
+  });
   let clientSubtotal = matPrice + laborPrice;
   let urbanAdd = ucUrban?clientSubtotal*0.15:0;   // urban premium is pure margin
   let clientTotal = clientSubtotal + urbanAdd;
@@ -3253,6 +3311,7 @@ function openCostEditor(){
       </div>
       <div class="ce-foot">
         <button class="btn" id="ce-reset" style="font-size:10px">↺ Reset defaults</button>
+        <button class="btn" id="ce-reload-rate-card" style="font-size:10px">↻ Reload saved rate card</button>
         <button class="btn" id="ce-export" style="font-size:10px">⬇ Export prices</button>
         <button class="btn" id="ce-import" style="font-size:10px">⬆ Import</button>
         <span style="flex:1"></span>
@@ -3266,13 +3325,19 @@ function openCostEditor(){
   ov.querySelector('#ce-cancel').onclick=close;
   ov.onclick=e=>{if(e.target===ov)close();};
   ov.querySelector('#ce-save').onclick=()=>{
+    if(_pricingFromLoadedProject&&!confirm('These displayed prices came from the loaded project. Saving will replace your company rate card with these prices. Continue?'))return;
     ov.querySelectorAll('[data-cost]').forEach(i=>{const k=i.dataset.cost;const v=parseFloat(i.value);if(Number.isFinite(v)&&COST_DB[k])COST_DB[k].cost=v;});
     ov.querySelectorAll('[data-labor]').forEach(i=>{const v=parseFloat(i.value);if(Number.isFinite(v))LABOR.perLF[i.dataset.labor]=v;});
     ov.querySelectorAll('[data-gatelabor]').forEach(i=>{const v=parseFloat(i.value);if(Number.isFinite(v))LABOR.gate[i.dataset.gatelabor]=v;});
     const mm=parseFloat(ov.querySelector('#ce-mat-markup').value);if(Number.isFinite(mm))MARKUP.materialPct=mm;
     const lm=parseFloat(ov.querySelector('#ce-lab-markup').value);if(Number.isFinite(lm))MARKUP.laborPct=lm;
     const cr=parseFloat(ov.querySelector('#ce-crew-rate').value);if(Number.isFinite(cr)&&cr>0)LABOR.crewHourlyRate=cr;
-    saveCostDB();
+    const priorPricingProvenance=_pricingFromLoadedProject;
+    _pricingFromLoadedProject=false;
+    if(!saveCostDB()){
+      _pricingFromLoadedProject=priorPricingProvenance;
+      showToast('⚠ Save failed — storage full or blocked',true);return;
+    }
     const crl=document.getElementById('crew-rate-lbl');if(crl)crl.textContent=LABOR.crewHourlyRate;
     close();updatePricing();showToast('Costs & margin saved');
   };
@@ -3281,7 +3346,19 @@ function openCostEditor(){
     COST_DB=JSON.parse(JSON.stringify(DEFAULT_COST_DB));
     LABOR=JSON.parse(JSON.stringify(DEFAULT_LABOR));
     MARKUP=JSON.parse(JSON.stringify(DEFAULT_MARKUP));
-    saveCostDB();close();openCostEditor();showToast('Reset to defaults');
+    const priorPricingProvenance=_pricingFromLoadedProject;
+    _pricingFromLoadedProject=false;
+    if(!saveCostDB()){
+      _pricingFromLoadedProject=priorPricingProvenance;
+      showToast('⚠ Save failed — storage full or blocked',true);return;
+    }
+    close();openCostEditor();showToast('Reset to defaults');
+  };
+  ov.querySelector('#ce-reload-rate-card').onclick=()=>{
+    const status=reloadSavedCostDB();
+    if(status==='missing'){showToast('No saved rate card found',true);return;}
+    if(status==='corrupt'){showToast('Saved rate card is corrupt',true);return;}
+    close();openCostEditor();updatePricing();showToast('Saved rate card reloaded');
   };
   ov.querySelector('#ce-export').onclick=()=>{
     const blob=new Blob([JSON.stringify({app:'FenceboundCAD',kind:'prices',costs:COST_DB,labor:LABOR,markup:MARKUP},null,2)],{type:'application/json'});
@@ -3301,7 +3378,13 @@ function openCostEditor(){
       if(o.costs)COST_DB={...COST_DB,...normalizeImportedCosts(o.costs)};
       if(o.labor)LABOR={...LABOR,...o.labor,perLF:{...LABOR.perLF,...(o.labor.perLF||{})},gate:{...LABOR.gate,...(o.labor.gate||{})}};
       if(o.markup)MARKUP={...MARKUP,...o.markup};
-      saveCostDB();close();openCostEditor();showToast('Prices imported');
+      const priorPricingProvenance=_pricingFromLoadedProject;
+      _pricingFromLoadedProject=false;
+      if(!saveCostDB()){
+        _pricingFromLoadedProject=priorPricingProvenance;
+        showToast('⚠ Save failed — storage full or blocked',true);return;
+      }
+      close();openCostEditor();showToast('Prices imported');
     }catch(err){showToast('Import failed — '+err.message,true);}e.target.value='';};
     rd.readAsText(f);
   };
@@ -3309,8 +3392,8 @@ function openCostEditor(){
 
 
 // ── RELEASE VALIDATION ─────────────────────────────────────────────────────
-// Client-facing estimates may only be produced from a structurally valid job.
-// Errors block export. Warnings remain visible but do not prevent internal work.
+// Validation identifies unverified project information. Export remains available,
+// but invalid artifacts must carry a recipient-visible warning.
 function validateProject(options={}){
   const includePricing=options.includePricing!==false;
   const requireClient=options.requireClient!==false;
@@ -3391,11 +3474,11 @@ function renderValidationStatus(result){
   if(result.ok){
     el.style.color=result.warnings.length?'#E8A33D':'#4DB87A';
     el.innerHTML=result.warnings.length
-      ?`✓ No blocking errors · ${result.warnings.length} warning${result.warnings.length===1?'':'s'}`
+      ?`✓ No errors · ${result.warnings.length} warning${result.warnings.length===1?'':'s'}`
       :'✓ Job is estimate-ready';
   }else{
     el.style.color='#E05A47';
-    el.innerHTML=`✕ ${result.errors.length} blocking error${result.errors.length===1?'':'s'} · ${result.warnings.length} warning${result.warnings.length===1?'':'s'}`;
+    el.innerHTML=`⚠ ${result.errors.length} item${result.errors.length===1?'':'s'} need review · ${result.warnings.length} warning${result.warnings.length===1?'':'s'}`;
   }
 }
 
@@ -3406,9 +3489,9 @@ function showValidationReport(result){
   const list=(items,color)=>items.map(i=>`<li style="margin:0 0 7px;color:${color}"><b>${esc(i.code)}</b> · ${esc(i.message)}</li>`).join('');
   ov.innerHTML=`<div style="width:min(680px,96vw);max-height:88vh;overflow:auto;background:#111827;border:1px solid #334155;border-radius:8px;padding:18px;color:#e5e7eb;box-shadow:0 18px 70px #000">
     <button id="validation-close" class="btn" style="float:right">Close</button>
-    <h2 style="margin:0 0 4px;color:${result.ok?'#4DB87A':'#E05A47'}">${result.ok?'Validation passed':'Estimate blocked'}</h2>
+    <h2 style="margin:0 0 4px;color:${result.ok?'#4DB87A':'#E05A47'}">${result.ok?'Validation passed':'Validation needs review'}</h2>
     <div style="font-size:11px;color:#94a3b8;margin-bottom:14px">${result.errors.length} errors · ${result.warnings.length} warnings</div>
-    ${result.errors.length?`<h3 style="font-size:11px;color:#E05A47;letter-spacing:.08em">BLOCKING ERRORS</h3><ul style="padding-left:20px">${list(result.errors,'#fecaca')}</ul>`:''}
+    ${result.errors.length?`<h3 style="font-size:11px;color:#E05A47;letter-spacing:.08em">REVIEW BEFORE USE</h3><ul style="padding-left:20px">${list(result.errors,'#fecaca')}</ul>`:''}
     ${result.warnings.length?`<h3 style="font-size:11px;color:#E8A33D;letter-spacing:.08em">WARNINGS</h3><ul style="padding-left:20px">${list(result.warnings,'#fde68a')}</ul>`:''}
     ${!result.errors.length&&!result.warnings.length?'<div style="padding:14px;background:#0f2a20;border:1px solid #245c43;border-radius:5px">No structural, ownership, specification, or pricing defects were found.</div>':''}
   </div>`;
@@ -3419,22 +3502,81 @@ function showValidationReport(result){
 
 function runValidationReport(){const result=validateProject();showValidationReport(result);return result;}
 
+function emptyExportStats(){
+  return{fence:{},totalFt:0,cornerPosts:new Set(),terminalPosts:new Set(),
+    gates:{walk:0,doubledrive:0,cantilever:0,other:0},gateTotal:0,linePosts:0};
+}
+function unavailableExportPricing(){
+  return{matCost:0,laborCost:0,internalCost:0,matPrice:0,laborPrice:0,
+    clientSubtotal:0,urbanAdd:0,clientTotal:0,profit:0,marginPct:0,
+    matLines:[],laborLines:[],unknown:[],zeroCostLines:[],hasData:false,
+    flags:{},pricingUnavailable:true};
+}
+
+function projectExportWarning(validation){
+  const customerMessage=item=>({
+    NO_FENCE_RUNS:'No fence layout is included.',
+    PROJECT_NAME:'The project name is missing.',
+    CUSTOMER_NAME:'The customer name is missing.',
+    JOB_ADDRESS:'The property address is missing.',
+    RUN_ID_MISSING:'A fence section could not be verified.',
+    RUN_ID_DUPLICATE:'Two fence sections could not be distinguished from each other.',
+    FENCE_TYPE:'A fence section has an unrecognized fence style.',
+    RUN_LENGTH:'A fence section has no measurable length.',
+    HEIGHT:'A fence section has no valid fence height.',
+    POST_HEIGHT:'A fence section has no valid post height.',
+    EMBEDMENT:'A fence section has an invalid post depth.',
+    POST_SPACING:'A fence section has no valid post spacing.',
+    ADDON_STATE:'A fence section has add-on selections that could not be verified.',
+    ORPHAN_GATE:'A gate is not connected to a fence section.',
+    GATE_TYPE:'A gate has an unrecognized style.',
+    GATE_WIDTH:'A gate has no measurable width.',
+    PRICING_RUNTIME:'Pricing could not be calculated; materials, labor, and the estimate total were not priced.',
+    NO_BOM:'The materials and labor list could not be produced.',
+    MISSING_COST:'One or more materials do not have a saved price.',
+    ZERO_COST:'One or more materials have a zero-dollar price.',
+    TOTAL_INVALID:'The estimate total could not be verified.'
+  })[item.code]||'Required project information could not be verified.';
+  const all=validation.errors.map(customerMessage),shown=all.slice(0,4);
+  if(all.length>shown.length)shown.push(`And ${all.length-shown.length} more item${all.length-shown.length===1?'':'s'} need review.`);
+  return{
+    message:'NOT FULLY VERIFIED — This project was exported before all required project and pricing information was verified.',
+    unverified:shown
+  };
+}
+function drawPdfValidationWarning(doc,validation,x,y,width){
+  if(validation.ok)return 0;
+  const warning=projectExportWarning(validation);
+  const detail='Not verified: '+warning.unverified.join('; ');
+  const lines=doc.splitTextToSize(detail,width-6);
+  const height=12+lines.length*3.5;
+  doc.setFillColor(255,240,224);doc.setDrawColor(200,80,40);doc.setLineWidth(0.5);doc.rect(x,y,width,height,'FD');
+  doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(160,45,25);doc.text('NOT FULLY VERIFIED',x+3,y+5);
+  doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.text(lines,x+3,y+9);
+  return height;
+}
+
 // ── ESTIMATE PDF (Far-Out Fencing Co. branded) ────────────────────────────
 function exportEstimatePDF(){
   const validation=validateProject();
   renderValidationStatus(validation);
-  if(!validation.ok){showValidationReport(validation);return;}
+  if(!validation.ok)showValidationReport(validation);
   if(!window.jspdf){alert('PDF library not loaded. Check internet connection.');return;}
   const{jsPDF}=window.jspdf;
-  const stats=getStats();
-  const P=computePricing();
+  const pricingUnavailable=validation.errors.some(item=>item.code==='PRICING_RUNTIME');
+  let stats,P;
+  try{stats=pricingUnavailable?emptyExportStats():getStats();}catch(e){stats=emptyExportStats();}
+  try{P=pricingUnavailable?unavailableExportPricing():computePricing();}catch(e){P=unavailableExportPricing();}
   const quickReference=false;
   const ucDemo=document.getElementById('uc-demo')?.checked;
   const ucSlope=document.getElementById('uc-slope')?.checked;
   const ucUrban=document.getElementById('uc-urban')?.checked;
   const ucHardDig=document.getElementById('uc-harddig')?.checked;
-  // Client-facing LF price: total client price distributed across runs by length.
-  const clientPerLF = (stats.totalFt>0)? P.clientSubtotal/stats.totalFt : 0;
+  // Client-facing LF price: installation subtotal excluding separately listed
+  // manual materials, distributed across runs by length.
+  const manualMatLines=P.matLines.filter(line=>line.source==='manual');
+  const manualClientTotal=manualMatLines.reduce((sum,line)=>sum+line.clientExt,0);
+  const clientPerLF = (stats.totalFt>0)? (P.clientSubtotal-manualClientTotal)/stats.totalFt : 0;
 
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'letter'});
   const PW=216,PH=279;
@@ -3451,6 +3593,7 @@ function exportEstimatePDF(){
   doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(160,160,160);
   doc.text('704-420-5603  |  faroutfencing@yahoo.com',PW-MR,18,{align:'right'});
   y=30;
+  if(!validation.ok)y+=drawPdfValidationWarning(doc,validation,ML,y,PW-ML-MR)+5;
 
   // ── ESTIMATE LABEL ──
   doc.setFont('helvetica','bold');doc.setFontSize(20);doc.setTextColor(232,119,34);
@@ -3519,6 +3662,18 @@ function exportEstimatePDF(){
     );
   });
 
+  // Hand-added materials are priced in the same material loop and listed
+  // separately so every cost included in the total is visible to the recipient.
+  manualMatLines.forEach(line=>{
+    const priced=line.clientUnitCost!==null;
+    addRow(
+      `${line.qty} ${line.unit}`,
+      line.name,
+      priced?`$${line.clientUnitCost.toFixed(2)}/${line.unit}`:'Not priced',
+      priced?`$${line.clientExt.toFixed(2)}`:'Not priced'
+    );
+  });
+
   // Gates — per type, at marked-up client cost (rolled into clientSubtotal already;
   // shown here as descriptive line, priced into the per-LF distribution above)
   if(stats.gateTotal){
@@ -3542,12 +3697,12 @@ function exportEstimatePDF(){
   doc.setFillColor(28,28,28);doc.rect(ML,y,tableW,9,'F');
   doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(232,119,34);
   doc.text('ESTIMATE TOTAL',ML+4,y+6);
-  doc.text(`$${P.clientTotal.toFixed(0)}`,PW-MR-2,y+6,{align:'right'});
+  doc.text(P.pricingUnavailable?'NOT CALCULATED':`$${P.clientTotal.toFixed(0)}`,PW-MR-2,y+6,{align:'right'});
   y+=14;
 
   // Deposit line
   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(100,100,100);
-  doc.text(`50% Deposit Due at Signing: $${(P.clientTotal*0.5).toFixed(0)}`,PW-MR-2,y,{align:'right'});
+  doc.text(P.pricingUnavailable?'50% Deposit: NOT CALCULATED':`50% Deposit Due at Signing: $${(P.clientTotal*0.5).toFixed(0)}`,PW-MR-2,y,{align:'right'});
   y+=5;
   if(P.unknown&&P.unknown.length){
     doc.setFontSize(7.5);doc.setTextColor(200,80,40);

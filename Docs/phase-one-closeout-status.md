@@ -12,12 +12,12 @@ App version: `5.3.8-release-validation`
 
 Project schema: `3`
 
-Baseline: frozen `FenceboundCAD v5.3.4-embedded-project-index.html`
+Baseline: frozen `archive/FenceboundCAD v5.3.4-embedded-project-index.html`
 
 ## Authority and lineage
 
 - **Confirmed:** `index.html` is the canonical local-launch and GitHub Pages entry point. It now contains the integrated, self-contained single-file CAD runtime.
-- **Confirmed:** `FenceboundCAD v5.3.4-embedded-project-index.html` remains the frozen historical/forensic baseline and was not edited.
+- **Confirmed:** `archive/FenceboundCAD v5.3.4-embedded-project-index.html` remains the frozen historical/forensic baseline and was not edited.
 - **Confirmed:** the external Desktop files `FenceboundCAD-v5.3.5-run-owned-specs.html` through `FenceboundCAD-v5.3.8-release-validation.html` form sequential, narrow descendants of the v5.3.4 baseline. They are historical candidates, not repository authority.
 - **Confirmed:** the pre-closeout `index.html` was v5.3.1 even though the v5.3.4 baseline was already tracked separately.
 - **Implemented-unverified:** none.
@@ -80,3 +80,96 @@ The suite prints captured BOM rows, validation results, and exact portable befor
 ## Exact next controlled task
 
 Review commits `b05ea08` and `c826023` plus this status record, confirm the branch diff is restricted to `index.html`, Playwright test infrastructure, and this closeout record, then merge `fix/phase-one-run-ownership-validation` into `main` through the repository's normal review path. Do not begin Phase Two in that review.
+
+## 2026-07-30 persistence-integrity correction
+
+The prior statement that “no Phase One acceptance blocker remains in the
+exercised scope” and the row classifying internal Save/Load isolation as
+confirmed were too broad. The original ninth test checked value restoration but
+did not check object identity after Save or Load.
+
+Three persistence-boundary defects were subsequently reproduced:
+
+- **D-1:** project pricing loaded into the live cost objects could be written
+  back over the company rate card by an unrelated cost-editor save.
+- **D-2:** document undo/redo serialized run add-on `Set`s as `{}`, silently
+  removing add-on BOM rows.
+- **D-3:** internal Saved Jobs retained live references on both Save and Load;
+  later pricing, label, manual-material, and element edits mutated saved jobs,
+  and a later Save/Delete made contamination durable.
+
+All three are repaired on `fix/cad-persistence-integrity-v4`. The repair adds a
+project-pricing provenance guard and saved-rate-card reload action, serializes
+and hydrates run specs in the existing narrow undo snapshot, and applies the
+existing JSON persistence semantics at internal Saved Jobs boundaries. No
+pricing values or historical HTML files changed.
+
+Verification: the original 9 tests remain unmodified and pass; 8 focused
+regressions pass, for **17/17** total. A separate mixed-system twelve-route
+matrix also passes with no lost, duplicated, orphaned, or unexpectedly mutated
+state. Release promotion remains an owner decision.
+
+## 2026-08-01 cold-review remediation
+
+- Company-rate-card writes now report storage failure instead of claiming
+  success; all three callers check the result before closing or showing success.
+- Pricing provenance clears when a pricing-free state is applied.
+- Saved-rate-card reload distinguishes successful recovery, no saved card, and
+  corrupt storage.
+- Invalid projects may be exported under the owner-ratified warn-not-block
+  policy. Estimate PDFs, plan PDFs, and portable JSON mark themselves **NOT
+  FULLY VERIFIED** and list the information that was not verified.
+- The audit found no unguarded pricing-provenance caller and no persisted Set
+  outside `specs`/`runSpecs`. Those predicted defects did not exist.
+- Historical versioned HTML moved to `archive/`; the frozen v5.3.4 artifact's
+  bytes were unchanged.
+
+## 2026-08-01 pricing-runtime export resilience
+
+- **Repaired:** warn-not-block exports could become silent when validation
+  caught a `PRICING_RUNTIME` exception and the exporter called the same failing
+  pricing/statistics path again. Estimate PDFs, plan PDFs, and portable JSON now
+  export a customer-readable unverified artifact. Estimate totals and deposits
+  say `NOT CALCULATED`; no pricing values or pricing logic were changed.
+- **Confirmed separate quoting-accuracy defect:** manual rows in `S.materials`
+  are displayed as “MANUAL ITEMS,” persisted with the project, and printed on
+  plan PDFs, but `computePricing()` costs only `calcAutoMaterials()`. There is no
+  source or governance statement authorizing their exclusion. The behavior
+  conflicts with the Engineering Bible's one-project-model rule, so it is
+  recorded as unintentional and higher priority than export resilience. No fix
+  was made in this session.
+- **Confirmed separate import-atomicity defect:** portable import calls
+  `applyState()` before rendering and related work that may throw. Its catch
+  reports failure but does not restore the prior state, so a failed import is
+  not a no-op. No fix was made.
+- **Confirmed separate coverage/migration defect:** persistence-matrix route 10
+  asserts run IDs, gate ownership, and add-on hydration only. It never calls
+  `computePricing()` after migration. Unknown legacy fence types normally yield
+  incomplete or zero pricing without throwing, so the route cannot certify
+  migrated quote accuracy. No fix was made.
+- **Dead validation branch:** `ADDON_STATE` cannot currently fail because
+  `hydrateRunSpecs()` constructs a `Set` before the check. Removal appears safe
+  under current call order, but it was not removed.
+
+## 2026-08-01 manual-material pricing correction
+
+- **Repaired quoting-accuracy defect:** `S.materials` now joins the same BOM loop
+  as automatic materials. Manual names use `lookupCost()`, known costs receive
+  `MARKUP.materialPct`, and extensions contribute to the existing material cost,
+  subtotal, total, and margin calculations. Automatic pricing arithmetic is
+  unchanged.
+- **Quantity boundary:** manual quantity is explicitly converted to a number.
+  Empty, non-numeric, zero, and negative quantities become zero; positive
+  decimals retain their value. This prevents hand-entered values from creating
+  `NaN` or silently discounting a quote.
+- **Unknown costs:** manual rows use the existing `MISSING_COST` behavior—row
+  retained, null unit cost, zero extension, unverified quote, no new validation
+  class.
+- **Estimate visibility:** hand-added rows now appear separately on the client
+  estimate with marked-up unit and extended amounts. Their amount is removed
+  from the LF-distributed installation subtotal so the visible lines reconcile
+  to the unchanged grand-total formula.
+- **Saved-job consequence:** saved records do not store a computed total. They
+  store project inputs and pricing snapshots; totals are recomputed when opened.
+  Older jobs with manual rows will therefore show a higher freshly computed
+  total, with no stale stored-total field to reconcile or migrate.
