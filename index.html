@@ -763,7 +763,7 @@ function applyState(st){
   if(st.costs)COST_DB={...COST_DB,...st.costs};
   if(st.labor)LABOR={...LABOR,...st.labor,perLF:{...LABOR.perLF,...(st.labor.perLF||{})},gate:{...LABOR.gate,...(st.labor.gate||{})}};
   if(st.markup)MARKUP={...MARKUP,...st.markup};
-  if(st.costs||st.labor||st.markup)_pricingFromLoadedProject=true;
+  _pricingFromLoadedProject=!!(st.costs||st.labor||st.markup);
   if(st.pan&&Number.isFinite(st.pan.x)&&Number.isFinite(st.pan.y))S.pan={x:st.pan.x,y:st.pan.y};
   if(Number.isFinite(st.zoom))S.zoom=Math.max(0.05,Math.min(4,st.zoom));
   if(Number.isFinite(st.snapFt)&&SNAP_OPTIONS.includes(st.snapFt))S.snapFt=st.snapFt;
@@ -1205,27 +1205,39 @@ function normalizeImportedCosts(src){
   });
   return out;
 }
-function loadCostDB(){
+function readSavedCostDB(){
   try{
-    const r=localStorage.getItem(COSTDB_KEY);
-    if(r){const o=JSON.parse(r);
-      if(o.costs)COST_DB={...COST_DB,...normalizeImportedCosts(o.costs)};
-      if(o.labor)LABOR={...LABOR,...o.labor,perLF:{...LABOR.perLF,...(o.labor.perLF||{})},gate:{...LABOR.gate,...(o.labor.gate||{})}};
-      if(o.markup)MARKUP={...MARKUP,...o.markup};
-    }
-  }catch(e){}
+    const raw=localStorage.getItem(COSTDB_KEY);
+    if(!raw)return{status:'missing'};
+    return{status:'loaded',data:JSON.parse(raw)};
+  }catch(e){return{status:'corrupt'};}
+}
+function mergeSavedCostDB(o){
+  if(o.costs)COST_DB={...COST_DB,...normalizeImportedCosts(o.costs)};
+  if(o.labor)LABOR={...LABOR,...o.labor,perLF:{...LABOR.perLF,...(o.labor.perLF||{})},gate:{...LABOR.gate,...(o.labor.gate||{})}};
+  if(o.markup)MARKUP={...MARKUP,...o.markup};
+}
+function loadCostDB(){
+  const saved=readSavedCostDB();
+  if(saved.status!=='loaded')return saved.status;
+  mergeSavedCostDB(saved.data);
   _pricingFromLoadedProject=false;
+  return'loaded';
 }
 function reloadSavedCostDB(){
+  const saved=readSavedCostDB();
+  if(saved.status!=='loaded')return saved.status;
   COST_DB=JSON.parse(JSON.stringify(DEFAULT_COST_DB));
   LABOR=JSON.parse(JSON.stringify(DEFAULT_LABOR));
   MARKUP=JSON.parse(JSON.stringify(DEFAULT_MARKUP));
-  loadCostDB();
+  mergeSavedCostDB(saved.data);
+  _pricingFromLoadedProject=false;
+  return'loaded';
 }
 function saveCostDB(){
   if(_pricingFromLoadedProject)return false;
-  try{localStorage.setItem(COSTDB_KEY,JSON.stringify({costs:COST_DB,labor:LABOR,markup:MARKUP}));}catch(e){}
-  return true;
+  try{localStorage.setItem(COSTDB_KEY,JSON.stringify({costs:COST_DB,labor:LABOR,markup:MARKUP}));return true;}
+  catch(e){return false;}
 }
 // lookupCost: normalized match against COST_DB; returns unit cost or null if unknown.
 function lookupCost(name){
@@ -2227,7 +2239,10 @@ function updateDrawers(){
     // Export current job as a portable file — cross-device backup/transfer
     // without cloud infrastructure (localStorage is per-browser only).
     document.getElementById('do-export').addEventListener('click',()=>{
-      const blob=new Blob([JSON.stringify(snapshotState(),null,2)],{type:'application/json'});
+      const exported=snapshotState(),validation=validateProject();
+      renderValidationStatus(validation);
+      if(!validation.ok){exported.exportWarning=projectExportWarning(validation);showValidationReport(validation);}
+      const blob=new Blob([JSON.stringify(exported,null,2)],{type:'application/json'});
       const a=document.createElement('a');
       a.href=URL.createObjectURL(blob);
       a.download=(S.projectName||'Untitled_Job').replace(/[^a-z0-9]+/gi,'_')+'.fencebound.json';
@@ -2458,6 +2473,9 @@ function showLabelOverlay(){
 // ── PDF EXPORT ─────────────────────────────────────────────────────────────
 function exportPDF(){
   if(!window.jspdf){alert('PDF library not loaded. Check internet connection.');return;}
+  const validation=validateProject();
+  renderValidationStatus(validation);
+  if(!validation.ok)showValidationReport(validation);
   const{jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'letter'});
   const PW=279,PH=216;
@@ -2543,6 +2561,7 @@ function exportPDF(){
   const dX=5,dY=5,dW=tbX-10,dH=PH-10;
   doc.setDrawColor(40,55,75);doc.setLineWidth(0.3);doc.rect(dX,dY,dW,dH);
   doc.addImage(canvas.toDataURL('image/png'),'PNG',dX,dY,dW,dH,'','FAST');
+  drawPdfValidationWarning(doc,validation,dX+3,dY+3,dW-6);
   doc.setDrawColor(245,166,35);doc.setLineWidth(0.6);doc.rect(2,2,PW-4,PH-4);
   doc.save(`${S.projectName.replace(/\s+/g,'_')}_FencePlan.pdf`);
 }
@@ -3298,7 +3317,7 @@ function openCostEditor(){
     const lm=parseFloat(ov.querySelector('#ce-lab-markup').value);if(Number.isFinite(lm))MARKUP.laborPct=lm;
     const cr=parseFloat(ov.querySelector('#ce-crew-rate').value);if(Number.isFinite(cr)&&cr>0)LABOR.crewHourlyRate=cr;
     _pricingFromLoadedProject=false;
-    saveCostDB();
+    if(!saveCostDB()){showToast('⚠ Save failed — storage full or blocked',true);return;}
     const crl=document.getElementById('crew-rate-lbl');if(crl)crl.textContent=LABOR.crewHourlyRate;
     close();updatePricing();showToast('Costs & margin saved');
   };
@@ -3308,10 +3327,14 @@ function openCostEditor(){
     LABOR=JSON.parse(JSON.stringify(DEFAULT_LABOR));
     MARKUP=JSON.parse(JSON.stringify(DEFAULT_MARKUP));
     _pricingFromLoadedProject=false;
-    saveCostDB();close();openCostEditor();showToast('Reset to defaults');
+    if(!saveCostDB()){showToast('⚠ Save failed — storage full or blocked',true);return;}
+    close();openCostEditor();showToast('Reset to defaults');
   };
   ov.querySelector('#ce-reload-rate-card').onclick=()=>{
-    reloadSavedCostDB();close();openCostEditor();updatePricing();showToast('Saved rate card reloaded');
+    const status=reloadSavedCostDB();
+    if(status==='missing'){showToast('No saved rate card found',true);return;}
+    if(status==='corrupt'){showToast('Saved rate card is corrupt',true);return;}
+    close();openCostEditor();updatePricing();showToast('Saved rate card reloaded');
   };
   ov.querySelector('#ce-export').onclick=()=>{
     const blob=new Blob([JSON.stringify({app:'FenceboundCAD',kind:'prices',costs:COST_DB,labor:LABOR,markup:MARKUP},null,2)],{type:'application/json'});
@@ -3332,7 +3355,8 @@ function openCostEditor(){
       if(o.labor)LABOR={...LABOR,...o.labor,perLF:{...LABOR.perLF,...(o.labor.perLF||{})},gate:{...LABOR.gate,...(o.labor.gate||{})}};
       if(o.markup)MARKUP={...MARKUP,...o.markup};
       _pricingFromLoadedProject=false;
-      saveCostDB();close();openCostEditor();showToast('Prices imported');
+      if(!saveCostDB()){showToast('⚠ Save failed — storage full or blocked',true);return;}
+      close();openCostEditor();showToast('Prices imported');
     }catch(err){showToast('Import failed — '+err.message,true);}e.target.value='';};
     rd.readAsText(f);
   };
@@ -3437,9 +3461,9 @@ function showValidationReport(result){
   const list=(items,color)=>items.map(i=>`<li style="margin:0 0 7px;color:${color}"><b>${esc(i.code)}</b> · ${esc(i.message)}</li>`).join('');
   ov.innerHTML=`<div style="width:min(680px,96vw);max-height:88vh;overflow:auto;background:#111827;border:1px solid #334155;border-radius:8px;padding:18px;color:#e5e7eb;box-shadow:0 18px 70px #000">
     <button id="validation-close" class="btn" style="float:right">Close</button>
-    <h2 style="margin:0 0 4px;color:${result.ok?'#4DB87A':'#E05A47'}">${result.ok?'Validation passed':'Estimate blocked'}</h2>
+    <h2 style="margin:0 0 4px;color:${result.ok?'#4DB87A':'#E05A47'}">${result.ok?'Validation passed':'Validation needs review'}</h2>
     <div style="font-size:11px;color:#94a3b8;margin-bottom:14px">${result.errors.length} errors · ${result.warnings.length} warnings</div>
-    ${result.errors.length?`<h3 style="font-size:11px;color:#E05A47;letter-spacing:.08em">BLOCKING ERRORS</h3><ul style="padding-left:20px">${list(result.errors,'#fecaca')}</ul>`:''}
+    ${result.errors.length?`<h3 style="font-size:11px;color:#E05A47;letter-spacing:.08em">REVIEW BEFORE USE</h3><ul style="padding-left:20px">${list(result.errors,'#fecaca')}</ul>`:''}
     ${result.warnings.length?`<h3 style="font-size:11px;color:#E8A33D;letter-spacing:.08em">WARNINGS</h3><ul style="padding-left:20px">${list(result.warnings,'#fde68a')}</ul>`:''}
     ${!result.errors.length&&!result.warnings.length?'<div style="padding:14px;background:#0f2a20;border:1px solid #245c43;border-radius:5px">No structural, ownership, specification, or pricing defects were found.</div>':''}
   </div>`;
@@ -3450,11 +3474,29 @@ function showValidationReport(result){
 
 function runValidationReport(){const result=validateProject();showValidationReport(result);return result;}
 
+function projectExportWarning(validation){
+  return{
+    message:'NOT FULLY VERIFIED — This project was exported before all required project and pricing information was verified.',
+    unverified:validation.errors.map(item=>item.message)
+  };
+}
+function drawPdfValidationWarning(doc,validation,x,y,width){
+  if(validation.ok)return 0;
+  const warning=projectExportWarning(validation);
+  const detail='Not verified: '+warning.unverified.join(' ');
+  const lines=doc.splitTextToSize(detail,width-6);
+  const height=12+lines.length*3.5;
+  doc.setFillColor(255,240,224);doc.setDrawColor(200,80,40);doc.setLineWidth(0.5);doc.rect(x,y,width,height,'FD');
+  doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(160,45,25);doc.text('NOT FULLY VERIFIED',x+3,y+5);
+  doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.text(lines,x+3,y+9);
+  return height;
+}
+
 // ── ESTIMATE PDF (Far-Out Fencing Co. branded) ────────────────────────────
 function exportEstimatePDF(){
   const validation=validateProject();
   renderValidationStatus(validation);
-  if(!validation.ok){showValidationReport(validation);return;}
+  if(!validation.ok)showValidationReport(validation);
   if(!window.jspdf){alert('PDF library not loaded. Check internet connection.');return;}
   const{jsPDF}=window.jspdf;
   const stats=getStats();
@@ -3482,6 +3524,7 @@ function exportEstimatePDF(){
   doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(160,160,160);
   doc.text('704-420-5603  |  faroutfencing@yahoo.com',PW-MR,18,{align:'right'});
   y=30;
+  if(!validation.ok)y+=drawPdfValidationWarning(doc,validation,ML,y,PW-ML-MR)+5;
 
   // ── ESTIMATE LABEL ──
   doc.setFont('helvetica','bold');doc.setFontSize(20);doc.setTextColor(232,119,34);

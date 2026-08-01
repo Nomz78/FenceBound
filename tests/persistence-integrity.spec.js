@@ -1,4 +1,8 @@
 const { test, expect } = require('@playwright/test');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { execFileSync } = require('child_process');
 
 const RATE_KEY = 'chain link fabric';
 
@@ -54,7 +58,11 @@ test('T-P1 loaded project pricing cannot silently replace the company rate card'
   // save-side reference leak.
   await state(page, 'saveSession()');
   await page.reload();
-  await state(page, `reloadSavedCostDB();COST_DB[${JSON.stringify(RATE_KEY)}].cost=222;MARKUP.materialPct=42;saveCostDB()`);
+  page.once('dialog', dialog => dialog.accept());
+  await state(page, 'openCostEditor()');
+  await page.locator(`[data-cost="${RATE_KEY}"]`).fill('222');
+  await page.locator('#ce-mat-markup').fill('42');
+  await page.locator('#ce-save').click();
   await loadJob(page);
 
   let warning = '';
@@ -111,6 +119,45 @@ test('T-P3 ordinary cost-editor save still updates the company rate card', async
   console.log('D1_NORMAL_SAVE', JSON.stringify({ before, ...observed }));
   expect(before).toBe(false);
   expect(observed).toEqual({ live: 47, stored: 47, provenance: false });
+});
+
+test('T-P4 cost-editor save reports a localStorage write failure', async ({ page }) => {
+  await cleanOpen(page);
+  await state(page, `(()=>{
+    const original=Storage.prototype.setItem;
+    Storage.prototype.setItem=function(key,value){
+      if(key===COSTDB_KEY)throw new DOMException('quota','QuotaExceededError');
+      return original.call(this,key,value);
+    };
+  })()`);
+  await editMarkupAndSave(page, 48);
+  await expect(page.locator('#app-toast')).toContainText('Save failed — storage full or blocked');
+  await expect(page.locator('#cost-editor')).toBeVisible();
+});
+
+test('T-P5 pricing provenance clears when applied state contains no pricing', async ({ page }) => {
+  await cleanOpen(page);
+  const observed = await state(page, `(()=>{
+    const priced=snapshotState();
+    applyState(priced);
+    const afterPriced=_pricingFromLoadedProject;
+    const withoutPricing=JSON.parse(JSON.stringify(priced));
+    delete withoutPricing.costs;delete withoutPricing.labor;delete withoutPricing.markup;
+    applyState(withoutPricing);
+    return {afterPriced,afterWithoutPricing:_pricingFromLoadedProject};
+  })()`);
+  expect(observed).toEqual({ afterPriced: true, afterWithoutPricing: false });
+});
+
+test('T-P6 rate-card reload distinguishes missing and corrupt storage', async ({ page }) => {
+  await cleanOpen(page);
+  await state(page, 'openCostEditor()');
+  await page.locator('#ce-reload-rate-card').click();
+  await expect(page.locator('#app-toast')).toContainText('No saved rate card found');
+
+  await state(page, `localStorage.setItem(COSTDB_KEY,'{broken json');openCostEditor()`);
+  await page.locator('#ce-reload-rate-card').click();
+  await expect(page.locator('#app-toast')).toContainText('Saved rate card is corrupt');
 });
 
 test('T-U1 undo and redo preserve run add-ons as a Set and preserve BOM', async ({ page }) => {
@@ -216,4 +263,45 @@ test('T13 unrelated delete cannot durably persist a contaminated saved job', asy
   })()`);
   console.log('D3_3E', JSON.stringify(observed));
   expect(observed).toEqual({ count: 1, cost: 111 });
+});
+
+test('T-E1 invalid estimate and plan PDFs export with a recipient-visible warning', async ({ page }) => {
+  await cleanOpen(page);
+  await page.waitForFunction(() => !!window.jspdf, null, { timeout: 20_000 });
+
+  await page.locator('[data-tab="pricing"]').click();
+  const estimateDownload = page.waitForEvent('download', { timeout: 10_000 });
+  await page.locator('#btn-gen-estimate').click();
+  const estimate = await estimateDownload;
+  const estimatePath = path.join(os.tmpdir(), `fencebound-unverified-estimate-${Date.now()}.pdf`);
+  await estimate.saveAs(estimatePath);
+  const estimateStrings = execFileSync('/usr/bin/strings', [estimatePath], { encoding: 'utf8' });
+  expect(estimateStrings).toContain('NOT FULLY VERIFIED');
+
+  const overlay = page.locator('#validation-overlay');
+  if (await overlay.isVisible()) await page.locator('#validation-close').click();
+  const planDownload = page.waitForEvent('download', { timeout: 10_000 });
+  await page.locator('#btn-pdf').click();
+  const plan = await planDownload;
+  const planPath = path.join(os.tmpdir(), `fencebound-unverified-plan-${Date.now()}.pdf`);
+  await plan.saveAs(planPath);
+  const planStrings = execFileSync('/usr/bin/strings', [planPath], { encoding: 'utf8' });
+  expect(planStrings).toContain('NOT FULLY VERIFIED');
+});
+
+test('T-E2 invalid portable JSON exports with a recipient-visible warning', async ({ page }) => {
+  await cleanOpen(page);
+  await page.locator('#btn-jobs').click();
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#do-export').click();
+  const download = await downloadPromise;
+  const filePath = path.join(os.tmpdir(), `fencebound-unverified-${Date.now()}.json`);
+  await download.saveAs(filePath);
+  const exported = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  expect(exported.exportWarning.message).toContain('NOT FULLY VERIFIED');
+  expect(exported.exportWarning.unverified).toEqual(expect.arrayContaining([
+    expect.stringContaining('project name'),
+    expect.stringContaining('customer name'),
+    expect.stringContaining('job address'),
+  ]));
 });
