@@ -3364,8 +3364,8 @@ function openCostEditor(){
 
 
 // ── RELEASE VALIDATION ─────────────────────────────────────────────────────
-// Client-facing estimates may only be produced from a structurally valid job.
-// Errors block export. Warnings remain visible but do not prevent internal work.
+// Validation identifies unverified project information. Export remains available,
+// but invalid artifacts must carry a recipient-visible warning.
 function validateProject(options={}){
   const includePricing=options.includePricing!==false;
   const requireClient=options.requireClient!==false;
@@ -3446,11 +3446,11 @@ function renderValidationStatus(result){
   if(result.ok){
     el.style.color=result.warnings.length?'#E8A33D':'#4DB87A';
     el.innerHTML=result.warnings.length
-      ?`✓ No blocking errors · ${result.warnings.length} warning${result.warnings.length===1?'':'s'}`
+      ?`✓ No errors · ${result.warnings.length} warning${result.warnings.length===1?'':'s'}`
       :'✓ Job is estimate-ready';
   }else{
     el.style.color='#E05A47';
-    el.innerHTML=`✕ ${result.errors.length} blocking error${result.errors.length===1?'':'s'} · ${result.warnings.length} warning${result.warnings.length===1?'':'s'}`;
+    el.innerHTML=`⚠ ${result.errors.length} item${result.errors.length===1?'':'s'} need review · ${result.warnings.length} warning${result.warnings.length===1?'':'s'}`;
   }
 }
 
