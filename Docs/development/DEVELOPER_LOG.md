@@ -53,3 +53,16 @@ Append one entry for every development session. Preserve prior entries.
 - **Debt introduced or reduced:** Removed silent-export behavior for known pricing-runtime inputs. Export-only fallback structures are intentionally not a pricing repair. Three separate defects remain open by instruction.
 - **Decisions made:** O-4 remains warn-not-block. `computePricing()`, validation logic, pricing values, `ADDON_STATE`, import semantics, and migration behavior were not changed.
 - **Next authorized task:** Repair the manual-material quoting-accuracy defect before treating quote totals as complete; separately authorize atomic portable import and migrated-pricing coverage. No merge or tag was performed.
+
+## 2026-08-01 — Manual-material quoting-accuracy repair
+
+- **Objective:** Include hand-added project materials in the established material pricing path and make those costs visible on client estimates.
+- **Start commit:** `8836b6186157810938e7d7b95b6f45bd208ac3ba`
+- **End commit:** Manual-material pricing closeout commit on `fix/cad-persistence-integrity-v4`.
+- **Files changed:** `index.html`, `tests/persistence-integrity.spec.js`, `CHANGELOG.md`, `CLAUDE.md`, `Docs/phase-one-closeout-status.md`, this log, and the persistence remediation handoff.
+- **Tests performed:** known and unknown manual cost red/green; five quantity cases; exact automatic-only total identity; equivalent auto/manual markup; estimate-PDF visibility; full Playwright suite; twelve-route persistence matrix; `git diff --check`.
+- **Results:** Parent excluded known and unknown manual rows completely. The repair uses one combined BOM and the existing pricing/validation path. Exact final totals are recorded in the close report.
+- **Defects discovered:** No new defect. Estimate omission was confirmed as the presentation half of the same manual-material pricing defect.
+- **Debt introduced or reduced:** Removed silent quote understatement for manual items. Older saved jobs with manual rows recompute higher; no computed total is persisted. Non-atomic import, route-10 pricing coverage, and dead `ADDON_STATE` remain unchanged.
+- **Decisions made:** Empty, invalid, zero, and negative manual quantities normalize to zero; positive decimals remain numeric. Manual marked-up extensions are shown separately and removed only from the LF display allocation, not from pricing totals.
+- **Next authorized task:** Owner review of quote changes and remaining import/migration defects. No merge or tag was performed.

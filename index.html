@@ -1073,8 +1073,8 @@ function applyHeightDrivenSpecs(opts){
 }
 
 // ── COST SYSTEM (dual pricing: internal cost → client price → live margin) ───
-// REPLACES the old flat $/LF RATE_CARD. Philosophy: the BOM from calcAutoMaterials()
-// IS the cost basis. Every material name it emits is normalized to a key here and
+// REPLACES the old flat $/LF RATE_CARD. Auto-generated and manually added material
+// rows form one cost basis. Every material name is normalized to a key here and
 // priced at your TRUE BUY COST. Labor is separate ($/LF default, hours override).
 // Client price = cost × (1 + markup). Margin % is shown live next to the total.
 //
@@ -3112,7 +3112,11 @@ function init(){
 
 function computePricing(){
   const stats=getStats();
-  const bom=calcAutoMaterials();           // the BOM IS the cost basis
+  const manualBom=S.materials.map(item=>{
+    const parsedQty=Number(item.qty);
+    return{name:item.name,qty:Number.isFinite(parsedQty)&&parsedQty>0?parsedQty:0,unit:item.unit,source:'manual'};
+  });
+  const bom=[...calcAutoMaterials(),...manualBom]; // entry origin does not alter pricing
   const ucDemo=document.getElementById('uc-demo')?.checked;
   const ucSlope=document.getElementById('uc-slope')?.checked;
   const ucUrban=document.getElementById('uc-urban')?.checked;
@@ -3124,9 +3128,9 @@ function computePricing(){
   let matCost=0; const matLines=[]; const unknown=[];
   bom.forEach(it=>{
     const unit=lookupCost(it.name);
-    if(unit===null){ unknown.push(it.name); matLines.push({name:it.name,qty:it.qty,unit:it.unit,unitCost:null,ext:0}); return; }
+    if(unit===null){ unknown.push(it.name); matLines.push({name:it.name,qty:it.qty,unit:it.unit,source:it.source,unitCost:null,ext:0}); return; }
     const ext=unit*it.qty; matCost+=ext;
-    matLines.push({name:it.name,qty:it.qty,unit:it.unit,unitCost:unit,ext});
+    matLines.push({name:it.name,qty:it.qty,unit:it.unit,source:it.source,unitCost:unit,ext});
   });
 
   // ── 2. LABOR COST — $/LF by type (default) OR crew hours override ──
@@ -3157,6 +3161,10 @@ function computePricing(){
   // ── 4. CLIENT PRICE — separate markup on materials vs labor ──
   const matPrice  = matCost  *(1+MARKUP.materialPct/100);
   const laborPrice= laborCost*(1+MARKUP.laborPct/100);
+  matLines.forEach(line=>{
+    line.clientUnitCost=line.unitCost===null?null:line.unitCost*(1+MARKUP.materialPct/100);
+    line.clientExt=line.clientUnitCost===null?0:line.clientUnitCost*line.qty;
+  });
   let clientSubtotal = matPrice + laborPrice;
   let urbanAdd = ucUrban?clientSubtotal*0.15:0;   // urban premium is pure margin
   let clientTotal = clientSubtotal + urbanAdd;
@@ -3560,8 +3568,11 @@ function exportEstimatePDF(){
   const ucSlope=document.getElementById('uc-slope')?.checked;
   const ucUrban=document.getElementById('uc-urban')?.checked;
   const ucHardDig=document.getElementById('uc-harddig')?.checked;
-  // Client-facing LF price: total client price distributed across runs by length.
-  const clientPerLF = (stats.totalFt>0)? P.clientSubtotal/stats.totalFt : 0;
+  // Client-facing LF price: installation subtotal excluding separately listed
+  // manual materials, distributed across runs by length.
+  const manualMatLines=P.matLines.filter(line=>line.source==='manual');
+  const manualClientTotal=manualMatLines.reduce((sum,line)=>sum+line.clientExt,0);
+  const clientPerLF = (stats.totalFt>0)? (P.clientSubtotal-manualClientTotal)/stats.totalFt : 0;
 
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'letter'});
   const PW=216,PH=279;
@@ -3644,6 +3655,18 @@ function exportEstimatePDF(){
       `${fdef.label} Installation${notes}${(()=>{const hs=[...new Set(S.elements.filter(r=>r.type==='fence'&&r.fenceType===type).map(r=>hydrateRunSpecs(r.specs).heightIn))];return hs.length===1?` (${hs[0]}\" H)`:hs.length>1?` (Mixed heights: ${hs.join(', ')}\")`:'';})()}`,
       `$${clientPerLF.toFixed(2)}/LF`,
       `$${lineTotal.toFixed(0)}`
+    );
+  });
+
+  // Hand-added materials are priced in the same material loop and listed
+  // separately so every cost included in the total is visible to the recipient.
+  manualMatLines.forEach(line=>{
+    const priced=line.clientUnitCost!==null;
+    addRow(
+      `${line.qty} ${line.unit}`,
+      line.name,
+      priced?`$${line.clientUnitCost.toFixed(2)}/${line.unit}`:'Not priced',
+      priced?`$${line.clientExt.toFixed(2)}`:'Not priced'
     );
   });
 

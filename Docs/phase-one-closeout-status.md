@@ -150,3 +150,26 @@ state. Release promotion remains an owner decision.
 - **Dead validation branch:** `ADDON_STATE` cannot currently fail because
   `hydrateRunSpecs()` constructs a `Set` before the check. Removal appears safe
   under current call order, but it was not removed.
+
+## 2026-08-01 manual-material pricing correction
+
+- **Repaired quoting-accuracy defect:** `S.materials` now joins the same BOM loop
+  as automatic materials. Manual names use `lookupCost()`, known costs receive
+  `MARKUP.materialPct`, and extensions contribute to the existing material cost,
+  subtotal, total, and margin calculations. Automatic pricing arithmetic is
+  unchanged.
+- **Quantity boundary:** manual quantity is explicitly converted to a number.
+  Empty, non-numeric, zero, and negative quantities become zero; positive
+  decimals retain their value. This prevents hand-entered values from creating
+  `NaN` or silently discounting a quote.
+- **Unknown costs:** manual rows use the existing `MISSING_COST` behavior—row
+  retained, null unit cost, zero extension, unverified quote, no new validation
+  class.
+- **Estimate visibility:** hand-added rows now appear separately on the client
+  estimate with marked-up unit and extended amounts. Their amount is removed
+  from the LF-distributed installation subtotal so the visible lines reconcile
+  to the unchanged grand-total formula.
+- **Saved-job consequence:** saved records do not store a computed total. They
+  store project inputs and pricing snapshots; totals are recomputed when opened.
+  Older jobs with manual rows will therefore show a higher freshly computed
+  total, with no stale stored-total field to reconcile or migrate.

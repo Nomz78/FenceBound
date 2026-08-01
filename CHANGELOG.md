@@ -21,6 +21,9 @@ created only after merge and explicit owner confirmation.
   on the next attempt.
 - Some imported projects with unreadable pricing data could make Export produce
   no document.
+- Hand-added materials are now included in the job total. Jobs saved before this
+  update may show a higher total when reopened, because the earlier total was
+  missing those items.
 
 ### Changed
 
@@ -32,4 +35,6 @@ created only after merge and explicit owner confirmation.
 - When pricing cannot be calculated, exported documents identify the unpriced
   materials, labor, and total instead of showing broken numbers or failing
   silently.
+- Client estimate PDFs list hand-added materials so recipients can see the items
+  included in the total.
 - Historical versioned HTML files moved from the repository root to `archive/`.

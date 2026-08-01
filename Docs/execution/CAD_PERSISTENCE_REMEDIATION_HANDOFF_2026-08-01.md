@@ -215,3 +215,40 @@ and contain no `NaN`, `undefined`, or blank estimate total.
 `ADDON_STATE` is dead under the current validation order because hydration
 always returns a `Set`. Removing it appears safe only while that ordering and
 hydration contract remain unchanged; it was not removed.
+
+## 2026-08-01 manual-material pricing repair
+
+The quoting-accuracy defect recorded above is repaired after `8836b61`.
+`computePricing()` now builds one BOM from automatic rows followed by normalized
+`S.materials` rows, then sends every row through the existing `lookupCost()`,
+material-markup, subtotal, total, and margin path. No automatic-material formula,
+pricing value, labor behavior, or validation branch changed.
+
+Manual quantities cross an explicit boundary: finite values greater than zero
+become numbers; empty, non-numeric, zero, and negative values become zero. Zero
+was chosen instead of a new validation class because the authorized behavior
+for this repair forbids a parallel validation path, and negative material
+quantities must not silently discount a customer quote.
+
+Unknown manual names behave exactly like unknown automatic names: the row remains
+in `matLines`, has `unitCost:null` and extension zero, enters `P.unknown`, makes
+`isFinalReady` false, and produces the existing `MISSING_COST` validation error.
+
+The estimate PDF now lists manual materials with their marked-up unit and
+extended amounts. Those extensions are excluded from the LF-distributed
+installation display amount—not from `clientSubtotal`—so manual cost is visible
+once and the displayed lines reconcile to the grand total.
+
+R15 fixes the pre-repair automatic-only total as serialized value `382.01` for
+the test fixture and asserts exact equality after the repair. The known-manual
+test also asserts that an equivalent automatic and manual `Post Cap` receive the
+same client unit cost.
+
+Saved Jobs contain inputs (`elements`, `materials`, costs, labor, markup, and
+metadata), not a computed total. Reopening an older job with manual rows therefore
+recomputes a higher total; there is no stored-total field that becomes internally
+inconsistent. The prior total shown to the user may nevertheless have been
+understated, which is recorded in the changelog.
+
+Still unresolved and untouched: portable import is non-atomic; matrix route 10
+does not exercise migrated pricing; `ADDON_STATE` remains dead validation code.

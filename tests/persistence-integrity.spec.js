@@ -394,6 +394,84 @@ test('T-E2 invalid portable JSON exports with a recipient-visible warning', asyn
   ]));
 });
 
+test('R13 known manual material joins the existing marked-up material total',async({page})=>{
+  await cleanOpen(page);
+  await seedRun(page,'Manual Material Pricing');
+  const observed=await state(page,`(()=>{
+    S.materials=[];
+    const before=computePricing();
+    const unit=lookupCost('Post Cap');
+    S.materials=[{name:'Post Cap',qty:'2',unit:'ea',id:1}];
+    const after=computePricing();
+    const manual=after.matLines.find(line=>line.source==='manual');
+    const equivalentAuto=after.matLines.find(line=>line.source!=='manual'&&line.name==='Post Cap');
+    return{before:before.clientTotal,after:after.clientTotal,unit,markup:MARKUP.materialPct,manual,equivalentAuto};
+  })()`);
+  const expectedDelta=observed.unit*2*(1+observed.markup/100);
+  expect(observed.after-observed.before).toBeCloseTo(expectedDelta,10);
+  expect(observed.manual).toMatchObject({name:'Post Cap',qty:2,unit:'ea',unitCost:observed.unit,ext:observed.unit*2});
+  expect(observed.manual.clientUnitCost).toBe(observed.equivalentAuto.clientUnitCost);
+});
+
+test('R14 unknown manual material uses existing MISSING_COST behavior',async({page})=>{
+  await cleanOpen(page);
+  await seedRun(page,'Unknown Manual Material');
+  const observed=await state(page,`(()=>{
+    S.materials=[{name:'Uncatalogued Manual Widget',qty:'3',unit:'ea',id:2}];
+    const pricing=computePricing(),validation=validateProject();
+    const manual=pricing.matLines.find(line=>line.source==='manual');
+    return{manual,unknown:pricing.unknown,isFinalReady:pricing.isFinalReady,
+      codes:validation.errors.map(item=>item.code),totals:[pricing.matCost,pricing.matPrice,pricing.clientSubtotal,pricing.clientTotal,pricing.marginPct]};
+  })()`);
+  expect(observed.manual).toMatchObject({name:'Uncatalogued Manual Widget',qty:3,unitCost:null,ext:0});
+  expect(observed.unknown).toContain('Uncatalogued Manual Widget');
+  expect(observed.isFinalReady).toBe(false);
+  expect(observed.codes).toContain('MISSING_COST');
+  expect(observed.totals.every(Number.isFinite)).toBe(true);
+});
+
+for(const quantityCase of [
+  {input:'',expected:0,label:'empty'},
+  {input:'abc',expected:0,label:'non-numeric'},
+  {input:'0',expected:0,label:'zero'},
+  {input:'12.5',expected:12.5,label:'decimal'},
+  {input:'-4',expected:0,label:'negative'},
+]){
+  test(`R13a manual ${quantityCase.label} quantity normalizes safely`,async({page})=>{
+    await cleanOpen(page);
+    await seedRun(page,`Manual Quantity ${quantityCase.label}`);
+    const observed=await state(page,`(()=>{
+      S.materials=[{name:'Post Cap',qty:${JSON.stringify(quantityCase.input)},unit:'ea',id:3}];
+      const pricing=computePricing(),manual=pricing.matLines.find(line=>line.source==='manual');
+      return{qty:manual&&manual.qty,ext:manual&&manual.ext,unit:lookupCost('Post Cap'),
+        totals:[pricing.matCost,pricing.matPrice,pricing.clientSubtotal,pricing.clientTotal,pricing.marginPct]};
+    })()`);
+    expect(observed.qty).toBe(quantityCase.expected);
+    expect(observed.ext).toBeCloseTo(observed.unit*quantityCase.expected,10);
+    expect(observed.totals.every(Number.isFinite)).toBe(true);
+  });
+}
+
+test('R15 zero manual rows preserve the pre-fix estimate total exactly',async({page})=>{
+  await cleanOpen(page);
+  await seedRun(page,'Auto Pricing Identity');
+  const serialized=await state(page,`(()=>{S.materials=[];return JSON.stringify(computePricing().clientTotal);})()`);
+  console.log('R15_PARENT_TOTAL',serialized);
+  expect(serialized).toBe('382.01');
+});
+
+test('R16 manual material is visible on the estimate PDF',async({page})=>{
+  await cleanOpen(page);
+  await seedRun(page,'Manual Estimate Visibility');
+  await state(page,`S.materials=[{name:'Post Cap Special',qty:'2',unit:'ea',id:4}]`);
+  const visibleAmount=await state(page,`computePricing().matLines.find(line=>line.source==='manual').clientExt.toFixed(2)`);
+  const pdf=await exportEstimateAndRead(page,'manual-material-visible');
+  expect(pdf.pageErrors).toEqual([]);
+  expect(pdf.strings).toContain('Post Cap Special');
+  expect(pdf.strings).toContain('2 ea');
+  expect(pdf.strings).toContain(`$${visibleAmount}`);
+});
+
 const estimateErrorCases=[
   ['NO_FENCE_RUNS',`S.elements=[]`],
   ['PROJECT_NAME',`S.projectName='Untitled Job'`],
