@@ -14,6 +14,8 @@ moving it did not authorize editing it. FenceScraper v3 remains active at root.
 Owner-ratified exemption: v5.3.8 `index.html` continuation is authorized only
 for defect repair and data integrity. No feature work until v6.0.
 
+Current session entry point: `Docs/execution/SESSION_HANDOFF_2026-08-01.md`.
+
 ## Authority
 1. `Docs/FenceBound_Engineering_Bible_Edition_1.0.md` is the frozen base;
    `Docs/authoritative/` supplements it. Currently the supplement is the
