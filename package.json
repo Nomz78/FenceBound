@@ -7,6 +7,7 @@
     "test": "test"
   },
   "scripts": {
+    "session:init": "node scripts/session-init.js",
     "test": "playwright test",
     "test:phase-one": "playwright test tests/phase-one-acceptance.spec.js"
   },

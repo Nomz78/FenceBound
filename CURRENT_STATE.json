@@ -1,0 +1,50 @@
+{
+  "$schema": "./CURRENT_STATE.schema.json",
+  "stateSchemaVersion": 1,
+  "project": "FenceBound",
+  "repository": "~/Developer/FenceBound",
+  "branch": "main",
+  "head": "85355bf3edda6d7859c83be6802f94a2cb4d0877",
+  "upstream": "origin/main",
+  "worktreeClean": true,
+  "canonicalRuntime": "index.html",
+  "applicationVersion": "5.3.8-release-validation",
+  "schemaVersion": 3,
+  "engineeringBible": {
+    "path": "Docs/FenceBound_Engineering_Bible_Edition_1.0.md",
+    "edition": "1.0",
+    "revision": "Frozen base; supplemented by 2026-07-17 Integrated Governance"
+  },
+  "systemAtlas": {
+    "path": "Docs/reference/FenceBound_System_Atlas_v0.1.docx",
+    "revision": "0.1 working draft"
+  },
+  "developmentIndex": "index.html#FenceboundCAD-Development-Index",
+  "projectInstructions": "PROJECT-INSTRUCTIONS.md",
+  "currentHandoff": "Docs/CURRENT_HANDOFF.md",
+  "lastCompletedTask": "Consolidated the 2026-08-01 session record and documented the cross-session inbox convention.",
+  "activeTask": "Design field data capture for actual material cost, labor hours, and installed quantity per job; no prompt has been issued.",
+  "nextOwnerDecision": "O-6: disposition of docs/repository-continuity-atlas-v538-sync remains undecided.",
+  "repositoryHeadAtGeneration": "85355bf3edda6d7859c83be6802f94a2cb4d0877",
+  "testedHead": "85355bf3edda6d7859c83be6802f94a2cb4d0877",
+  "closeoutConvention": "The current HEAD may be one direct documentation-only closeout child of head; see START_HERE.md.",
+  "gate": {
+    "status": "NOT_RUN",
+    "command": null,
+    "timestamp": null,
+    "head": null
+  },
+  "knownDrift": [
+    "The embedded Development Index in index.html identifies v5.3.4 and July 16, 2026 while runtime APP_VERSION is 5.3.8-release-validation.",
+    "System Atlas v0.1 is a working draft based on older sources; a v0.2 candidate exists only on the unresolved continuity branch.",
+    "The v5.3.9 Git tag intentionally points to a runtime whose in-app APP_VERSION remains 5.3.8-release-validation; rationale is recorded in the 2026-08-01 remediation handoff.",
+    "No repository-orientation document is authoritative on main; a candidate exists only on the unresolved continuity branch."
+  ],
+  "knownDefects": [
+    "Portable import is non-atomic if work after applyState throws.",
+    "Persistence matrix route 10 does not verify migrated-job pricing; unknown legacy types may produce incomplete or zero pricing.",
+    "ADDON_STATE validation is currently unreachable after hydration.",
+    "S.materials.qty persists as a string and relies on pricing-boundary coercion.",
+    "Pre-fix saved-job reference contamination cannot be distinguished from legitimate historical edits."
+  ]
+}

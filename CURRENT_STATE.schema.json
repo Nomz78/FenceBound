@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "CURRENT_STATE.schema.json",
+  "title": "FenceBound current repository state",
+  "type": "object",
+  "required": ["stateSchemaVersion", "project", "repository", "branch", "head", "canonicalRuntime", "applicationVersion", "schemaVersion", "currentHandoff", "gate", "knownDrift", "knownDefects"],
+  "properties": {
+    "stateSchemaVersion": { "const": 1 },
+    "project": { "const": "FenceBound" },
+    "repository": { "type": "string" },
+    "branch": { "type": "string" },
+    "head": { "type": ["string", "null"] },
+    "upstream": { "type": ["string", "null"] },
+    "worktreeClean": { "type": "boolean" },
+    "canonicalRuntime": { "type": "string" },
+    "applicationVersion": { "type": ["string", "null"] },
+    "schemaVersion": { "type": ["integer", "string", "null"] },
+    "gate": {
+      "type": "object",
+      "required": ["status", "command", "timestamp", "head"],
+      "properties": {
+        "status": { "enum": ["PASS", "FAIL", "NOT_RUN"] },
+        "command": { "type": ["string", "null"] },
+        "timestamp": { "type": ["string", "null"] },
+        "head": { "type": ["string", "null"] }
+      }
+    },
+    "knownDrift": { "type": "array", "items": { "type": "string" } },
+    "knownDefects": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

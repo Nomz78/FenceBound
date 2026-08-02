@@ -2,6 +2,10 @@
 
 This repository is the transferable source of truth for FenceBound. GPT and Claude must read this file, the Engineering Bible, and current status before relying on chat memory or external working copies.
 
+The operational session entrance is `START_HERE.md` and the read-only
+`npm run session:init` command. `Docs/CURRENT_HANDOFF.md` is the sole current
+handoff; dated handoffs remain reference only.
+
 ## Authority order
 
 1. `Docs/FenceBound_Engineering_Bible_Edition_1.0.md` is the canonical, frozen Edition 1.0 specification; its matching DOCX is a publication representation.
