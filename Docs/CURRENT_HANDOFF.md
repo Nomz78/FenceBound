@@ -1,18 +1,18 @@
 # FenceBound current handoff
 
 <!-- SESSION_METADATA
-generatedAt: 2026-08-02T00:58:31-04:00
+generatedAt: 2026-08-02T01:00:49-04:00
 repositoryRoot: ~/Developer/FenceBound
 branch: main
-testedHead: 85355bf3edda6d7859c83be6802f94a2cb4d0877
-repositoryHeadAtGeneration: 85355bf3edda6d7859c83be6802f94a2cb4d0877
+testedHead: b44adcec5e3ae40dbb6ae152ba48df34958f3df2
+repositoryHeadAtGeneration: b44adcec5e3ae40dbb6ae152ba48df34958f3df2
 upstream: origin/main
 worktreeClean: true
 canonicalRuntime: index.html
 applicationVersion: 5.3.8-release-validation
 schemaVersion: 3
-gateStatus: NOT_RUN
-gateHead: Not verified
+gateStatus: PASS
+gateHead: b44adcec5e3ae40dbb6ae152ba48df34958f3df2
 -->
 
 Generated: 2026-08-02 (America/New_York). This handoff uses the two-commit convention in [`START_HERE.md`](../START_HERE.md): its `testedHead` is the implementation/test authority; one direct allowlisted documentation-closeout child may be the actual Git HEAD.
@@ -21,8 +21,8 @@ Generated: 2026-08-02 (America/New_York). This handoff uses the two-commit conve
 
 - Repository: `~/Developer/FenceBound`
 - Branch/upstream: `main` / `origin/main`
-- Recorded implementation HEAD: `85355bf3edda6d7859c83be6802f94a2cb4d0877`
-- Initial upstream status: synchronized (`0` ahead, `0` behind from local refs; no fetch performed)
+- Recorded implementation/test HEAD: `b44adcec5e3ae40dbb6ae152ba48df34958f3df2`
+- Upstream status at generation: local `main` is `1` commit ahead of `origin/main` and `0` behind from local refs; no fetch performed
 - Initial worktree: clean
 - Canonical runtime/version/schema: `index.html` / `5.3.8-release-validation` / `3`
 - Engineering Bible: [`Docs/FenceBound_Engineering_Bible_Edition_1.0.md`](../Docs/FenceBound_Engineering_Bible_Edition_1.0.md), Edition 1.0 frozen base, supplemented by the 2026-07-17 Integrated Governance record
@@ -30,7 +30,7 @@ Generated: 2026-08-02 (America/New_York). This handoff uses the two-commit conve
 
 ## Last completed work and exact implementation state
 
-The August 1 sessions merged and tagged the persistence-integrity repairs, then consolidated the day handoff and added the cross-session inbox convention. Repository inspection confirms:
+This session added the repository front door, stable machine-readable state schema, current/archived handoff locations, documented start/close procedures, two-commit closeout convention, and read-only drift detector. The August 1 sessions merged and tagged the persistence-integrity repairs. Repository inspection confirms:
 
 - run-owned specifications and selected-run editing with separate new-run defaults;
 - gates attached to owning runs and per-run BOM behavior;
@@ -44,8 +44,10 @@ No CAD, pricing, geometry, BOM, validation, persistence, export, or product-test
 ## Verification and gate
 
 - Latest previously recorded product gate: full 17-test Playwright suite plus twelve-route matrix passed during the August 1 persistence work, before merge; exact results are in `Docs/execution/CAD_PERSISTENCE_REMEDIATION_HANDOFF_2026-08-01.md`.
-- Current infrastructure-task gate: **NOT RUN** at this draft boundary. It must be replaced with results against the infrastructure implementation commit before closeout.
-- Required gate: `npm run session:init`, `npm run test:phase-one`, and `git diff --check`. Run the complete suite only if focused verification reveals a product-behavior risk.
+- Current infrastructure-task gate: **PASS** on `b44adcec5e3ae40dbb6ae152ba48df34958f3df2` at `2026-08-02T01:00:49-04:00`.
+- Commands: `npm run test:phase-one` (9/9 passed in 43.4s), `node --check scripts/session-init.js`, JSON load/schema-version assertion, `npm run session:init`, and `git diff --check`.
+- Generated artifacts: ignored Playwright `test-results/` only; no tracked product or generated-document changes.
+- Required future gate: `npm run session:init`, `npm run test:phase-one`, and `git diff --check`. Use the complete suite for relevant product changes.
 
 ## Known defects
 
@@ -86,11 +88,11 @@ FENCEBOUND FRESH SESSION BOOTSTRAP
 
 Repository: ~/Developer/FenceBound
 Branch: main
-Verified HEAD: 85355bf3edda6d7859c83be6802f94a2cb4d0877
+Verified HEAD: b44adcec5e3ae40dbb6ae152ba48df34958f3df2
 Canonical runtime: index.html (5.3.8-release-validation)
 Schema: 3
 Authority: tested source/runtime → frozen Engineering Bible + supplements → System Atlas → Development Index → current handoff/state → history
-Last completed: August 1 persistence-integrity merge and consolidated handoff; repository session-initialization infrastructure is being verified.
+Last completed: Repository session-initialization and self-handoff infrastructure verified without product-runtime changes.
 Current verified state:
 
 Run-owned specifications, selected-run editing, separate new-run defaults, gate ownership, per-run BOM, schema-3 persistence/migration, Saved Jobs, portable JSON, autosave/boot restore, narrow undo/redo hydration, and release validation are present. Client exports warn rather than block on validation errors. Known documentation drift is recorded, not repaired silently.

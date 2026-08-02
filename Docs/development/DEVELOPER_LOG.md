@@ -105,3 +105,16 @@ Append one entry for every development session. Preserve prior entries.
 - **Debt introduced or reduced:** Reduced day-record fragmentation without changing runtime behavior.
 - **Decisions made:** The consolidated handoff is the current session entry point. Existing authority records remain unchanged.
 - **Next authorized task:** Use the consolidated handoff for subsequent session orientation.
+
+## 2026-08-02 — Repository session initialization and self-handoff
+
+- **Objective:** Make the repository the reliable, read-only entry point for future AI-assisted sessions without changing product behavior.
+- **Start commit:** `85355bf3edda6d7859c83be6802f94a2cb4d0877`
+- **Tested implementation commit:** `b44adcec5e3ae40dbb6ae152ba48df34958f3df2`; followed by the documentation-only closeout commit containing this entry.
+- **Files changed:** Added `START_HERE.md`, `PROJECT-INSTRUCTIONS.md`, `CURRENT_STATE.json` and its schema, `scripts/session-init.js`, `Docs/CURRENT_HANDOFF.md`, and `Docs/handoffs/`; redirected existing repository entry-point references and added the npm command.
+- **Tests performed:** `npm run test:phase-one` after the implementation commit; initializer syntax and state loading; read-only initialization output; Markdown path checks performed by the initializer; `git diff --check`.
+- **Results:** Phase One 9/9 passed in 43.4 seconds. Runtime remained `5.3.8-release-validation`, schema 3. Initialization detects Git/runtime/handoff/state/link/document drift and prints the fresh-session bootstrap.
+- **Defects discovered:** No new product defect. Documentation drift was made explicit: embedded v5.3.4 Development Index, older Atlas v0.1 baseline, intentional v5.3.9 tag/runtime-label mismatch, and unmerged continuity-branch orientation/Atlas candidates.
+- **Debt introduced or reduced:** Removed reliance on chat history and filename archaeology. The existing `Docs/` capitalization was retained because this checkout's case-insensitive filesystem cannot safely host a separate lowercase `docs/` tree.
+- **Decisions made:** Adopted a two-commit closeout: a tested implementation commit followed by one allowlisted documentation-only child. Initializer accepts only that exact relationship; anything further is drift.
+- **Next authorized task:** Field data capture design remains the active product task; O-6 continuity-branch disposition remains the sole open owner ruling.
