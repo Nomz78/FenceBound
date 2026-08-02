@@ -70,3 +70,14 @@ introduce explicit restore cloning with a red-before test.
 - Append to `Docs/development/DEVELOPER_LOG.md` every session.
 - Standalone handoff in `Docs/execution/` per the template.
 - Promote no release candidate. Owner decision only.
+- Files handed between sessions arrive at `~/Developer/_inbox`,
+  outside the repository and outside iCloud. Never stage a
+  handoff from Desktop, Downloads, or the Far-Out Fencing
+  workspace; those are iCloud-synced, may hold undownloaded
+  placeholders, and are flagged non-authoritative in
+  `SOURCE_OF_TRUTH.md`.
+- Verify every inbound file by SHA-256 and byte count before
+  copying it into the repository. Filename alone is not
+  identification.
+- Never generate artifacts inside the working tree. A stray
+  untracked file blocks the cleanliness gate.
