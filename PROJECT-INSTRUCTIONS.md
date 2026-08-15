@@ -1,5 +1,8 @@
 # FenceBound repository session instructions
 
+These are FenceBound-specific phases within the global `$initiate-repo` workflow. They do not
+replace `initiate repo` as the normal human-facing entrypoint.
+
 ## Session start
 
 1. Run `npm run session:init` from the repository root.
@@ -21,7 +24,7 @@ Do not reconstruct the project when initialization reports `READY`. `WARNING` pe
 - Keep generated artifacts outside the working tree unless a tracked artifact is an explicit deliverable.
 - Follow `CLAUDE.md`, `SOURCE_OF_TRUTH.md`, and applicable owner rulings.
 
-## Session close
+## Project-specific Zero-Drift closeout
 
 1. Complete only the authorized implementation.
 2. Run the authoritative gate appropriate to the changed subsystem and record command, timestamp, tested commit, outcome, artifacts, and final worktree.

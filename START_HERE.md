@@ -4,13 +4,13 @@ FenceBound is a contractor-focused CAD and estimating platform for turning fence
 
 ## Current repository identity
 
-- Canonical repository: `~/Developer/FenceBound` (filesystem path: `/Users/altairus78/developer/FenceBound`)
+- Canonical repository: `~/Desktop/FenceBound` (filesystem path: `/Users/altairus78/Desktop/FenceBound`)
 - Canonical branch: `main`
 - Canonical runtime: [`index.html`](index.html)
 - Application version: `5.3.8-release-validation`
 - Saved-state schema: `3`
 
-Run this read-only check before every session:
+The normal entrypoint is `initiate repo`. As its FenceBound-specific initiation check, run:
 
 ```bash
 npm run session:init
