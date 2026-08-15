@@ -118,3 +118,19 @@ Append one entry for every development session. Preserve prior entries.
 - **Debt introduced or reduced:** Removed reliance on chat history and filename archaeology. The existing `Docs/` capitalization was retained because this checkout's case-insensitive filesystem cannot safely host a separate lowercase `docs/` tree.
 - **Decisions made:** Adopted a two-commit closeout: a tested implementation commit followed by one allowlisted documentation-only child. Initializer accepts only that exact relationship; anything further is drift.
 - **Next authorized task:** Field data capture design remains the active product task; O-6 continuity-branch disposition remains the sole open owner ruling.
+
+## 2026-08-15 — Global Codex workflow integration
+
+- **Objective:** Adopt the global `initiate repo` operating workflow, migrate the canonical local
+  path to `~/Desktop/FenceBound`, and preserve FenceBound-specific authority and closeout rules.
+- **Tested implementation commit:** `9041c65a0854441a95ba277282b17d41fcf987d5`;
+  followed by this documentation-only closeout commit.
+- **Files changed:** Root workflow instructions and ignore policy, canonical-path references,
+  current state/handoff, this log, and the archived session handoff.
+- **Tests performed:** `npm run test:phase-one`, initializer syntax, state JSON/schema-version load,
+  read-only session initialization, and `git diff --check`.
+- **Results:** Phase One 9/9 passed. Runtime remains `5.3.8-release-validation`, schema 3. No product
+  source or behavior changed.
+- **Decisions made:** `initiate repo` is the normal entrypoint; FenceBound initialization,
+  authority, gates, and two-commit closeout remain repository-specific phases.
+- **Next authorized task:** Field data capture design remains active; O-6 remains unresolved.
