@@ -607,6 +607,7 @@ label{font-size:9px;color:var(--text2);letter-spacing:0.08em;display:block;margi
 </div>
 <div id="app-toast"></div>
 <input type="file" id="job-file-input" accept=".json,application/json" style="display:none"/>
+<input type="file" id="backup-file-input" accept=".json,.fbbackup.json,application/json" style="display:none"/>
 
 <script>
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
@@ -617,6 +618,7 @@ const GRID_FT=40, STORAGE_KEY='fencebound_v2_jobs', CORNER_THRESH=18;
 // Prevents quotes (e.g. customer name `John "Big J" Smith`, material `6" picket`)
 // from breaking the panel/drawer markup.
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const warningIcon=()=>'<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2.8 20h18.4z"/><path d="M12 9v5M12 17.5v.1"/></svg>';
 
 // ── TOAST + GLOBAL ERROR SURFACE ───────────────────────────────────────────
 // Failures were previously silent (console-only). Field use means no devtools
@@ -1209,10 +1211,13 @@ function readSavedCostDB(){
   try{
     const raw=localStorage.getItem(COSTDB_KEY);
     if(!raw)return{status:'missing'};
-    return{status:'loaded',data:JSON.parse(raw)};
+    const data=JSON.parse(raw);
+    if(!data||typeof data!=='object'||Array.isArray(data))return{status:'corrupt'};
+    return{status:'loaded',data};
   }catch(e){return{status:'corrupt'};}
 }
 function mergeSavedCostDB(o){
+  o=o&&typeof o==='object'?o:{};
   if(o.costs)COST_DB={...COST_DB,...normalizeImportedCosts(o.costs)};
   if(o.labor)LABOR={...LABOR,...o.labor,perLF:{...LABOR.perLF,...(o.labor.perLF||{})},gate:{...LABOR.gate,...(o.labor.gate||{})}};
   if(o.markup)MARKUP={...MARKUP,...o.markup};
@@ -2232,6 +2237,11 @@ function updateDrawers(){
           <button class="btn" id="do-export" style="flex:1;font-size:9px" title="Download this job as a portable .json file">⬇ Export .json</button>
           <button class="btn" id="do-import" style="flex:1;font-size:9px" title="Load a job from a .json file">⬆ Import .json</button>
         </div>
+        <div style="display:flex;gap:5px;margin-top:6px">
+          <button class="btn" id="do-backup" style="flex:1;font-size:9px" title="Download all saved jobs, your rate card, and company profile">Backup all</button>
+          <button class="btn" id="do-restore" style="flex:1;font-size:9px" title="Restore jobs, pricing, or profile from a Fencebound backup">Restore</button>
+        </div>
+        ${backupWarningHtml()}
         <div id="save-msg" style="margin-top:5px;font-size:10px;color:var(--green);text-align:center;min-height:14px">${S.saveMsg}</div>
       </div>
       <div style="flex:1;overflow:auto;padding:8px 14px">${jobsHtml}</div>`;
@@ -2250,6 +2260,8 @@ function updateDrawers(){
       showToast('Job file exported');
     });
     document.getElementById('do-import').addEventListener('click',()=>document.getElementById('job-file-input').click());
+    document.getElementById('do-backup').addEventListener('click',exportBackup);
+    document.getElementById('do-restore').addEventListener('click',()=>document.getElementById('backup-file-input').click());
     document.getElementById('do-save').addEventListener('click',()=>{
       const snap={...JSON.parse(JSON.stringify(snapshotState())),id:Date.now(),name:S.projectName,savedAt:new Date().toLocaleString()};
       S.savedJobs=[snap,...S.savedJobs.filter(j=>j.name!==S.projectName)];
@@ -2573,7 +2585,8 @@ function exportPDF(){
 // ── INIT ──────────────────────────────────────────────────────────────────
 function init(){
   // Load persisted cost DB / labor / markup FIRST (session restore may override per-job)
-  loadCostDB();
+  const rateCardStatus=loadCostDB();
+  if(rateCardStatus==='corrupt')showToast('Saved rate card is corrupt',true);
   // Load saved jobs
   try{const r=localStorage.getItem(STORAGE_KEY);if(r)S.savedJobs=JSON.parse(r);}catch(e){}
 
@@ -2755,6 +2768,9 @@ function init(){
     };
     rd.onerror=()=>{showToast('Could not read file',true);e.target.value='';};
     rd.readAsText(f);
+  });
+  document.getElementById('backup-file-input').addEventListener('change',e=>{
+    const f=e.target.files&&e.target.files[0];e.target.value='';if(f)handleBackupFile(f);
   });
   document.getElementById('btn-jobinfo').addEventListener('click',()=>{S.showJobInfo=!S.showJobInfo;S.showJobs=false;document.getElementById('btn-jobinfo').classList.toggle('active',S.showJobInfo);updateDrawers();});
   document.getElementById('btn-jobs').addEventListener('click',()=>{S.showJobs=!S.showJobs;S.showJobInfo=false;document.getElementById('btn-jobs').classList.toggle('active',S.showJobs);updateDrawers();});
@@ -3258,6 +3274,142 @@ function updatePricing(){
   }
 
   return P;
+}
+
+// ── FULL BACKUP / RESTORE ───────────────────────────────────────────────────
+const BACKUP_KEY='fencebound_lastbackup_v1';
+const BACKUP_FORMAT=1;
+const BACKUP_STALE_DAYS=14;
+
+function getLastBackup(){
+  try{const v=parseInt(localStorage.getItem(BACKUP_KEY),10);return Number.isFinite(v)?v:0;}catch(e){return 0;}
+}
+function setLastBackup(ts){
+  try{localStorage.setItem(BACKUP_KEY,String(ts));}catch(e){}
+}
+function backupAgeDays(){
+  const last=getLastBackup();
+  return last?(Date.now()-last)/86400000:Infinity;
+}
+function backupWarningHtml(){
+  if(!S.savedJobs.length)return '';
+  const age=backupAgeDays();
+  if(age<BACKUP_STALE_DAYS)return '';
+  const msg=age===Infinity
+    ?`${S.savedJobs.length} job${S.savedJobs.length===1?'':'s'} saved on this device only — never backed up.`
+    :`Last backup was ${Math.floor(age)} days ago.`;
+  return `<div style="margin-top:6px;padding:6px 8px;border-radius:var(--radius-sm);background:var(--accent-dim);border:1px solid var(--accent-mid);font-size:9px;color:var(--accent);line-height:1.5">${warningIcon()} ${msg} Clearing browser data would erase them.</div>`;
+}
+
+function exportBackup(){
+  const saved=readSavedCostDB();
+  const pricing=saved.status==='loaded'?saved.data:null;
+  const payload={
+    format:BACKUP_FORMAT,app:'FenceboundCAD',appVersion:APP_VERSION,
+    exportedAt:new Date().toISOString(),jobs:S.savedJobs||[],
+    pricing,pricingIncluded:!!pricing,company:COMPANY
+  };
+  try{
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=`${companySlug()}_Fencebound_Backup_${new Date().toISOString().slice(0,10)}.fbbackup.json`;
+    a.click();URL.revokeObjectURL(a.href);
+    setLastBackup(Date.now());updateDrawers();
+    showToast(`Backed up ${payload.jobs.length} job${payload.jobs.length===1?'':'s'} + ${pricing?'prices + ':''}profile${pricing?'':' (no saved rate card found)'}`);
+  }catch(err){showToast('Backup failed — '+err.message,true);}
+}
+
+function openRestoreDialog(payload){
+  const incomingJobs=Array.isArray(payload.jobs)?payload.jobs:[];
+  const hasPricing=!!(payload.pricing&&payload.pricing.costs);
+  const hasCompany=!!(payload.company&&payload.company.name);
+  const existing=S.savedJobs||[];
+  const existingNames=new Set(existing.map(j=>j.name));
+  const overlap=incomingJobs.filter(j=>existingNames.has(j.name)).length;
+  const state={mode:'merge',doJobs:incomingJobs.length>0,doPricing:hasPricing,doCompany:hasCompany};
+  let ov=document.getElementById('restore-dialog');
+  if(!ov){
+    ov=document.createElement('div');ov.id='restore-dialog';
+    ov.style.cssText='position:fixed;inset:0;z-index:330;background:rgba(13,24,39,0.94);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:14px';
+    document.body.appendChild(ov);
+  }
+  const when=payload.exportedAt?new Date(payload.exportedAt).toLocaleString():'unknown date';
+  ov.innerHTML=`<style>
+    #restore-dialog .rs-card{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);width:100%;max-width:480px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.5)}
+    #restore-dialog h3{font-size:12px;letter-spacing:.08em;color:var(--accent);margin:0;padding:14px 16px;border-bottom:1px solid var(--border)}
+    #restore-dialog .rs-body{overflow-y:auto;padding:12px 16px}.rs-sec{font-size:10px;letter-spacing:.06em;color:var(--text2);font-weight:700;margin:14px 0 6px;text-transform:uppercase}
+    #restore-dialog .rs-row{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:11px;color:var(--text2)}#restore-dialog .rs-row label{flex:1}
+    #restore-dialog .rs-note{font-size:9px;color:var(--text3);line-height:1.5;margin-top:4px}#restore-dialog .rs-chip{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:5px 10px;font-size:10px;color:var(--text2);cursor:pointer}
+    #restore-dialog .rs-chip.active{background:var(--accent-dim);border-color:var(--accent-mid);color:var(--accent)}#restore-dialog .rs-warn{color:var(--red)}#restore-dialog .rs-foot{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border)}
+  </style><div class="rs-card"><h3>RESTORE FROM BACKUP</h3><div class="rs-body">
+    <div class="rs-note">Backup made ${esc(when)}${payload.appVersion?` by v${esc(String(payload.appVersion))}`:''}.</div>
+    <div class="rs-sec">What to restore</div>
+    <div class="rs-row"><label>Saved jobs <span style="color:var(--text3)">(${incomingJobs.length} in file)</span></label><input type="checkbox" id="rs-jobs" ${state.doJobs?'checked':''} ${incomingJobs.length?'':'disabled'}/></div>
+    <div class="rs-row"><label>Cost database &amp; margins</label><input type="checkbox" id="rs-pricing" ${state.doPricing?'checked':''} ${hasPricing?'':'disabled'}/></div>
+    <div class="rs-row"><label>Company profile${hasCompany?` <span style="color:var(--text3)">(${esc(payload.company.name)})</span>`:''}</label><input type="checkbox" id="rs-company" ${state.doCompany?'checked':''} ${hasCompany?'':'disabled'}/></div>
+    <div class="rs-sec">How to handle jobs</div><div class="rs-row" style="gap:6px"><span class="rs-chip active" data-mode="merge">Merge</span><span class="rs-chip" data-mode="replace">Replace all</span></div>
+    <div id="rs-explain" class="rs-note"></div></div><div class="rs-foot"><span style="flex:1"></span><button class="btn" id="rs-cancel" style="font-size:10px">Cancel</button><button class="btn accent" id="rs-apply" style="font-size:10px">Restore</button></div></div>`;
+  ov.style.display='flex';const close=()=>{ov.style.display='none';};
+  function refresh(){
+    ov.querySelectorAll('[data-mode]').forEach(c=>c.classList.toggle('active',c.dataset.mode===state.mode));
+    const ex=ov.querySelector('#rs-explain');
+    if(!state.doJobs){ex.innerHTML='Jobs will not be touched.';return;}
+    ex.innerHTML=state.mode==='merge'
+      ?`Keeps the ${existing.length} job${existing.length===1?'':'s'} already on this device and adds the ${incomingJobs.length} from the file.${overlap?` <span class="rs-warn">${overlap} share a name — the backup copy wins.</span>`:''}`
+      :`<span class="rs-warn">Deletes all ${existing.length} job${existing.length===1?'':'s'} on this device</span> and replaces them with the ${incomingJobs.length} from the file.`;
+  }
+  ov.querySelectorAll('[data-mode]').forEach(c=>{c.onclick=()=>{state.mode=c.dataset.mode;refresh();};});
+  ov.querySelector('#rs-jobs').onchange=e=>{state.doJobs=e.target.checked;refresh();};
+  ov.querySelector('#rs-pricing').onchange=e=>{state.doPricing=e.target.checked;};
+  ov.querySelector('#rs-company').onchange=e=>{state.doCompany=e.target.checked;};
+  ov.querySelector('#rs-cancel').onclick=close;ov.onclick=e=>{if(e.target===ov)close();};
+  ov.querySelector('#rs-apply').onclick=()=>{
+    if(!state.doJobs&&!state.doPricing&&!state.doCompany){showToast('Nothing selected',true);return;}
+    if(state.doJobs&&state.mode==='replace'&&existing.length&&!confirm(`Delete all ${existing.length} job(s) on this device and replace with ${incomingJobs.length} from the backup?\n\nThis cannot be undone.`))return;
+    if(state.doPricing&&_pricingFromLoadedProject&&!confirm('These displayed prices came from the loaded project. Restoring will replace your company rate card. Continue?'))return;
+    const done=[];
+    if(state.doJobs){
+      if(state.mode==='replace')S.savedJobs=incomingJobs.slice();
+      else{const incomingNames=new Set(incomingJobs.map(j=>j.name));S.savedJobs=[...incomingJobs,...existing.filter(j=>!incomingNames.has(j.name))];}
+      try{localStorage.setItem(STORAGE_KEY,JSON.stringify(S.savedJobs));}
+      catch(err){S.savedJobs=existing;showToast('Jobs could not be restored — storage full or blocked',true);return;}
+      done.push(`${incomingJobs.length} job${incomingJobs.length===1?'':'s'}`);
+    }
+    if(state.doPricing&&payload.pricing){
+      const priorPricing={costs:JSON.parse(JSON.stringify(COST_DB)),labor:JSON.parse(JSON.stringify(LABOR)),markup:JSON.parse(JSON.stringify(MARKUP))};
+      const savedRateCard=readSavedCostDB();
+      COST_DB=JSON.parse(JSON.stringify(DEFAULT_COST_DB));LABOR=JSON.parse(JSON.stringify(DEFAULT_LABOR));MARKUP=JSON.parse(JSON.stringify(DEFAULT_MARKUP));
+      if(savedRateCard.status==='loaded')mergeSavedCostDB(savedRateCard.data);
+      mergeSavedCostDB(payload.pricing);
+      const priorPricingProvenance=_pricingFromLoadedProject;_pricingFromLoadedProject=false;
+      if(!saveCostDB()){
+        COST_DB=priorPricing.costs;LABOR=priorPricing.labor;MARKUP=priorPricing.markup;_pricingFromLoadedProject=priorPricingProvenance;
+        showToast(`Prices could not be restored — storage full or blocked${done.length?`; ${done.join(' + ')} restored`:''}`,true);return;
+      }
+      done.push('prices');
+    }
+    if(state.doCompany&&payload.company){
+      const priorCompany=COMPANY;COMPANY={...DEFAULT_COMPANY,...payload.company};
+      if(!saveCompany()){COMPANY=priorCompany;showToast(`Profile could not be restored — storage full or blocked${done.length?`; ${done.join(' + ')} restored`:''}`,true);return;}
+      done.push('profile');
+    }
+    close();updateDrawers();updatePricing();showToast('Restored '+done.join(' + '));
+  };
+  refresh();
+}
+
+function handleBackupFile(file){
+  const rd=new FileReader();rd.onerror=()=>showToast('Could not read that file',true);
+  rd.onload=()=>{
+    let payload;try{payload=JSON.parse(String(rd.result||''));}catch(err){showToast('Not a valid backup file',true);return;}
+    if(!payload||typeof payload!=='object'){showToast('Not a valid backup file',true);return;}
+    if(payload.elements&&!payload.jobs){showToast('That is a single job file — use Import .json instead',true);return;}
+    if(!Array.isArray(payload.jobs)&&!payload.pricing&&!payload.company){showToast('No jobs, prices or profile found in that file',true);return;}
+    if(payload.format&&payload.format>BACKUP_FORMAT&&!confirm('This backup was made by a newer version of FenceboundCAD. Some data may not load correctly.\n\nContinue?'))return;
+    openRestoreDialog(payload);
+  };
+  rd.readAsText(file);
 }
 
 // ── COST & MARGIN EDITOR ────────────────────────────────────────────────────
