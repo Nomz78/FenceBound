@@ -589,11 +589,12 @@ label{font-size:9px;color:var(--text2);letter-spacing:0.08em;display:block;margi
           <div id="price-totals" style="font-size:10px;line-height:1.8"></div>
         </div>
         <div class="psec">
-          <button class="btn" id="btn-cost-editor" style="width:100%;padding:7px;font-size:10px;margin-bottom:6px">⚙ Edit Costs & Margin</button>
-          <button class="btn accent" id="btn-gen-estimate" style="width:100%;padding:8px;font-size:11px;letter-spacing:0.08em">📄 GENERATE ESTIMATE PDF</button>
+          <button class="btn" id="btn-company-profile" style="width:100%;padding:7px;font-size:10px;margin-bottom:6px">Company Profile</button>
+          <button class="btn" id="btn-cost-editor" style="width:100%;padding:7px;font-size:10px;margin-bottom:6px">Edit Costs & Margin</button>
+          <button class="btn accent" id="btn-gen-estimate" style="width:100%;padding:8px;font-size:11px;letter-spacing:0.08em">GENERATE ESTIMATE PDF</button>
           <button class="btn" id="btn-validate-job" style="width:100%;padding:7px;font-size:10px;margin-top:6px">✓ VALIDATE JOB</button>
           <div id="validation-status" style="font-size:9px;color:var(--text3);margin-top:6px;line-height:1.5">Validation has not run.</div>
-          <div style="font-size:9px;color:var(--text3);margin-top:6px;line-height:1.5">Outputs Far-Out Fencing Co. branded estimate with scope, pricing, and terms. Requires job info (📋).</div>
+          <div style="font-size:9px;color:var(--text3);margin-top:6px;line-height:1.5">Outputs your branded estimate with scope, pricing, and terms. Requires job and company information.</div>
         </div>
       </div>
 
@@ -2587,6 +2588,7 @@ function init(){
   // Load persisted cost DB / labor / markup FIRST (session restore may override per-job)
   const rateCardStatus=loadCostDB();
   if(rateCardStatus==='corrupt')showToast('Saved rate card is corrupt',true);
+  loadCompany();
   // Load saved jobs
   try{const r=localStorage.getItem(STORAGE_KEY);if(r)S.savedJobs=JSON.parse(r);}catch(e){}
 
@@ -2740,6 +2742,7 @@ function init(){
   document.getElementById('btn-gen-estimate').addEventListener('click',exportEstimatePDF);
   document.getElementById('btn-validate-job').addEventListener('click',runValidationReport);
   const _ce=document.getElementById('btn-cost-editor');if(_ce)_ce.addEventListener('click',openCostEditor);
+  const _cp=document.getElementById('btn-company-profile');if(_cp)_cp.addEventListener('click',openCompanyEditor);
   const _crl=document.getElementById('crew-rate-lbl');if(_crl)_crl.textContent=LABOR.crewHourlyRate;
 
   // Header buttons
@@ -3276,6 +3279,47 @@ function updatePricing(){
   return P;
 }
 
+// ── COMPANY PROFILE ─────────────────────────────────────────────────────────
+const COMPANY_KEY='fencebound_company_v1';
+const TERMS_GUIDANCE=[
+  'Estimate Validity: Valid for {VALIDITY} days from {DATE}. Pricing subject to change after expiration.',
+  'Payment: {DEPOSIT}% deposit due prior to material order. Balance due upon project completion.',
+  'Scope: Work limited to items listed above. Changes require written change order.',
+  'Permits: Client is responsible for all required permits. Work will not begin until confirmed.',
+  'Site Access: Client confirms 811 utility locate completed or not required.',
+  'Warranty: 1-year workmanship warranty on labor. Materials covered by manufacturer.',
+  'Cancellation: Deposit non-refundable if materials ordered. Cancellation must be in writing.',
+  'Existing Conditions: Unforeseen site conditions may require revised estimate.'
+].join('\n');
+const DEFAULT_TERMS='';
+const DEFAULT_COMPANY={name:'',tagline:'RESIDENTIAL & COMMERCIAL FENCE INSTALLATION',phone:'',email:'',location:'',license:'',accent:'#E87722',depositPct:50,validityDays:7,terms:DEFAULT_TERMS};
+let COMPANY={...DEFAULT_COMPANY};
+function loadCompany(){try{const r=localStorage.getItem(COMPANY_KEY);if(r)COMPANY={...DEFAULT_COMPANY,...JSON.parse(r)};}catch(e){}}
+function saveCompany(){try{localStorage.setItem(COMPANY_KEY,JSON.stringify(COMPANY));return true;}catch(e){return false;}}
+function companyConfigured(){return !!String(COMPANY.name||'').trim();}
+function companyDisplayName(){return String(COMPANY.name||'').trim()||'YOUR COMPANY NAME';}
+function companySlug(){return String(COMPANY.name||'').replace(/[^a-z0-9]/gi,'')||'Fencebound';}
+function hexToRgb(hex){const m=/^#?([0-9a-f]{6})$/i.exec(String(hex||'').trim());if(!m)return[232,119,34];const n=parseInt(m[1],16);return[(n>>16)&255,(n>>8)&255,n&255];}
+function companyContactLine(parts){return parts.filter(p=>String(p||'').trim()).join('  |  ');}
+function openCompanyEditor(){
+  let ov=document.getElementById('company-editor');if(!ov){ov=document.createElement('div');ov.id='company-editor';ov.style.cssText='position:fixed;inset:0;z-index:310;background:rgba(13,24,39,0.92);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:14px';document.body.appendChild(ov);}
+  ov.innerHTML=`<style>
+    #company-editor .co-card{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);width:100%;max-width:560px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.5)}#company-editor h3{font-size:12px;letter-spacing:.08em;color:var(--accent);margin:0;padding:14px 16px;border-bottom:1px solid var(--border)}#company-editor .co-body{overflow-y:auto;padding:12px 16px}
+    #company-editor .co-sec{font-size:10px;letter-spacing:.06em;color:var(--text2);font-weight:700;margin:14px 0 6px;text-transform:uppercase}#company-editor .co-row{display:flex;align-items:center;gap:8px;padding:4px 0}#company-editor .co-row label{flex:1;font-size:11px;color:var(--text2)}#company-editor input[type=text],#company-editor input[type=number]{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:6px 8px;color:var(--text1);font-family:var(--font);font-size:11px;outline:none;width:58%}
+    #company-editor input[type=color]{background:none;border:1px solid var(--border2);border-radius:var(--radius-sm);width:44px;height:28px;padding:2px}#company-editor textarea{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px;color:var(--text1);font-family:var(--font);font-size:10px;line-height:1.6;width:100%;height:150px;resize:vertical;outline:none}#company-editor .co-note{font-size:9px;color:var(--text3);line-height:1.5;margin-top:4px}#company-editor .co-foot{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border)}
+  </style><div class="co-card"><h3>COMPANY PROFILE — your letterhead</h3><div class="co-body"><div class="co-note">These fields stay on this device and are never written into saved or exported job files.</div><div class="co-sec">Identity</div>
+    <div class="co-row"><label>Company name</label><input type="text" id="co-name" value="${esc(COMPANY.name)}"/></div><div class="co-row"><label>Tagline</label><input type="text" id="co-tagline" value="${esc(COMPANY.tagline)}"/></div><div class="co-row"><label>Phone</label><input type="text" id="co-phone" value="${esc(COMPANY.phone)}"/></div><div class="co-row"><label>Email</label><input type="text" id="co-email" value="${esc(COMPANY.email)}"/></div><div class="co-row"><label>City, State</label><input type="text" id="co-location" value="${esc(COMPANY.location)}"/></div><div class="co-row"><label>License # (optional)</label><input type="text" id="co-license" value="${esc(COMPANY.license)}"/></div><div class="co-row"><label>Accent colour</label><input type="color" id="co-accent" value="${esc(COMPANY.accent)}"/></div>
+    <div class="co-sec">Estimate defaults</div><div class="co-row"><label>Deposit required</label><input type="number" id="co-deposit" value="${COMPANY.depositPct}" min="0" max="100" step="5"/><span>%</span></div><div class="co-row"><label>Estimate valid for</label><input type="number" id="co-validity" value="${COMPANY.validityDays}" min="1" max="365"/><span>days</span></div>
+    <div class="co-sec">Terms &amp; conditions</div><div class="co-note">One term per line. {DEPOSIT}, {VALIDITY}, and {DATE} are filled automatically.</div><textarea id="co-terms" placeholder="${esc(TERMS_GUIDANCE)}">${esc(COMPANY.terms)}</textarea></div>
+    <div class="co-foot"><button class="btn" id="co-reset">Reset terms</button><span style="flex:1"></span><button class="btn" id="co-cancel">Cancel</button><button class="btn accent" id="co-save">Save</button></div></div>`;
+  ov.style.display='flex';const close=()=>{ov.style.display='none';};ov.querySelector('#co-cancel').onclick=close;ov.onclick=e=>{if(e.target===ov)close();};ov.querySelector('#co-reset').onclick=()=>{ov.querySelector('#co-terms').value=TERMS_GUIDANCE;};
+  ov.querySelector('#co-save').onclick=()=>{
+    const val=id=>String(ov.querySelector(id).value||'').trim(),num=(id,def,lo,hi)=>{const v=parseFloat(ov.querySelector(id).value);return Number.isFinite(v)?Math.max(lo,Math.min(hi,v)):def;};
+    COMPANY={...COMPANY,name:val('#co-name'),tagline:val('#co-tagline'),phone:val('#co-phone'),email:val('#co-email'),location:val('#co-location'),license:val('#co-license'),accent:val('#co-accent')||DEFAULT_COMPANY.accent,depositPct:num('#co-deposit',50,0,100),validityDays:num('#co-validity',7,1,365),terms:String(ov.querySelector('#co-terms').value||'').trim()};
+    if(!saveCompany()){showToast('Company profile could not be saved — storage full or blocked',true);return;}close();updatePricing();showToast(companyConfigured()?`Saved — estimates now brand as ${COMPANY.name}`:'Company profile saved');
+  };
+}
+
 // ── FULL BACKUP / RESTORE ───────────────────────────────────────────────────
 const BACKUP_KEY='fencebound_lastbackup_v1';
 const BACKUP_FORMAT=1;
@@ -3607,7 +3651,7 @@ function openCostEditor(){
     const a=document.createElement('a');
     const url=URL.createObjectURL(blob);
     a.href=url;
-    a.download='FarOut_prices.fbprices.json';
+    a.download=companySlug()+'_prices.fbprices.json';
     a.click();
     setTimeout(()=>URL.revokeObjectURL(url),0);
   };
@@ -3656,6 +3700,7 @@ function validateProject(options={}){
     if(!String(S.projectName||'').trim()||S.projectName==='Untitled Job')err('PROJECT_NAME','Enter a project name before issuing an estimate.');
     if(!String(S.jobCustomer||'').trim())err('CUSTOMER_NAME','Enter the customer name before issuing an estimate.');
     if(!String(S.jobAddress||'').trim())err('JOB_ADDRESS','Enter the job address before issuing an estimate.');
+    if(!companyConfigured())err('COMPANY_PROFILE','Set your company profile before issuing an estimate.');
   }
 
   const seenRunIds=new Set();
@@ -3765,6 +3810,7 @@ function projectExportWarning(validation){
     PROJECT_NAME:'The project name is missing.',
     CUSTOMER_NAME:'The customer name is missing.',
     JOB_ADDRESS:'The property address is missing.',
+    COMPANY_PROFILE:'The contractor company profile is missing.',
     RUN_ID_MISSING:'A fence section could not be verified.',
     RUN_ID_DUPLICATE:'Two fence sections could not be distinguished from each other.',
     FENCE_TYPE:'A fence section has an unrecognized fence style.',
@@ -3802,13 +3848,14 @@ function drawPdfValidationWarning(doc,validation,x,y,width){
   return height;
 }
 
-// ── ESTIMATE PDF (Far-Out Fencing Co. branded) ────────────────────────────
+// ── ESTIMATE PDF (company-profile branded) ─────────────────────────────────
 function exportEstimatePDF(){
   const validation=validateProject();
   renderValidationStatus(validation);
   if(!validation.ok)showValidationReport(validation);
   if(!window.jspdf){alert('PDF library not loaded. Check internet connection.');return;}
   const{jsPDF}=window.jspdf;
+  const ACC=hexToRgb(COMPANY.accent);
   const pricingUnavailable=validation.errors.some(item=>item.code==='PRICING_RUNTIME');
   let stats,P;
   try{stats=pricingUnavailable?emptyExportStats():getStats();}catch(e){stats=emptyExportStats();}
@@ -3831,29 +3878,29 @@ function exportEstimatePDF(){
 
   // ── HEADER ──
   doc.setFillColor(28,28,28);doc.rect(0,0,PW,22,'F');
-  doc.setFillColor(232,119,34);doc.rect(0,22,PW,1.5,'F');
+  doc.setFillColor(...ACC);doc.rect(0,22,PW,1.5,'F');
   doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(255,255,255);
-  doc.text('FAR-OUT FENCING CO.',ML,13);
+  doc.text(companyDisplayName().toUpperCase(),ML,13);
   doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(160,160,160);
-  doc.text('RESIDENTIAL & COMMERCIAL FENCE INSTALLATION',ML,18);
+  doc.text(String(COMPANY.tagline||'').toUpperCase(),ML,18);
   doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(160,160,160);
-  doc.text('704-420-5603  |  faroutfencing@yahoo.com',PW-MR,18,{align:'right'});
+  doc.text(companyContactLine([COMPANY.phone,COMPANY.email]),PW-MR,18,{align:'right'});
   y=30;
   if(!validation.ok)y+=drawPdfValidationWarning(doc,validation,ML,y,PW-ML-MR)+5;
 
   // ── ESTIMATE LABEL ──
-  doc.setFont('helvetica','bold');doc.setFontSize(20);doc.setTextColor(232,119,34);
+  doc.setFont('helvetica','bold');doc.setFontSize(20);doc.setTextColor(...ACC);
   doc.text(quickReference?'QUICK REFERENCE':'ESTIMATE',PW-MR,y+6,{align:'right'});
 
   // ── BILL TO / PROJECT ──
-  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(232,119,34);
+  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(...ACC);
   doc.text('BILL TO',ML,y);
   doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(28,28,28);
   y+=5;
   doc.text(S.jobCustomer||'_______________________________',ML,y);y+=5;
   doc.text(S.jobAddress||'_______________________________',ML,y);y+=5;
   const estDate=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-  const expDate=new Date(Date.now()+7*86400000).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  const expDate=new Date(Date.now()+COMPANY.validityDays*86400000).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
   doc.setFontSize(8);doc.setTextColor(100,100,100);
   doc.text(`Date: ${estDate}`,PW-MR,y-5,{align:'right'});
   doc.text(`Valid Until: ${expDate}`,PW-MR,y,{align:'right'});
@@ -3861,7 +3908,7 @@ function exportEstimatePDF(){
   y+=10;
 
   // Orange rule
-  doc.setDrawColor(232,119,34);doc.setLineWidth(0.6);doc.line(ML,y,PW-MR,y);y+=6;
+  doc.setDrawColor(...ACC);doc.setLineWidth(0.6);doc.line(ML,y,PW-MR,y);y+=6;
 
   // ── LINE ITEMS TABLE ──
   const colW=[18,90,30,30,32];// qty, desc, unit price, amount
@@ -3941,14 +3988,14 @@ function exportEstimatePDF(){
 
   // Grand total row
   doc.setFillColor(28,28,28);doc.rect(ML,y,tableW,9,'F');
-  doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(232,119,34);
+  doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(...ACC);
   doc.text('ESTIMATE TOTAL',ML+4,y+6);
   doc.text(P.pricingUnavailable?'NOT CALCULATED':`$${P.clientTotal.toFixed(0)}`,PW-MR-2,y+6,{align:'right'});
   y+=14;
 
   // Deposit line
   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(100,100,100);
-  doc.text(P.pricingUnavailable?'50% Deposit: NOT CALCULATED':`50% Deposit Due at Signing: $${(P.clientTotal*0.5).toFixed(0)}`,PW-MR-2,y,{align:'right'});
+  doc.text(P.pricingUnavailable?`${COMPANY.depositPct}% Deposit: NOT CALCULATED`:`${COMPANY.depositPct}% Deposit Due at Signing: $${(P.clientTotal*(COMPANY.depositPct/100)).toFixed(0)}`,PW-MR-2,y,{align:'right'});
   y+=5;
   if(P.unknown&&P.unknown.length){
     doc.setFontSize(7.5);doc.setTextColor(200,80,40);
@@ -3957,33 +4004,29 @@ function exportEstimatePDF(){
   }
   y+=5;
 
-  // Page-overflow guard — long jobs with many fence types can push the
-  // terms/acceptance block off the page; start a fresh page if tight
-  if(y>PH-95){doc.addPage();y=MT;}
-
   // ── TERMS ──
-  doc.setDrawColor(232,119,34);doc.setLineWidth(0.4);doc.line(ML,y,PW-MR,y);y+=5;
-  doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(232,119,34);doc.text('TERMS & CONDITIONS',ML,y);y+=4;
-  doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(80,80,80);
-  const terms=[
-    `Estimate Validity: Valid for 7 days from ${estDate}. Pricing subject to change after expiration.`,
-    'Payment: 50% deposit due prior to material order. Balance due upon project completion.',
-    'Scope: Work limited to items listed above. Changes require written change order.',
-    'Permits: Client is responsible for all required permits. Work will not begin until confirmed.',
-    'Site Access: Client confirms 811 utility locate completed or not required.',
-    'Warranty: 1-year workmanship warranty on labor. Materials covered by manufacturer.',
-    'Cancellation: Deposit non-refundable if materials ordered. Cancellation must be in writing.',
-    'Existing Conditions: Unforeseen site conditions may require revised estimate.'
-  ];
-  terms.forEach(t=>{
-    const lines=doc.splitTextToSize(t,PW-ML-MR);
-    doc.text(lines,ML,y);y+=lines.length*3.8+1;
-  });
+  const terms=String(COMPANY.terms||'').split(/\r?\n/).filter(Boolean).map(t=>t
+    .replaceAll('{DEPOSIT}',String(COMPANY.depositPct))
+    .replaceAll('{VALIDITY}',String(COMPANY.validityDays))
+    .replaceAll('{DATE}',estDate));
+  if(terms.length){
+    // Long jobs can push the terms/acceptance block off the page.
+    if(y>PH-95){doc.addPage();y=MT;}
+    doc.setDrawColor(...ACC);doc.setLineWidth(0.4);doc.line(ML,y,PW-MR,y);y+=5;
+    doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(...ACC);doc.text('TERMS & CONDITIONS',ML,y);y+=4;
+    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(80,80,80);
+    terms.forEach(t=>{
+      const lines=doc.splitTextToSize(t,PW-ML-MR);
+      lines.forEach(line=>{if(y+3.8>PH-20){doc.addPage();y=MT;}doc.text(line,ML,y);y+=3.8;});
+      y+=1;
+    });
+  }
 
   // ── ACCEPTANCE ──
+  if(y>PH-45){doc.addPage();y=MT;}
   y+=4;
   doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);doc.line(ML,y,PW-MR,y);y+=5;
-  doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(232,119,34);doc.text('ACCEPTANCE',ML,y);y+=5;
+  doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(...ACC);doc.text('ACCEPTANCE',ML,y);y+=5;
   doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(100,100,100);
   doc.text('By signing below, client agrees to the scope and terms outlined in this estimate.',ML,y);y+=8;
   // Sig lines
@@ -3996,10 +4039,10 @@ function exportEstimatePDF(){
 
   // ── FOOTER ──
   doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(160,160,160);
-  doc.text('Far-Out Fencing Co.  |  704-420-5603  |  faroutfencing@yahoo.com  |  Albemarle, NC',PW/2,PH-8,{align:'center'});
+  doc.text(companyContactLine([COMPANY.name,COMPANY.phone,COMPANY.email,COMPANY.location,COMPANY.license?'Lic. '+COMPANY.license:'']),PW/2,PH-8,{align:'center'});
 
   const safeName=(S.jobCustomer||S.projectName).replace(/[^a-z0-9]/gi,'_');
-  doc.save(`FarOut_Estimate_${safeName}_${estDate.replace(/,?\s/g,'')}.pdf`);
+  doc.save(`${companySlug()}_Estimate_${safeName}_${estDate.replace(/,?\s/g,'')}.pdf`);
 }
 
 // ── BOOT ──────────────────────────────────────────────────────────────────

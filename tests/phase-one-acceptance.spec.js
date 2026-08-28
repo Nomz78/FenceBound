@@ -78,6 +78,7 @@ async function selectElement(page, startX, y, feet) {
 
 async function createFixture(page, { gates = true } = {}) {
   await cleanOpen(page);
+  await state(page, `(()=>{COMPANY={...DEFAULT_COMPANY,name:'FenceBound Test Company',phone:'704-555-0100'};saveCompany();return null;})()`);
   await setMetadata(page);
   for (let i = 0; i < 10; i++) await page.locator('#btn-zoom-out').click();
   const runs = [
@@ -214,7 +215,7 @@ test('4 BOM ownership/isolation and quantity evidence', async ({ page }) => {
 test('5 validation failures and warnings expose issue codes', async ({ page }) => {
   await cleanOpen(page);
   let result = await state(page, 'validateProject()');
-  expect(result.errors.map(e => e.code)).toEqual(expect.arrayContaining(['NO_FENCE_RUNS', 'PROJECT_NAME', 'CUSTOMER_NAME', 'JOB_ADDRESS']));
+  expect(result.errors.map(e => e.code)).toEqual(expect.arrayContaining(['NO_FENCE_RUNS', 'PROJECT_NAME', 'CUSTOMER_NAME', 'JOB_ADDRESS', 'COMPANY_PROFILE']));
   await setMetadata(page);
   result = await state(page, 'validateProject()');
   expect(result.errors.map(e => e.code)).toContain('NO_FENCE_RUNS');
