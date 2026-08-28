@@ -3412,6 +3412,94 @@ function handleBackupFile(file){
   rd.readAsText(file);
 }
 
+// ── CSV PRICE IMPORT ────────────────────────────────────────────────────────
+const CSV_UNITS=new Set(['lf','ea','bag','coil','hr','job']);
+const UNIT_ALIASES={
+  lf:'lf',ft:'lf',feet:'lf',foot:'lf','lin ft':'lf','linear ft':'lf','linear foot':'lf','linear feet':'lf','per ft':'lf',"'":'lf',
+  ea:'ea',each:'ea',pc:'ea',pcs:'ea',piece:'ea',unit:'ea',pack:'ea',bag:'bag',bags:'bag',sack:'bag',
+  coil:'coil',roll:'coil',spool:'coil',hr:'hr',hour:'hr',hours:'hr',job:'job',ls:'job','lump sum':'job',lot:'job'
+};
+function csvDetectDelimiter(text){
+  const line=(text.split(/\r?\n/).find(l=>l.trim())||'');const counts={};let inQ=false;
+  for(const ch of line){if(ch==='"'){inQ=!inQ;continue;}if(!inQ&&(ch===','||ch===';'||ch==='\t'||ch==='|'))counts[ch]=(counts[ch]||0)+1;}
+  let best=',',bestN=0;Object.entries(counts).forEach(([d,n])=>{if(n>bestN){best=d;bestN=n;}});return best;
+}
+function csvParse(text,delim){
+  text=String(text||'').replace(/^\uFEFF/,'');const rows=[];let row=[],cell='',inQ=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQ){if(c==='"'){if(text[i+1]==='"'){cell+='"';i++;}else inQ=false;}else cell+=c;continue;}
+    if(c==='"'){inQ=true;continue;}if(c===delim){row.push(cell);cell='';continue;}if(c==='\r')continue;
+    if(c==='\n'){row.push(cell);rows.push(row);row=[];cell='';continue;}cell+=c;
+  }
+  row.push(cell);rows.push(row);return rows.filter(r=>r.some(v=>String(v).trim()!==''));
+}
+function csvParseMoney(raw){
+  let s=String(raw==null?'':raw).trim();if(!s)return NaN;const neg=/^\(.*\)$/.test(s);
+  s=s.replace(/[()]/g,'').replace(/[^0-9.\-]/g,'');const parts=s.split('.');if(parts.length>2)s=parts.shift()+'.'+parts.join('');
+  const v=parseFloat(s);return Number.isFinite(v)?(neg?-v:v):NaN;
+}
+function csvNormalizeUnit(raw,fallbackKey){
+  const s=String(raw==null?'':raw).trim().toLowerCase().replace(/[.]/g,'');
+  if(s&&UNIT_ALIASES[s])return UNIT_ALIASES[s];if(s&&CSV_UNITS.has(s))return s;
+  const existing=COST_DB[fallbackKey];return existing&&CSV_UNITS.has(existing.unit)?existing.unit:'ea';
+}
+function csvBuildPreview(rows,map,hasHeader,dupeMode){
+  const out={},rejected=[];let collisions=0;
+  for(let i=hasHeader?1:0;i<rows.length;i++){
+    const r=rows[i],name=String(map.name>=0?r[map.name]??'':'').trim();
+    if(!name){rejected.push({row:i+1,name:'(blank)',why:'no material name'});continue;}
+    const key=normalizeMatKey(name);if(!key){rejected.push({row:i+1,name,why:'name normalized to empty'});continue;}
+    const cost=csvParseMoney(map.cost>=0?r[map.cost]:'');
+    if(!Number.isFinite(cost)){rejected.push({row:i+1,name,why:'price not a number'});continue;}
+    if(cost<0){rejected.push({row:i+1,name,why:'negative price'});continue;}
+    if(cost>1000000){rejected.push({row:i+1,name,why:'price out of range'});continue;}
+    const unit=csvNormalizeUnit(map.unit>=0?r[map.unit]:'',key),prev=out[key];
+    if(prev){collisions++;prev.sources.push(name);const take=dupeMode==='low'?cost<prev.cost:dupeMode==='high'?cost>prev.cost:true;if(take){prev.cost=cost;prev.unit=unit;prev.from=name;}}
+    else out[key]={key,cost,unit,from:name,sources:[name]};
+  }
+  const entries=Object.values(out).sort((a,b)=>a.key.localeCompare(b.key));const matched=entries.filter(e=>!!COST_DB[e.key]).length;
+  return{entries,rejected,collisions,matched,added:entries.length-matched};
+}
+function csvGuessColumns(headerRow){
+  const h=(headerRow||[]).map(v=>String(v||'').trim().toLowerCase());
+  const find=(...pats)=>{for(const p of pats){const i=h.findIndex(x=>x.includes(p));if(i>=0)return i;}return -1;};
+  return{name:find('description','material','item','product','name','part'),cost:find('your cost','net price','unit price','cost','price','net','amount'),unit:find('uom','u/m','unit of measure','unit','per','measure')};
+}
+function openCsvImporter(rows){
+  const state={rows,hasHeader:true,dupeMode:'high',map:csvGuessColumns(rows[0])},colCount=rows.reduce((m,r)=>Math.max(m,r.length),0);
+  let ov=document.getElementById('csv-import');if(!ov){ov=document.createElement('div');ov.id='csv-import';ov.style.cssText='position:fixed;inset:0;z-index:320;background:rgba(13,24,39,0.94);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:14px';document.body.appendChild(ov);}
+  const colOptions=sel=>{let s=`<option value="-1"${sel===-1?' selected':''}>— none —</option>`;for(let i=0;i<colCount;i++){const label=state.hasHeader&&String(rows[0]?.[i]||'').trim()?`${i+1}. ${esc(String(rows[0][i]).trim().slice(0,28))}`:`Column ${i+1}`;s+=`<option value="${i}"${sel===i?' selected':''}>${label}</option>`;}return s;};
+  ov.innerHTML=`<style>
+    #csv-import .cs-card{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);width:100%;max-width:600px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.5)}#csv-import h3{font-size:12px;letter-spacing:.08em;color:var(--accent);margin:0;padding:14px 16px;border-bottom:1px solid var(--border)}
+    #csv-import .cs-body{overflow-y:auto;padding:12px 16px}#csv-import .cs-sec{font-size:10px;letter-spacing:.06em;color:var(--text2);font-weight:700;margin:14px 0 6px;text-transform:uppercase}#csv-import .cs-row{display:flex;align-items:center;gap:8px;padding:4px 0}#csv-import .cs-row label{flex:1;font-size:11px;color:var(--text2)}
+    #csv-import select{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:5px 7px;color:var(--text1);font-family:var(--font);font-size:11px;outline:none;max-width:62%}#csv-import .cs-note{font-size:9px;color:var(--text3);line-height:1.5;margin-top:4px}#csv-import table{width:100%;border-collapse:collapse;font-size:10px}#csv-import th,#csv-import td{text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)}
+    #csv-import .cs-new{color:var(--blue)}#csv-import .cs-upd{color:var(--green)}#csv-import .cs-warn{color:var(--accent)}#csv-import .cs-bad{color:var(--red)}#csv-import .cs-foot{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);align-items:center}#csv-import .cs-chip{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:4px 9px;font-size:10px;color:var(--text2);cursor:pointer}#csv-import .cs-chip.active{background:var(--accent-dim);border-color:var(--accent-mid);color:var(--accent)}
+  </style><div class="cs-card"><h3>IMPORT PRICE LIST — map your columns</h3><div class="cs-body"><div class="cs-note">Read ${rows.length} rows, ${colCount} columns. Confirm which column is which before importing.</div>
+    <div class="cs-sec">Columns</div><div class="cs-row"><label>Material name</label><select id="cs-name">${colOptions(state.map.name)}</select></div><div class="cs-row"><label>Your buy cost</label><select id="cs-cost">${colOptions(state.map.cost)}</select></div><div class="cs-row"><label>Unit (optional)</label><select id="cs-unit">${colOptions(state.map.unit)}</select></div><div class="cs-row"><label>First row is a header</label><input type="checkbox" id="cs-header" checked/></div>
+    <div class="cs-sec">Duplicate names</div><div class="cs-row"><span class="cs-chip" data-dupe="high">Keep highest</span><span class="cs-chip" data-dupe="low">Keep lowest</span><span class="cs-chip" data-dupe="last">Keep last</span></div><div class="cs-note">Highest is the safe default when supplier sizes collapse to one material key.</div><div class="cs-sec">Preview</div><div id="cs-preview"></div></div>
+    <div class="cs-foot"><span id="cs-summary" style="flex:1;font-size:10px;color:var(--text2)"></span><button class="btn" id="cs-cancel">Cancel</button><button class="btn accent" id="cs-apply">Import</button></div></div>`;
+  ov.style.display='flex';const close=()=>{ov.style.display='none';};let preview={entries:[],rejected:[],collisions:0,matched:0,added:0};
+  function refresh(){
+    preview=csvBuildPreview(state.rows,state.map,state.hasHeader,state.dupeMode);const shown=preview.entries.slice(0,10),box=ov.querySelector('#cs-preview');
+    box.innerHTML=shown.length?`<table><thead><tr><th>Material</th><th>Cost</th><th>Unit</th><th></th></tr></thead><tbody>${shown.map(e=>`<tr><td>${esc(e.key)}${e.sources.length>1?` <span class="cs-warn" title="${esc(e.sources.join(', '))}">×${e.sources.length}</span>`:''}</td><td>$${e.cost.toFixed(2)}</td><td>${esc(e.unit)}</td><td class="${COST_DB[e.key]?'cs-upd':'cs-new'}">${COST_DB[e.key]?'update':'new'}</td></tr>`).join('')}</tbody></table>${preview.entries.length>shown.length?`<div class="cs-note">…and ${preview.entries.length-shown.length} more.</div>`:''}${preview.rejected.length?`<div class="cs-note cs-bad">${preview.rejected.length} skipped — row ${preview.rejected[0].row}: ${esc(preview.rejected[0].why)}.</div>`:''}`:'<div class="cs-note cs-bad">Nothing usable yet — check the name and cost columns.</div>';
+    ov.querySelector('#cs-summary').innerHTML=preview.entries.length?`${preview.matched} update · ${preview.added} new${preview.collisions?` · ${preview.collisions} merged`:''}${preview.rejected.length?` · ${preview.rejected.length} skipped`:''}`:'';ov.querySelectorAll('[data-dupe]').forEach(c=>c.classList.toggle('active',c.dataset.dupe===state.dupeMode));
+  }
+  ov.querySelector('#cs-name').onchange=e=>{state.map.name=+e.target.value;refresh();};ov.querySelector('#cs-cost').onchange=e=>{state.map.cost=+e.target.value;refresh();};ov.querySelector('#cs-unit').onchange=e=>{state.map.unit=+e.target.value;refresh();};ov.querySelector('#cs-header').onchange=e=>{state.hasHeader=e.target.checked;refresh();};ov.querySelectorAll('[data-dupe]').forEach(c=>{c.onclick=()=>{state.dupeMode=c.dataset.dupe;refresh();};});ov.querySelector('#cs-cancel').onclick=close;ov.onclick=e=>{if(e.target===ov)close();};
+  ov.querySelector('#cs-apply').onclick=()=>{
+    if(!preview.entries.length){showToast('Nothing to import — check your column mapping',true);return;}
+    if(_pricingFromLoadedProject&&!confirm('These displayed prices came from the loaded project. Importing will replace your company rate card. Continue?'))return;
+    const snapshot=JSON.parse(JSON.stringify(COST_DB));preview.entries.forEach(e=>{COST_DB[e.key]={cost:e.cost,unit:e.unit};});
+    const priorPricingProvenance=_pricingFromLoadedProject;_pricingFromLoadedProject=false;
+    if(!saveCostDB()){COST_DB=snapshot;_pricingFromLoadedProject=priorPricingProvenance;showToast('Import failed — storage full or blocked',true);return;}
+    close();const ce=document.getElementById('cost-editor');if(ce)ce.style.display='none';openCostEditor();updatePricing();showToast(`Imported — ${preview.matched} updated, ${preview.added} new${preview.rejected.length?`, ${preview.rejected.length} skipped`:''}`);
+  };
+  refresh();
+}
+function handleCsvFile(file){
+  const rd=new FileReader();rd.onerror=()=>showToast('Could not read that file',true);rd.onload=()=>{try{const text=String(rd.result||'');if(!text.trim()){showToast('That file is empty',true);return;}const rows=csvParse(text,csvDetectDelimiter(text));if(!rows.length){showToast('No rows found in that file',true);return;}openCsvImporter(rows);}catch(err){showToast('Could not parse that file — '+err.message,true);}};rd.readAsText(file);
+}
+
 // ── COST & MARGIN EDITOR ────────────────────────────────────────────────────
 // Full-screen editable table: material buy costs, labor $/LF, gate labor,
 // markup %, crew rate. Persists to localStorage AND rides along in saved jobs.
@@ -3466,12 +3554,14 @@ function openCostEditor(){
         <button class="btn" id="ce-reload-rate-card" style="font-size:10px">↻ Reload saved rate card</button>
         <button class="btn" id="ce-export" style="font-size:10px">⬇ Export prices</button>
         <button class="btn" id="ce-import" style="font-size:10px">⬆ Import</button>
+        <button class="btn" id="ce-csv" style="font-size:10px">CSV</button>
         <span style="flex:1"></span>
         <button class="btn" id="ce-cancel" style="font-size:10px">Cancel</button>
         <button class="btn accent" id="ce-save" style="font-size:10px">Save</button>
       </div>
     </div>
-    <input type="file" id="ce-import-file" accept=".json,.fbprices.json" style="display:none"/>`;
+    <input type="file" id="ce-import-file" accept=".json,.fbprices.json" style="display:none"/>
+    <input type="file" id="ce-csv-file" accept=".csv,.tsv,.txt,text/csv" style="display:none"/>`;
   ov.style.display='flex';
   const close=()=>{ov.style.display='none';};
   ov.querySelector('#ce-cancel').onclick=close;
@@ -3520,6 +3610,10 @@ function openCostEditor(){
     a.download='FarOut_prices.fbprices.json';
     a.click();
     setTimeout(()=>URL.revokeObjectURL(url),0);
+  };
+  ov.querySelector('#ce-csv').onclick=()=>ov.querySelector('#ce-csv-file').click();
+  ov.querySelector('#ce-csv-file').onchange=e=>{
+    const f=e.target.files&&e.target.files[0];e.target.value='';if(f)handleCsvFile(f);
   };
   ov.querySelector('#ce-import').onclick=()=>ov.querySelector('#ce-import-file').click();
   ov.querySelector('#ce-import-file').onchange=e=>{
