@@ -50,7 +50,8 @@
   --text1:#F0EDE8;
   --text2:#8A9AB5;
   --text3:#3D4F6B;
-  --font:'SF Mono',ui-monospace,'Cascadia Code','Fira Code',monospace;
+  --font:Inter,'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-data:'SF Mono',ui-monospace,'Cascadia Code','Fira Code',monospace;
   --radius:8px;
   --radius-sm:5px;
 }
@@ -94,7 +95,7 @@ html,body{height:100%;width:100%;overflow:hidden;background:var(--bg);font-famil
 .tbtn:active,.tbtn.active{
   background:var(--accent-dim);border-color:var(--accent-mid);color:var(--accent)
 }
-.tbtn .icon{font-size:16px;line-height:1}
+.tbtn .icon{font-size:16px;line-height:1;display:flex}.tbtn .icon svg,.ui-icon{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .tbtn .lbl{font-size:5.5px;letter-spacing:0.07em;color:inherit;opacity:0.8}
 .tbtn:hover:not(.active){background:var(--surface2);border-color:var(--border2);color:var(--text2)}
 
@@ -136,7 +137,7 @@ canvas{width:100%;height:100%;display:block;touch-action:none;background:var(--b
 .panel-body::-webkit-scrollbar-track{background:transparent}
 .panel-body::-webkit-scrollbar-thumb{background:var(--text3);border-radius:2px}
 .psec{padding:10px 12px;border-bottom:1px solid var(--border)}
-.psec-title{font-size:9px;color:var(--accent);letter-spacing:0.14em;margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.psec-title{font-size:9px;color:var(--text2);letter-spacing:0.06em;margin-bottom:8px;display:flex;align-items:center;gap:5px}
 .psec-title::after{content:'';flex:1;height:1px;background:var(--border)}
 
 /* ── FORM ELEMENTS ── */
@@ -194,6 +195,7 @@ label{font-size:9px;color:var(--text2);letter-spacing:0.08em;display:block;margi
 /* ── STAT ROW ── */
 .stat-row{display:flex;justify-content:space-between;align-items:center;font-size:10px;padding:2px 0;gap:4px}
 .stat-val{color:var(--text1);font-weight:600;white-space:nowrap}
+.stat-val,.num,.mono,input[type=number]{font-family:var(--font-data);font-variant-numeric:tabular-nums}
 
 /* ── MATERIAL ROW ── */
 .mat-row{
@@ -550,10 +552,10 @@ label{font-size:9px;color:var(--text2);letter-spacing:0.08em;display:block;margi
       <div class="panel-body" id="tab-pricing" style="display:none">
         <div class="psec">
           <div style="display:flex;gap:4px;margin-bottom:4px">
-            <button class="chip active" data-view="client" id="view-client">👤 Client</button>
-            <button class="chip" data-view="cost" id="view-cost">🔧 Internal Cost</button>
+            <button class="chip active" data-view="client" id="view-client">Client</button>
+            <button class="chip" data-view="cost" id="view-cost">Internal Cost</button>
           </div>
-          <div style="font-size:9px;color:var(--text3);line-height:1.5">Client = what they pay · Internal = your true cost + margin. Same job, two views.</div>
+          <div style="font-size:9px;color:var(--text3);line-height:1.5">Switch between client price and internal cost.</div>
         </div>
         <div class="psec">
           <div class="psec-title">ESTIMATE BREAKDOWN</div>
@@ -612,7 +614,7 @@ label{font-size:9px;color:var(--text2);letter-spacing:0.08em;display:block;margi
 
 <script>
 // ── CONSTANTS ──────────────────────────────────────────────────────────────
-const APP_VERSION='5.3.8-release-validation';
+const APP_VERSION='5.4.0';
 const GRID_FT=40, STORAGE_KEY='fencebound_v2_jobs', CORNER_THRESH=18;
 
 // Escape user-entered text before injecting into innerHTML / attribute values.
@@ -1661,7 +1663,7 @@ function draw(){
       const pc=(!isBdy&&S.autoPost&&S.drawing.type==='fence')?Math.max(0,Math.floor(len/(S.postSpacing*GRID_FT))-1):null;
       const angleLocked=S.angleLock&&S.drawing.type!=='boundary';
       ctx.fillStyle=isBdy?'#C4B5F0':(angleLocked?'#A0E0FF':'#F5A623');ctx.font=`bold ${12/S.zoom}px monospace`;ctx.textAlign='center';
-      ctx.fillText(ftLbl(len)+(pc>0?`  ·  ${pc} posts`:'')+(angleLocked?' 🔒':'')+(isBdy?' (boundary)':''),mx,my-18/S.zoom);
+      ctx.fillText(ftLbl(len)+(pc>0?`  ·  ${pc} posts`:'')+(angleLocked?' ∠45°':'')+(isBdy?' (boundary)':''),mx,my-18/S.zoom);
     }
   }
 
@@ -2078,7 +2080,7 @@ function updateTypeBar(){
     const col=MATERIAL_COLOR[mat];
     h+=`<button style="padding:4px 8px;border-radius:6px;font-size:9px;font-family:var(--font);cursor:pointer;background:${act?col+'22':'transparent'};border:1px solid ${act?col:'rgba(255,255,255,0.1)'};color:${act?col:'rgba(255,255,255,0.4)'};font-weight:${act?700:400};white-space:nowrap" data-mat="${mat}"><span style="display:inline-block;width:6px;height:6px;border-radius:1px;background:${col};margin-right:4px;vertical-align:middle"></span>${MATERIAL_LABEL[mat]}</button>`;
   });
-  h+=`<button id="btn-angle-lock" style="padding:4px 10px;border-radius:6px;font-size:9px;font-family:var(--font);cursor:pointer;background:${S.angleLock?'rgba(160,224,255,0.18)':'transparent'};border:1px solid ${S.angleLock?'#A0E0FF':'rgba(255,255,255,0.15)'};color:${S.angleLock?'#A0E0FF':'rgba(255,255,255,0.35)'};margin-left:4px">🔒 45°</button>`;
+  h+=`<button id="btn-angle-lock" style="padding:4px 10px;border-radius:6px;font-size:9px;font-family:var(--font);cursor:pointer;background:${S.angleLock?'rgba(160,224,255,0.18)':'transparent'};border:1px solid ${S.angleLock?'#A0E0FF':'rgba(255,255,255,0.15)'};color:${S.angleLock?'#A0E0FF':'rgba(255,255,255,0.35)'};margin-left:4px">∠45°</button>`;
   h+='</div>';
   // Second row: styles for the current material (only if >1 style)
   const styles=stylesForMaterial(curMat);
@@ -2129,8 +2131,8 @@ function selectFenceType(key){
 
 function updateHint(){
   const hints={
-    fence:`Draw fence · ${S.autoPost?`Auto-posts every ${S.postSpacing}'`:'Posts off'} · ${(FENCE_TYPES[S.fenceType]||{label:''}).label}${S.angleLock?' · 🔒 45° locked':''}`,
-    boundary:`Draw property boundary (dashed, no posts)${S.angleLock?' · 🔒 45° locked':''}`,
+    fence:`Draw fence · ${S.autoPost?`Auto-posts every ${S.postSpacing}'`:'Posts off'} · ${(FENCE_TYPES[S.fenceType]||{label:''}).label}${S.angleLock?' · ∠45° locked':''}`,
+    boundary:`Draw property boundary (dashed, no posts)${S.angleLock?' · ∠45° locked':''}`,
     gate:`Draw gate · Type: ${(GATE_TYPES[S.gateType]||{label:''}).label}`,
     post:'Tap to place post',
     select:S.selected!==null?'Selected — ✕ to delete':'Tap to select element',
@@ -2233,7 +2235,7 @@ function updateDrawers(){
         <button class="close-btn" id="close-jobs">✕</button>
       </div>
       <div style="padding:10px 14px;border-bottom:1px solid var(--border)">
-        <button class="btn accent" id="do-save" style="width:100%;padding:8px;font-size:11px">💾 Save "${esc(S.projectName)}"</button>
+        <button class="btn accent" id="do-save" style="width:100%;padding:8px;font-size:11px">Save "${esc(S.projectName)}"</button>
         <div style="display:flex;gap:5px;margin-top:6px">
           <button class="btn" id="do-export" style="flex:1;font-size:9px" title="Download this job as a portable .json file">⬇ Export .json</button>
           <button class="btn" id="do-import" style="flex:1;font-size:9px" title="Load a job from a .json file">⬆ Import .json</button>
@@ -3258,19 +3260,19 @@ function updatePricing(){
       tHtml+=`<div class="stat-row"><span style="color:var(--text2)">Profit</span><span class="stat-val" style="color:#5FBF7F">${mc(P.profit)}</span></div>`;
     }
     if(P.urbanAdd>0)tHtml+=`<div class="stat-row"><span style="color:var(--text3);font-size:9px">Urban premium (+15%)</span><span style="color:var(--text3);font-size:9px">+${mc(P.urbanAdd)}</span></div>`;
-    tHtml+=`<div class="stat-row" style="border-top:1px solid var(--border);padding-top:5px;margin-top:3px">
-      <span style="color:var(--accent);font-weight:700;font-size:11px">${showCost?'CLIENT PRICE':'ESTIMATE'}</span>
-      <span style="color:var(--accent);font-weight:700;font-size:14px">${mc(P.clientTotal)}</span>
+    tHtml+=`<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:5px">
+      <div style="color:var(--text2);font-weight:700;font-size:10px;letter-spacing:.08em">${showCost?'CLIENT PRICE':'ESTIMATE'}</div>
+      <div class="stat-val" style="color:var(--accent);font-weight:800;font-size:30px;line-height:1.1;margin-top:2px">${mc(P.clientTotal)}</div>
     </div>`;
     // LIVE MARGIN — always visible, color-graded
     const mCol = P.marginPct>=40?'#5FBF7F':P.marginPct>=25?'#E8C03D':'#E8703D';
-    tHtml+=`<div class="stat-row" style="background:var(--surface2);border-radius:var(--radius-sm);padding:5px 7px;margin-top:5px">
+    tHtml+=`<div class="stat-row" style="border-left:3px solid ${mCol};padding:5px 7px;margin-top:7px">
       <span style="color:var(--text2);font-weight:600;font-size:10px">MARGIN</span>
-      <span style="color:${mCol};font-weight:800;font-size:15px">${P.marginPct.toFixed(1)}%</span>
+      <span class="stat-val" style="color:${mCol};font-weight:800;font-size:21px">${P.marginPct.toFixed(1)}%</span>
     </div>`;
     tHtml+=`<div class="stat-row"><span style="font-size:9px;color:${P.isFinalReady?'#5FBF7F':'#E8A33D'}">${P.isFinalReady?'FINAL-READY':'QUICK REFERENCE · incomplete pricing'}</span></div>`;
-    const deposit=P.clientTotal*0.5;
-    tHtml+=`<div class="stat-row"><span style="color:var(--text3);font-size:9px">50% Deposit Due</span><span style="color:var(--text3);font-size:9px">${mc(deposit)}</span></div>`;
+    const deposit=P.clientTotal*(COMPANY.depositPct/100);
+    tHtml+=`<div class="stat-row"><span style="color:var(--text3);font-size:9px">${COMPANY.depositPct}% Deposit Due</span><span style="color:var(--text3);font-size:9px">${mc(deposit)}</span></div>`;
     totalsEl.innerHTML=tHtml;
   } else if(totalsEl){
     totalsEl.innerHTML='<span style="font-size:10px;color:var(--text3)">—</span>';
@@ -3578,7 +3580,7 @@ function openCostEditor(){
       #cost-editor .ce-note{font-size:9px;color:var(--text3);line-height:1.5;margin-top:4px}
     </style>
     <div class="ce-card">
-      <h3>⚙ COSTS &amp; MARGIN — your true numbers</h3>
+      <h3>COSTS &amp; MARGIN — your true numbers</h3>
       <div class="ce-body">
         <div class="ce-sec">Markup → Margin</div>
         <div class="ce-row"><span>Material markup</span><input type="number" id="ce-mat-markup" value="${MARKUP.materialPct}" step="1" style="width:70px"/><span style="color:var(--text3);font-size:9px">%</span></div>
