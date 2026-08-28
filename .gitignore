@@ -16,3 +16,4 @@ __pycache__/
 browser-profile/
 handoff/*.zip
 /AI/
+/exports/

@@ -134,3 +134,49 @@ Append one entry for every development session. Preserve prior entries.
 - **Decisions made:** `initiate repo` is the normal entrypoint; FenceBound initialization,
   authority, gates, and two-commit closeout remain repository-specific phases.
 - **Next authorized task:** Field data capture design remains active; O-6 remains unresolved.
+
+## 2026-08-28 — FenceboundCAD v5.4.0 port and Zero-Drift closeout
+
+- **Objective:** Port the working 5.3.1+feat artifact onto canonical 5.3.8 release validation
+  without reverting intervening work, then synchronize repository authority to the verified result.
+- **Baseline:** `b7294ecccd8cf636d337fb309877844a0667ebf9`.
+- **Tested implementation commit:** `0d3211c9436d3fc40d8d4f3f8ea0090c967b85a1`;
+  followed by the documentation-only closeout commit containing this entry.
+- **Files changed:** Canonical `index.html`; phase-one and v5.4 Playwright coverage; deferred-defect
+  record; current state, startup guidance, authoritative supplement, current/archive handoffs, and
+  this log.
+- **Tests performed:** Full Playwright suite, twelve-route persistence matrix, extracted runtime
+  script syntax check, Unicode-remnant scan, `git diff --check`, independent review, and repository
+  session initialization.
+- **Results:** Full suite 69/69 passed; persistence matrix 12/12 passed. Shipped backup/restore,
+  CSV rate-card import, local company profile and estimate branding, interface hierarchy updates,
+  and cross-platform SVG icon cleanup as runtime 5.4.0 with schema 3 unchanged.
+- **Defects discovered:** JSON price import still overwrites the saved rate card without the
+  provenance confirmation used elsewhere. Pale company accents can reduce branded PDF contrast.
+- **Debt introduced or reduced:** Backup and CSV false-success/provenance paths were repaired;
+  persisted non-object rate cards now surface as corrupt; company terms no longer silently ship
+  another contractor's warranty. Historical embedded Development Index and Atlas drift remain.
+- **Decisions made:** Prices travel with jobs while branding remains local. Missing company profile
+  is client-validation-only and does not block export. Terms default empty. Toast errors rely on
+  styling rather than Unicode warning glyphs. The prior no-feature-before-v6 restriction was
+  superseded for this explicit owner-authorized port only.
+- **Next authorized task:** None. O-6 and the two deferred v5.4.0 defect candidates require owner
+  direction before implementation.
+
+## 2026-08-28 — Takeoff field-specification and governance closeout
+
+- **Objective:** Synchronize v5.4.0 governance, ratify owner-supplied chain-link field practice,
+  record the D1–D5 regression fixture and five deferred candidates, and close without runtime work.
+- **Tested implementation commit:** `0d3211c9436d3fc40d8d4f3f8ea0090c967b85a1`;
+  followed by the documentation-only closeout commit containing this entry.
+- **Files changed:** Governance and handoff documents, v5.4.0 authoritative supplement,
+  deferred-defect register, developer log, and export ignore policy. No runtime or test code changed.
+- **Tests performed:** Documentation/state validation, repository session initialization,
+  `git diff --check`, and independent documentation review.
+- **Results:** Governance now describes v5.4.0 at `0d3211c`; chain-link post and per-end termination
+  field rules and the known-correct 168 LF fixture are authoritative; walkthrough exports are
+  ignored and the generated estimate was removed.
+- **Decisions made:** Owner field practice takes precedence over external cross-checks and is
+  implemented later as overridable defaults. D1 is the next authorized task. D6, D7, dual-depth
+  modeling, JSON provenance, and pale PDF contrast remain deferred.
+- **Next authorized task:** Begin D1 only, add the ratified fixture, then re-measure D2–D5.

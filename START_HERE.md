@@ -7,7 +7,7 @@ FenceBound is a contractor-focused CAD and estimating platform for turning fence
 - Canonical repository: `~/Desktop/FenceBound` (filesystem path: `/Users/altairus78/Desktop/FenceBound`)
 - Canonical branch: `main`
 - Canonical runtime: [`index.html`](index.html)
-- Application version: `5.3.8-release-validation`
+- Application version: `5.4.0`
 - Saved-state schema: `3`
 
 The normal entrypoint is `initiate repo`. As its FenceBound-specific initiation check, run:

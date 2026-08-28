@@ -11,8 +11,10 @@ Historical versioned HTML is under `archive/` and is not canonical.
 `archive/FenceboundCAD v5.3.4-embedded-project-index.html` remains **frozen**;
 moving it did not authorize editing it. FenceScraper v3 remains active at root.
 
-Owner-ratified exemption: v5.3.8 `index.html` continuation is authorized only
-for defect repair and data integrity. No feature work until v6.0.
+The owner-authorized v5.4.0 port superseded the former restriction that v5.3.8
+could receive only defect and data-integrity work. The accepted v5.4.0 scope is
+recorded in the 2026-08-28 authoritative supplement and closeout handoff. Future
+feature work still requires explicit owner authorization.
 
 Current session entry point: `START_HERE.md`, followed by the read-only
 `npm run session:init` workflow and `Docs/CURRENT_HANDOFF.md`. The August 1
