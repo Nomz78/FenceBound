@@ -4,7 +4,7 @@
   "project": "FenceBound",
   "repository": "~/Desktop/FenceBound",
   "branch": "main",
-  "head": "0d3211c9436d3fc40d8d4f3f8ea0090c967b85a1",
+  "head": "e6bc10a5569dd9076d272b824dec37f726642bd6",
   "upstream": "origin/main",
   "worktreeClean": true,
   "canonicalRuntime": "index.html",
@@ -25,7 +25,7 @@
   "lastCompletedTask": "Synchronized v5.4.0 governance and ratified the owner field specification and D1-D5 regression fixture without changing runtime code.",
   "activeTask": "Next session begins D1: reconcile post counts and per-post consumables using the ratified 168 LF D1-D5 regression fixture. Do not expand into deferred D6 or D7.",
   "nextOwnerDecision": "O-6: disposition of docs/repository-continuity-atlas-v538-sync remains undecided.",
-  "repositoryHeadAtGeneration": "0d3211c9436d3fc40d8d4f3f8ea0090c967b85a1",
+  "repositoryHeadAtGeneration": "e6bc10a5569dd9076d272b824dec37f726642bd6",
   "testedHead": "0d3211c9436d3fc40d8d4f3f8ea0090c967b85a1",
   "closeoutConvention": "The current HEAD may be one direct documentation-only closeout child of head; see START_HERE.md.",
   "gate": {
@@ -55,6 +55,7 @@
     "D5: terminal posts, fabric ends, tension hardware, brace-band sizes, and rail-end cups do not derive from one per-end termination model.",
     "D6 deferred: margin reads 0.0% when price-first per-LF and material-multiplier selling prices are entered as cost.",
     "D7 deferred: 6 plus 1 is not represented as a first-class assembly.",
-    "Deferred: the model cannot separately represent real installation hole depth and submittal specification depth."
+    "Deferred: the model cannot separately represent real installation hole depth and submittal specification depth.",
+    "Tooling: session:init falsely rejects approved one-child documentation closeouts when governance files fall outside its closeout allowlist; the allowlist needs to accommodate the approved structure."
   ]
 }

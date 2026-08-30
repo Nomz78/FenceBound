@@ -19,3 +19,7 @@ excluded from the v5.4.0 closeout and require separate review.
 5. **Pale PDF accent contrast.** Estimate branding prints user-selected accent text on white.
    Very pale accents can make labels such as `ESTIMATE` difficult to read. Define an accessible
    contrast policy without changing the fixed validation-warning palette.
+6. **Session-init closeout allowlist false failure.** `session:init` reports drift for an approved
+   one-child documentation closeout when that commit includes governance files outside the current
+   allowlist. Update the tooling later so its accepted file set matches the approved closeout
+   structure. No allowlist change is authorized in this closeout correction.

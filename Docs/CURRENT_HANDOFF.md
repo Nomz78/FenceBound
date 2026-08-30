@@ -5,7 +5,7 @@ generatedAt: 2026-08-28T13:46:09-04:00
 repositoryRoot: ~/Desktop/FenceBound
 branch: main
 testedHead: 0d3211c9436d3fc40d8d4f3f8ea0090c967b85a1
-repositoryHeadAtGeneration: 0d3211c9436d3fc40d8d4f3f8ea0090c967b85a1
+repositoryHeadAtGeneration: e6bc10a5569dd9076d272b824dec37f726642bd6
 upstream: origin/main
 worktreeClean: true
 canonicalRuntime: index.html
@@ -64,6 +64,11 @@ The authoritative behavior and architecture record is
 drift and carried defects remain indexed in `CURRENT_STATE.json`. O-6 continuity-branch disposition
 remains unresolved.
 
+Repository tooling has one deferred false-positive defect: `session:init` rejects approved
+one-child documentation closeouts when they include governance files outside its current allowlist.
+The allowlist needs to accommodate the approved closeout structure; no tooling change was made in
+this session.
+
 ## Restart
 
 From anywhere inside this repository, type:
@@ -80,7 +85,7 @@ FENCEBOUND FRESH SESSION BOOTSTRAP
 
 Repository: ~/Desktop/FenceBound
 Branch: main
-Verified HEAD: 0d3211c9436d3fc40d8d4f3f8ea0090c967b85a1
+Verified HEAD: e6bc10a5569dd9076d272b824dec37f726642bd6
 Canonical runtime: index.html (5.4.0)
 Schema: 3
 Authority: tested source/runtime → frozen Engineering Bible + supplements → System Atlas → Development Index → current handoff/state → history
