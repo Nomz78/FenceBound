@@ -463,6 +463,12 @@ label{font-size:10px;color:var(--text2);letter-spacing:0.02em;display:block;marg
               <input type="number" id="spec-embed" value="30" placeholder="Inches"/>
             </div>
           </div>
+          <div class="spec-grid" style="margin-top:6px">
+            <div class="spec-field"><label>Line Post OD (in)</label><input type="number" id="spec-post-dia-line" min="0.1" step="0.001"/></div>
+            <div class="spec-field"><label>Terminal Post OD (in)</label><input type="number" id="spec-post-dia-terminal" min="0.1" step="0.001"/></div>
+            <div class="spec-field"><label>Corner Post OD (in)</label><input type="number" id="spec-post-dia-corner" min="0.1" step="0.001"/></div>
+            <div class="spec-field"><label>Gate Post OD (in)</label><input type="number" id="spec-post-dia-gate" min="0.1" step="0.001"/></div>
+          </div>
           <div style="margin-top:6px;font-size:10px;color:var(--text2);padding:5px 7px;background:var(--surface2);border-radius:var(--radius-sm);line-height:1.5" id="post-depth-note">
             Rule of thumb: 1/3 of post in ground. Adjust for soil type, wind, fence height.
           </div>
@@ -631,6 +637,22 @@ label{font-size:10px;color:var(--text2);letter-spacing:0.02em;display:block;marg
 const APP_VERSION='5.4.0';
 const GRID_FT=40, STORAGE_KEY='fencebound_v2_jobs', CORNER_THRESH=18;
 
+// Owner-ratified field practice. 60 lb bags. NOT a volume formula —
+// do not "correct" these to match geometry.
+const DEFAULT_FOOTING={
+  bagsByDepthIn:{24:2,30:3,36:3,42:4},
+  bagWeightLb:60,
+  // ASTM F567 5.1: hole diameter is 4x largest post cross-section up to
+  // 4" OD, 3x above 4" OD.
+  diaMultiplierAtOrBelow4in:4,
+  diaMultiplierAbove4in:3
+};
+// PROPOSED, not ratified. Owner will correct before this ships.
+const DEFAULT_POST_OD_IN={line:2.375,terminal:2.875,corner:2.875,gate:4.0};
+let FOOTING=JSON.parse(JSON.stringify(DEFAULT_FOOTING));
+let POST_OD_IN={...DEFAULT_POST_OD_IN};
+const POST_ROLES=Object.keys(DEFAULT_POST_OD_IN);
+
 // Escape user-entered text before injecting into innerHTML / attribute values.
 // Prevents quotes (e.g. customer name `John "Big J" Smith`, material `6" picket`)
 // from breaking the panel/drawer markup.
@@ -659,7 +681,10 @@ const AUTOSAVE_KEY='fencebound_v2_session';
 function cloneRunSpecs(src){
   const base=src||S.specs;
   const addons=base.addons instanceof Set?[...base.addons]:Array.isArray(base.addons)?base.addons:[];
-  return {...base,addons:new Set(addons)};
+  return {...base,
+    postDiaIn:{...POST_OD_IN,...(base.postDiaIn||{})},
+    postDiaDirty:{line:false,terminal:false,corner:false,gate:false,...(base.postDiaDirty||{})},
+    addons:new Set(addons)};
 }
 function serializeRunSpecs(src){
   const sp=cloneRunSpecs(src);
@@ -758,7 +783,7 @@ function snapshotState(){
     elements:S.elements.map(el=>({...el,specs:el.specs?serializeRunSpecs(el.specs):undefined,runSpecs:el.runSpecs?serializeRunSpecs(el.runSpecs):undefined})),labels:S.labels,materials:S.materials,
     specs:{...S.specs,addons:[...S.specs.addons]},
     showCostView:S.showCostView,pan:S.pan,zoom:S.zoom,snapFt:S.snapFt,
-    costs:COST_DB,labor:LABOR,markup:MARKUP,
+    costs:COST_DB,labor:LABOR,markup:MARKUP,footing:FOOTING,postODIn:POST_OD_IN,
     autoPost:S.autoPost,postSpacing:S.postSpacing};
 }
 function applyState(st){
@@ -767,14 +792,23 @@ function applyState(st){
   S.materials=Array.isArray(st.materials)?st.materials:[];
   S.projectName=st.projectName||'Untitled Job';
   S.jobCustomer=st.jobCustomer||'';S.jobAddress=st.jobAddress||'';S.jobNotes=st.jobNotes||'';
+  if(st.footing)mergeFooting(st.footing);
+  if(st.postODIn)mergePostOD(st.postODIn);
   if(st.specs){
-    S.specs={...S.specs,...st.specs,addons:new Set(st.specs.addons||[])};
+    S.specs={...S.specs,...st.specs,
+      postDiaIn:st.specs.postDiaIn,
+      postDiaDirty:st.specs.postDiaDirty,
+      addons:new Set(st.specs.addons||[])};
     // Older job files predate the height-driven engine. If they carried explicit
     // post/embed values, treat them as user-set so loading doesn't silently
     // overwrite the numbers the job was quoted with.
     if(st.specs.postDirty===undefined && st.specs.postHeightIn!==undefined)S.specs.postDirty=true;
     if(st.specs.embedDirty===undefined && st.specs.embedDepthIn!==undefined)S.specs.embedDirty=true;
     if(st.specs.midRailUserSet===undefined && st.specs.hasMidRail!==undefined)S.specs.midRailUserSet=true;
+    if(st.specs.postDiaIn&&st.specs.postDiaDirty===undefined){
+      S.specs.postDiaDirty={line:true,terminal:true,corner:true,gate:true};
+    }
+    S.specs=hydrateRunSpecs(S.specs);
   }
   if(typeof st.showCostView==='boolean')S.showCostView=st.showCostView;
   // Prices ride along inside the job file → a reopened quote shows the costs it
@@ -809,6 +843,7 @@ function syncSpecInputs(){
   if(hsel){hsel.value=String(sp.heightIn);if(hsel.value!==String(sp.heightIn))hsel.value='custom';}
   setV('spec-clearance',sp.clearanceIn);setV('spec-grade',sp.grade);setV('spec-slope',sp.slopePercent);
   setV('spec-post-height',sp.postHeightIn);setV('spec-embed',sp.embedDepthIn);
+  POST_ROLES.forEach(role=>setV(`spec-post-dia-${role}`,sp.postDiaIn&&sp.postDiaIn[role]));
   setC('has-top-rail',sp.hasTopRail);setC('has-mid-rail',sp.hasMidRail);
   const mro=document.getElementById('mid-rail-options');if(mro)mro.style.display=sp.hasMidRail?'':'none';
   setC('has-truss-rod',sp.hasTrussRod);setC('has-bottom-rail',sp.hasBottomRail);setC('has-face-board',sp.hasFaceBoard);
@@ -1040,6 +1075,8 @@ const S={
     addons:new Set(['bottom-wire']),
     barbStrands:3,
     barbArm:'vertical',
+    postDiaIn:{...POST_OD_IN},
+    postDiaDirty:{line:false,terminal:false,corner:false,gate:false},
     notes:'',
     // Dirty flags: once the user hand-edits post height or embed, height changes
     // stop overwriting their value (auto-until-edited behavior).
@@ -1060,6 +1097,15 @@ function embedForHeight(hIn){
   if(hIn<=96) return 30;   // 8'    : 30"
   if(hIn<=120)return 36;   // 10'   : 36"
   return 42;               // 12'+  : 42"
+}
+// Ratified bag schedule lookup. Diameter is accepted and validated for the
+// role-specific parameter model; no unratified volume conversion is applied.
+function bagsForHole(postRole,postDiaIn,depthIn){
+  const role=POST_ROLES.includes(postRole)?postRole:null;
+  const dia=Number(postDiaIn??(role?POST_OD_IN[role]:NaN));
+  const depth=Number(depthIn);
+  if(!role||!Number.isFinite(dia)||dia<=0||!Number.isFinite(depth))return undefined;
+  return FOOTING.bagsByDepthIn[depth];
 }
 // midRailForHeight: off <6', on at 6' (commercial-leaning default, overridable),
 // mandatory 8'+. Returns true if mid rail should be on by default for this height.
@@ -1215,6 +1261,22 @@ let MARKUP  = JSON.parse(JSON.stringify(DEFAULT_MARKUP));
 let _pricingFromLoadedProject=false;
 
 const COSTDB_KEY='fencebound_costdb_v1';
+function mergeFooting(src){
+  if(!src||typeof src!=='object')return;
+  FOOTING={...FOOTING,...src,bagsByDepthIn:{...FOOTING.bagsByDepthIn,...(src.bagsByDepthIn||{})}};
+}
+function mergePostOD(src){
+  if(!src||typeof src!=='object')return;
+  POST_OD_IN={...POST_OD_IN,...src};
+}
+function refreshPostDiaDefaults(){
+  const specs=[...new Set([S.specs,...S.elements.flatMap(el=>[el.specs,el.runSpecs]).filter(Boolean)])];
+  specs.forEach(sp=>{
+    sp.postDiaIn={...POST_OD_IN,...(sp.postDiaIn||{})};
+    sp.postDiaDirty={line:false,terminal:false,corner:false,gate:false,...(sp.postDiaDirty||{})};
+    POST_ROLES.forEach(role=>{if(!sp.postDiaDirty[role])sp.postDiaIn[role]=POST_OD_IN[role];});
+  });
+}
 // Accept both legacy Rate Card bare-number costs and canonical CAD {cost,unit} costs.
 function normalizeImportedCosts(src){
   const out={};
@@ -1238,6 +1300,9 @@ function mergeSavedCostDB(o){
   if(o.costs)COST_DB={...COST_DB,...normalizeImportedCosts(o.costs)};
   if(o.labor)LABOR={...LABOR,...o.labor,perLF:{...LABOR.perLF,...(o.labor.perLF||{})},gate:{...LABOR.gate,...(o.labor.gate||{})}};
   if(o.markup)MARKUP={...MARKUP,...o.markup};
+  if(o.footing)mergeFooting(o.footing);
+  if(o.postODIn)mergePostOD(o.postODIn);
+  refreshPostDiaDefaults();
 }
 function loadCostDB(){
   const saved=readSavedCostDB();
@@ -1252,13 +1317,15 @@ function reloadSavedCostDB(){
   COST_DB=JSON.parse(JSON.stringify(DEFAULT_COST_DB));
   LABOR=JSON.parse(JSON.stringify(DEFAULT_LABOR));
   MARKUP=JSON.parse(JSON.stringify(DEFAULT_MARKUP));
+  FOOTING=JSON.parse(JSON.stringify(DEFAULT_FOOTING));
+  POST_OD_IN={...DEFAULT_POST_OD_IN};
   mergeSavedCostDB(saved.data);
   _pricingFromLoadedProject=false;
   return'loaded';
 }
 function saveCostDB(){
   if(_pricingFromLoadedProject)return false;
-  try{localStorage.setItem(COSTDB_KEY,JSON.stringify({costs:COST_DB,labor:LABOR,markup:MARKUP}));return true;}
+  try{localStorage.setItem(COSTDB_KEY,JSON.stringify({costs:COST_DB,labor:LABOR,markup:MARKUP,footing:FOOTING,postODIn:POST_OD_IN}));return true;}
   catch(e){return false;}
 }
 // lookupCost: normalized match against COST_DB; returns unit cost or null if unknown.
@@ -2900,6 +2967,10 @@ function init(){
       `Post OA: ${activeSpecs().postHeightIn}". Rule of thumb: ≥1/3 of post length.`;
     updatePanel();
   });
+  POST_ROLES.forEach(role=>document.getElementById(`spec-post-dia-${role}`).addEventListener('input',e=>{
+    const value=+e.target.value;if(!Number.isFinite(value)||value<=0)return;
+    const sp=activeSpecs();sp.postDiaIn[role]=value;sp.postDiaDirty[role]=true;updatePanel();
+  }));
   // Rails
   document.getElementById('has-top-rail').addEventListener('change',e=>{activeSpecs().hasTopRail=e.target.checked;updatePanel();});
   document.getElementById('has-mid-rail').addEventListener('change',e=>{
@@ -3439,14 +3510,14 @@ function openRestoreDialog(payload){
       done.push(`${incomingJobs.length} job${incomingJobs.length===1?'':'s'}`);
     }
     if(state.doPricing&&payload.pricing){
-      const priorPricing={costs:JSON.parse(JSON.stringify(COST_DB)),labor:JSON.parse(JSON.stringify(LABOR)),markup:JSON.parse(JSON.stringify(MARKUP))};
+      const priorPricing={costs:JSON.parse(JSON.stringify(COST_DB)),labor:JSON.parse(JSON.stringify(LABOR)),markup:JSON.parse(JSON.stringify(MARKUP)),footing:JSON.parse(JSON.stringify(FOOTING)),postODIn:{...POST_OD_IN}};
       const savedRateCard=readSavedCostDB();
-      COST_DB=JSON.parse(JSON.stringify(DEFAULT_COST_DB));LABOR=JSON.parse(JSON.stringify(DEFAULT_LABOR));MARKUP=JSON.parse(JSON.stringify(DEFAULT_MARKUP));
+      COST_DB=JSON.parse(JSON.stringify(DEFAULT_COST_DB));LABOR=JSON.parse(JSON.stringify(DEFAULT_LABOR));MARKUP=JSON.parse(JSON.stringify(DEFAULT_MARKUP));FOOTING=JSON.parse(JSON.stringify(DEFAULT_FOOTING));POST_OD_IN={...DEFAULT_POST_OD_IN};
       if(savedRateCard.status==='loaded')mergeSavedCostDB(savedRateCard.data);
       mergeSavedCostDB(payload.pricing);
       const priorPricingProvenance=_pricingFromLoadedProject;_pricingFromLoadedProject=false;
       if(!saveCostDB()){
-        COST_DB=priorPricing.costs;LABOR=priorPricing.labor;MARKUP=priorPricing.markup;_pricingFromLoadedProject=priorPricingProvenance;
+        COST_DB=priorPricing.costs;LABOR=priorPricing.labor;MARKUP=priorPricing.markup;FOOTING=priorPricing.footing;POST_OD_IN=priorPricing.postODIn;refreshPostDiaDefaults();_pricingFromLoadedProject=priorPricingProvenance;
         showToast(`Prices could not be restored — storage full or blocked${done.length?`; ${done.join(' + ')} restored`:''}`,true);return;
       }
       done.push('prices');
@@ -3616,6 +3687,13 @@ function openCostEditor(){
         <div class="ce-sec">Labor — install cost per gate</div>
         ${gateRows}
         <div class="ce-row"><span>Crew hourly rate (hours-override mode)</span><input type="number" id="ce-crew-rate" value="${LABOR.crewHourlyRate}" step="5" style="width:70px"/><span style="color:var(--text3);font-size:10px">$/hr</span></div>
+        <div class="ce-sec">Takeoff parameters</div>
+        <div class="ce-note" style="margin-bottom:6px">Footing defaults follow owner field practice. Post OD defaults are proposed and remain owner-editable.</div>
+        ${Object.entries(FOOTING.bagsByDepthIn).map(([depth,bags])=>`<div class="ce-row"><span>Concrete bags at ${depth}&quot; depth</span><input type="number" data-footing-depth="${depth}" value="${bags}" min="0" step="1" style="width:70px"/><span style="color:var(--text3);font-size:10px">60 lb</span></div>`).join('')}
+        <div class="ce-row"><span>Concrete bag weight</span><input type="number" id="ce-bag-weight" value="${FOOTING.bagWeightLb}" min="1" step="1" style="width:70px"/><span style="color:var(--text3);font-size:10px">lb</span></div>
+        <div class="ce-row"><span>Hole diameter multiplier ≤4&quot; OD</span><input type="number" id="ce-dia-mult-low" value="${FOOTING.diaMultiplierAtOrBelow4in}" min="1" step="0.1" style="width:70px"/><span style="color:var(--text3);font-size:10px">× OD</span></div>
+        <div class="ce-row"><span>Hole diameter multiplier &gt;4&quot; OD</span><input type="number" id="ce-dia-mult-high" value="${FOOTING.diaMultiplierAbove4in}" min="1" step="0.1" style="width:70px"/><span style="color:var(--text3);font-size:10px">× OD</span></div>
+        ${POST_ROLES.map(role=>`<div class="ce-row"><span>${role[0].toUpperCase()+role.slice(1)} post OD</span><input type="number" data-post-od="${role}" value="${POST_OD_IN[role]}" min="0.1" step="0.001" style="width:70px"/><span style="color:var(--text3);font-size:10px">in</span></div>`).join('')}
         <div class="ce-sec">Material buy costs</div>
         <div class="ce-note" style="margin-bottom:6px">Your purchase price per unit. This is the cost basis the whole estimate is built from — keep it honest and current.</div>
         ${costRows}
@@ -3645,6 +3723,12 @@ function openCostEditor(){
     const mm=parseFloat(ov.querySelector('#ce-mat-markup').value);if(Number.isFinite(mm))MARKUP.materialPct=mm;
     const lm=parseFloat(ov.querySelector('#ce-lab-markup').value);if(Number.isFinite(lm))MARKUP.laborPct=lm;
     const cr=parseFloat(ov.querySelector('#ce-crew-rate').value);if(Number.isFinite(cr)&&cr>0)LABOR.crewHourlyRate=cr;
+    ov.querySelectorAll('[data-footing-depth]').forEach(i=>{const v=parseFloat(i.value);if(Number.isFinite(v)&&v>=0)FOOTING.bagsByDepthIn[i.dataset.footingDepth]=v;});
+    const bw=parseFloat(ov.querySelector('#ce-bag-weight').value);if(Number.isFinite(bw)&&bw>0)FOOTING.bagWeightLb=bw;
+    const dml=parseFloat(ov.querySelector('#ce-dia-mult-low').value);if(Number.isFinite(dml)&&dml>0)FOOTING.diaMultiplierAtOrBelow4in=dml;
+    const dmh=parseFloat(ov.querySelector('#ce-dia-mult-high').value);if(Number.isFinite(dmh)&&dmh>0)FOOTING.diaMultiplierAbove4in=dmh;
+    ov.querySelectorAll('[data-post-od]').forEach(i=>{const v=parseFloat(i.value);if(Number.isFinite(v)&&v>0)POST_OD_IN[i.dataset.postOd]=v;});
+    refreshPostDiaDefaults();
     const priorPricingProvenance=_pricingFromLoadedProject;
     _pricingFromLoadedProject=false;
     if(!saveCostDB()){
@@ -3659,6 +3743,9 @@ function openCostEditor(){
     COST_DB=JSON.parse(JSON.stringify(DEFAULT_COST_DB));
     LABOR=JSON.parse(JSON.stringify(DEFAULT_LABOR));
     MARKUP=JSON.parse(JSON.stringify(DEFAULT_MARKUP));
+    FOOTING=JSON.parse(JSON.stringify(DEFAULT_FOOTING));
+    POST_OD_IN={...DEFAULT_POST_OD_IN};
+    refreshPostDiaDefaults();
     const priorPricingProvenance=_pricingFromLoadedProject;
     _pricingFromLoadedProject=false;
     if(!saveCostDB()){
@@ -3674,7 +3761,7 @@ function openCostEditor(){
     close();openCostEditor();updatePricing();showToast('Saved rate card reloaded');
   };
   ov.querySelector('#ce-export').onclick=()=>{
-    const blob=new Blob([JSON.stringify({app:'FenceboundCAD',kind:'prices',costs:COST_DB,labor:LABOR,markup:MARKUP},null,2)],{type:'application/json'});
+    const blob=new Blob([JSON.stringify({app:'FenceboundCAD',kind:'prices',costs:COST_DB,labor:LABOR,markup:MARKUP,footing:FOOTING,postODIn:POST_OD_IN},null,2)],{type:'application/json'});
     const a=document.createElement('a');
     const url=URL.createObjectURL(blob);
     a.href=url;
@@ -3695,6 +3782,9 @@ function openCostEditor(){
       if(o.costs)COST_DB={...COST_DB,...normalizeImportedCosts(o.costs)};
       if(o.labor)LABOR={...LABOR,...o.labor,perLF:{...LABOR.perLF,...(o.labor.perLF||{})},gate:{...LABOR.gate,...(o.labor.gate||{})}};
       if(o.markup)MARKUP={...MARKUP,...o.markup};
+      if(o.footing)mergeFooting(o.footing);
+      if(o.postODIn)mergePostOD(o.postODIn);
+      refreshPostDiaDefaults();
       const priorPricingProvenance=_pricingFromLoadedProject;
       _pricingFromLoadedProject=false;
       if(!saveCostDB()){
