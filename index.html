@@ -605,6 +605,7 @@ label{font-size:10px;color:var(--text2);letter-spacing:0.02em;display:block;marg
         </div>
         <div class="psec">
           <button class="btn" id="btn-company-profile" style="width:100%;padding:7px;font-size:10px;margin-bottom:6px">Company Profile</button>
+          <div id="seed-price-note" style="display:none;font-size:9px;color:var(--accent);line-height:1.5;margin-bottom:6px">Pricing is still the shipped placeholder baseline. Load your own costs before quoting.</div>
           <button class="btn" id="btn-cost-editor" style="width:100%;padding:7px;font-size:10px;margin-bottom:6px">Edit Costs & Margin</button>
           <button class="btn accent" id="btn-gen-estimate" style="width:100%;padding:8px;font-size:11px;letter-spacing:0.08em">GENERATE ESTIMATE PDF</button>
           <button class="btn" id="btn-validate-job" style="width:100%;padding:7px;font-size:10px;margin-top:6px">✓ VALIDATE JOB</button>
@@ -3225,6 +3226,8 @@ function computePricing(){
 }
 
 function updatePricing(){
+  const _spn=document.getElementById('seed-price-note');
+  if(_spn)_spn.style.display=usingSeedPrices()?'block':'none';
   const P=computePricing();
   const showCost=S.showCostView; // employee/internal toggle
 
@@ -3562,6 +3565,14 @@ function handleCsvFile(file){
 // ── COST & MARGIN EDITOR ────────────────────────────────────────────────────
 // Full-screen editable table: material buy costs, labor $/LF, gate labor,
 // markup %, crew rate. Persists to localStorage AND rides along in saved jobs.
+// True when the user has never saved a rate card, meaning the figures on
+// screen are still the shipped North Carolina baseline rather than their own
+// costs. Used to label placeholder pricing so a new user does not mistake the
+// seeds for authoritative numbers.
+function usingSeedPrices(){
+  try{return readSavedCostDB().status!=='loaded';}catch(e){return false;}
+}
+
 function openCostEditor(){
   let ov=document.getElementById('cost-editor');
   if(!ov){
@@ -3595,6 +3606,7 @@ function openCostEditor(){
     <div class="ce-card">
       <h3>COSTS &amp; MARGIN — your true numbers</h3>
       <div class="ce-body">
+        ${usingSeedPrices()?`<div style="margin-bottom:12px;padding:9px 11px;border-radius:var(--radius-sm);background:var(--accent-dim);border:1px solid var(--accent-mid);font-size:10px;color:var(--accent);line-height:1.55"><b>These are placeholder prices.</b> They ship with the app as a rough North Carolina baseline and are not your costs. Import your supplier's price list with the CSV button below, or edit these figures, before quoting a real job.</div>`:''}
         <div class="ce-sec">Markup → Margin</div>
         <div class="ce-row"><span>Material markup</span><input type="number" id="ce-mat-markup" value="${MARKUP.materialPct}" step="1" style="width:70px"/><span style="color:var(--text3);font-size:10px">%</span></div>
         <div class="ce-row"><span>Labor markup</span><input type="number" id="ce-lab-markup" value="${MARKUP.laborPct}" step="1" style="width:70px"/><span style="color:var(--text3);font-size:10px">%</span></div>
@@ -4073,27 +4085,82 @@ init();
 .fb-dev-overlay.open{display:block}.fb-dev-card{max-width:900px;margin:20px auto;background:#0b1220;color:#e5e7eb;border:1px solid #374151;border-radius:8px;padding:22px;font:14px/1.45 Arial,sans-serif;box-shadow:0 12px 50px rgba(0,0,0,.55)}
 .fb-dev-card h2{margin:0;color:#fbbf24;font-size:22px}.fb-dev-meta{color:#9ca3af;margin:3px 0 18px}.fb-dev-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.fb-dev-box{background:#111827;border:1px solid #263244;border-radius:6px;padding:14px}.fb-dev-box h3{margin:0 0 8px;color:#93c5fd;font-size:13px;text-transform:uppercase;letter-spacing:.08em}.fb-dev-box ul{margin:6px 0 0;padding-left:20px}.fb-dev-close{float:right;background:none;border:1px solid #6b7280;color:#fff;border-radius:4px;padding:5px 9px;cursor:pointer}.fb-dev-note{margin-top:14px;padding:10px;background:#172033;border-left:3px solid #fbbf24;color:#cbd5e1}.fb-dev-actions{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap}.fb-dev-actions button{background:#1f2937;color:#fff;border:1px solid #4b5563;border-radius:4px;padding:7px 10px;cursor:pointer}@media(max-width:700px){.fb-dev-grid{grid-template-columns:1fr}.fb-dev-overlay{padding:8px}.fb-dev-card{margin:5px auto}}@media print{.fb-dev-btn,.fb-dev-overlay{display:none!important}}
 </style>
-<button class="fb-dev-btn" type="button" onclick="fbToggleDevIndex(true)">DEV INDEX</button>
+<button class="fb-dev-btn" id="fb-dev-btn" type="button" hidden onclick="fbToggleDevIndex(true)">DEV INDEX</button>
 <div class="fb-dev-overlay" id="fb-dev-index" onclick="if(event.target===this)fbToggleDevIndex(false)">
  <div class="fb-dev-card"><button class="fb-dev-close" onclick="fbToggleDevIndex(false)">CLOSE</button>
- <h2>FenceboundCAD Development Index</h2><div class="fb-dev-meta">Local documentation authority · v5.3.4 · Updated July 16, 2026</div>
+ <h2>FenceboundCAD Development Index</h2><div class="fb-dev-meta">Local documentation authority · v5.4.0 · Updated 3 September 2026</div>
  <div class="fb-dev-grid">
-  <div class="fb-dev-box"><h3>Purpose</h3><div>Drawing-driven fence layout, BOM generation, cost-basis estimating, quick-reference totals, and proposal output.</div></div>
-  <div class="fb-dev-box"><h3>Current Status</h3><div>Pricing schema unified with Rate Card. Temporary panels priced at $100 each. Quick-reference and final-ready pricing states active.</div></div>
-  <div class="fb-dev-box"><h3>Open Punch List</h3><ul><li>Automated pricing regression runner</li><li>Material-specific gate pricing when verified data arrives</li><li>Field labor-rate integration</li><li>Distributor-cost replacement</li><li>Promote stable architecture decisions to Engineering Bible</li></ul></div>
-  <div class="fb-dev-box"><h3>Completed / Locked</h3><ul><li>Phase One baseline stabilized</li><li>Canonical pricing schema v2 accepted</li><li>100-foot benchmark completed for every fence type</li><li>Missing/zero pricing warnings added</li></ul></div>
-  <div class="fb-dev-box" style="grid-column:1/-1"><h3>Dependencies</h3><div>Fencebound Rate Card, verified distributor data, field rate card, FenceScraper market benchmarks.</div></div>
+  <div class="fb-dev-box"><h3>Purpose</h3><div>Drawing-driven fence layout, BOM generation, cost-basis estimating, quick-reference totals, and proposal output. Sold as a one-time perpetual licence: offline, no accounts, no subscription.</div></div>
+  <div class="fb-dev-box"><h3>Current Status</h3><div>v5.4.0 shipped and pushed. CSV price import, company profile, and full backup/restore are live. Estimate output is fully unbranded from Far-Out. Takeoff defects D1–D5 are specified with owner rulings but <b>not yet implemented</b>.</div></div>
+
+  <div class="fb-dev-box"><h3>Open — Takeoff Defects</h3><ul>
+   <li><b>D1</b> Post tallies disagree: calcAutoMaterials() recomputes posts independently of getStats(). Fix first — likely upstream of D3 and D4.</li>
+   <li><b>D2</b> Linear materials and labour are not net of gate openings. Gates already bill separately via LABOR.gate, so per-LF across an opening double-bills.</li>
+   <li><b>D3</b> Post caps are unconditional; a barb arm replaces the cap.</li>
+   <li><b>D4</b> No post type receives a correct length. Gate posts inherit the run’s length and a flat 2 bags of concrete.</li>
+   <li><b>D5</b> Terminal counts do not reconcile across posts, bars, and bands.</li>
+  </ul></div>
+
+  <div class="fb-dev-box"><h3>Open — Product Decisions</h3><ul>
+   <li><b>Flexible rate models (D6 + field labour rates).</b> The tool only accepts crew-rate + per-LF costing. Contractors quote in several styles — $/LF sell price, material as a multiple of labour, per-panel, per-section. Entering a sell price as cost currently reports 0.0% margin. <b>Standout feature; treat as one problem, not two.</b></li>
+   <li><b>Gate pricing by fence material.</b> LABOR.gate charges by gate type only, so a chain link walk gate and an ornamental one bill identically. Needs field data per material.</li>
+   <li><b>D7</b> “6 plus 1” is not a first-class concept; the user assembles it from separate flags.</li>
+   <li><b>Dual depth.</b> Real depth drives material cost; spec depth (36" to a GC) belongs on submittals. The tool holds one number.</li>
+   <li>JSON price import silently clears provenance and overwrites the rate card without confirming, unlike the manual save.</li>
+   <li>A pale user-chosen accent can render branded PDF text nearly invisible.</li>
+  </ul></div>
+
+  <div class="fb-dev-box"><h3>Completed / Locked</h3><ul>
+   <li>Automated regression runner — 69 Playwright tests, 12-route persistence matrix, v5.4 port suite</li>
+   <li>Chain link field specification ratified into repository authority</li>
+   <li>168 LF reference job locked as the D1–D5 regression fixture</li>
+   <li>CSV price-list import with column mapping and duplicate resolution</li>
+   <li>Company profile — branding, terms, deposit, validity, accent</li>
+   <li>Full backup / restore with staleness warning</li>
+   <li>Seeded costs labelled as placeholders</li>
+   <li>Phase One baseline stabilised; canonical pricing schema v2 accepted</li>
+   <li>100-foot benchmark completed for every fence type</li>
+  </ul></div>
+
+  <div class="fb-dev-box" style="grid-column:1/-1"><h3>Dependencies</h3><div>Field rate card and per-material gate labour data (owner-supplied). Distributor pricing is <b>no longer a product blocker</b> — customers load their own costs via CSV import; it remains a Far-Out Fencing bidding concern only. FenceScraper is a separate product and not a dependency of this tool.</div></div>
  </div>
- <div class="fb-dev-note"><b>Documentation rule:</b> This file owns its local bugs, punch list, implementation status, and test notes. System-wide architecture, governance, and promoted decisions remain in the FenceBound Engineering Bible. TD-DOC-001 remains open until all active tools use this structure and the Bible can be safely consolidated.</div>
+ <div class="fb-dev-note"><b>Documentation rule:</b> This file owns its local bugs, punch list, implementation status, and test notes. System-wide architecture, governance, and promoted decisions remain in the FenceBound Engineering Bible. TD-DOC-001 remains open until all active tools use this structure and the Bible can be safely consolidated. The standalone Rate Card was retired rather than converted — its cost editor duplicated this file’s.</div>
  <div class="fb-dev-actions"><button onclick="fbCopyDevSummary()">COPY SUMMARY</button><button onclick="fbExportDevSummary()">EXPORT .TXT</button></div>
  </div>
 </div>
 <script id="fb-dev-index-script">
+// The dev index is internal. It appears only with ?dev=1 in the URL, or once
+// unlocked on this device via localStorage. A customer running the app never
+// sees the button. Ctrl+Shift+D also toggles it, for when the URL is awkward.
+function fbDevEnabled(){
+  try{
+    const p=new URLSearchParams(location.search);
+    if(p.get('dev')==='1'){localStorage.setItem('fencebound_dev','1');return true;}
+    if(p.get('dev')==='0'){localStorage.removeItem('fencebound_dev');return false;}
+    return localStorage.getItem('fencebound_dev')==='1';
+  }catch(e){return false;}
+}
+function fbApplyDevVisibility(){
+  const b=document.getElementById('fb-dev-btn');
+  if(b)b.hidden=!fbDevEnabled();
+  if(!fbDevEnabled())fbToggleDevIndex(false);
+}
 function fbToggleDevIndex(open){document.getElementById('fb-dev-index').classList.toggle('open',!!open)}
 function fbDevText(){const c=document.querySelector('#fb-dev-index .fb-dev-card');return c?c.innerText.replace(/CLOSE|COPY SUMMARY|EXPORT \.TXT/g,'').trim():''}
 function fbCopyDevSummary(){if(navigator.clipboard)navigator.clipboard.writeText(fbDevText())}
 function fbExportDevSummary(){const b=new Blob([fbDevText()],{type:'text/plain'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='cad-development-index.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
-document.addEventListener('keydown',e=>{if(e.key==='Escape')fbToggleDevIndex(false)});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape')fbToggleDevIndex(false);
+  if(e.ctrlKey&&e.shiftKey&&(e.key==='D'||e.key==='d')){
+    e.preventDefault();
+    try{
+      const on=localStorage.getItem('fencebound_dev')==='1';
+      if(on)localStorage.removeItem('fencebound_dev'); else localStorage.setItem('fencebound_dev','1');
+    }catch(err){}
+    fbApplyDevVisibility();
+  }
+});
+fbApplyDevVisibility();
 </script>
 </body>
 </html>
