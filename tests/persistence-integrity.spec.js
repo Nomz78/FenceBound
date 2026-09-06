@@ -457,7 +457,9 @@ test('R15 zero manual rows preserve the pre-fix estimate total exactly',async({p
   await seedRun(page,'Auto Pricing Identity');
   const serialized=await state(page,`(()=>{S.materials=[];return JSON.stringify(computePricing().clientTotal);})()`);
   console.log('R15_PARENT_TOTAL',serialized);
-  expect(serialized).toBe('382.01');
+  // Owner ruling: the former 382.01 baseline encoded pre-D1-D5 defective
+  // quantities and is superseded by the corrected post/footing takeoff.
+  expect(serialized).toBe('386.195');
 });
 
 test('R16 manual material is visible on the estimate PDF',async({page})=>{
