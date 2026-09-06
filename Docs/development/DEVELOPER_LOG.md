@@ -180,3 +180,22 @@ Append one entry for every development session. Preserve prior entries.
   implemented later as overridable defaults. D1 is the next authorized task. D6, D7, dual-depth
   modeling, JSON provenance, and pale PDF contrast remain deferred.
 - **Next authorized task:** Begin D1 only, add the ratified fixture, then re-measure D2–D5.
+
+## 2026-09-06 — D1–D5 takeoff reconciliation
+
+- **Objective:** Reconcile post-role counts, gate-net materials and labor, role-specific embed and
+  purchase lengths, termination hardware, and 60-pound concrete quantities against the 168 LF
+  owner-ratified fixture.
+- **Tested implementation commit:** `559c1d87ab8ec2e57de47c2b4758c55766c5fe00`;
+  followed by the documentation-only closeout commit containing this entry.
+- **Files changed:** Canonical `index.html`, the promoted 168 LF regression fixture, the R15 pricing
+  baseline, current state/handoff, archived handoff, and this log.
+- **Tests performed:** Full Playwright suite, twelve-route persistence matrix, both embedded-script
+  syntax checks, test-file syntax checks, `git diff --check`, and independent review.
+- **Results:** Full suite 71/71 passed and the persistence matrix passed 12/12. The 168 LF fixture
+  reports no deltas. R15 changed from `382.01` to owner-ratified `386.195` because the former value
+  encoded defective pre-D1–D5 quantities.
+- **Decisions made:** Line posts use driven 18-inch embed with no concrete; terminal/corner/gate
+  posts use set embed and the owner bag schedule. Gate openings reduce linear materials and per-LF
+  labor. Existing saved auto-post coordinates are retained rather than regenerated on load.
+- **Next authorized task:** None. D6, D7, and remaining product decisions require owner direction.
