@@ -199,3 +199,18 @@ Append one entry for every development session. Preserve prior entries.
   posts use set embed and the owner bag schedule. Gate openings reduce linear materials and per-LF
   labor. Existing saved auto-post coordinates are retained rather than regenerated on load.
 - **Next authorized task:** None. D6, D7, and remaining product decisions require owner direction.
+
+## 2026-09-18 — Exit note on main
+
+- **Owner direction:** Exit after noting the next step on main; no repair merge was requested.
+- **Scope:** Current state/handoff and this note only. Main runtime/tests are unchanged from
+  `ad5c314`, which has the same runtime/test sources as the prior verified `559c1d8` implementation.
+- **Pending work:** The canonical checkout holds the uncommitted `fix/cad-auto-post-integrity`
+  candidate (86 browser tests, 12 persistence routes and independent review passed). Review and
+  authorize its closeout first. Preserve unrelated dirty files.
+- **Next correctness decision:** Reconcile the house-terminated field reference with the different
+  closed-loop regression quantities. Retail material comparisons follow that work; permitted
+  data access and product equivalence are prerequisites. Benchmark software must allow access
+  without an EIN. No software purchase or retailer feature was implemented.
+- **Gate:** Initialization, unchanged source comparison and documentation diff checks; prior
+  browser evidence is preserved as historical evidence, not a new main test run.
