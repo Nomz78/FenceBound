@@ -244,6 +244,8 @@ Append one entry for every development session. Preserve prior entries.
   - ratify R15 `386.22`;
   - run the PDF-path tests with network access before merging.
 - **Handoff:** `Docs/execution/INTEGER_CENTS_PRICING_HANDOFF_2026-10-01.md`.
+- **Owner decision (2026-10-01):** The truss-rod connector is purchased separately from the rod,
+  so the separate BOM connector line is not a double count. No code change was made.
 
 ## 2026-10-01 — Per-end termination hardware brought to the owner field specification
 
