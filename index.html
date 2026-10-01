@@ -1214,6 +1214,7 @@ const DEFAULT_COST_DB={
   'carriage bolt nut':        {cost:0.40, unit:'ea'},
   'galv nails':               {cost:0.03, unit:'ea'},
   'truss rod w tightener':    {cost:6.50, unit:'ea'},
+  'truss rod connector':      {cost:2.50, unit:'ea'}, // turnbuckle-style threaded connector; provisional seed — override with your supplier cost
   // privacy wood
   'dog ear picket':           {cost:2.40, unit:'ea'},
   'post':                     {cost:11.00,unit:'ea'},
@@ -3296,6 +3297,19 @@ function init(){
 // updatePricing() is the DOM renderer that calls it. Both the panel and the
 // estimate PDF read from computePricing() so they can never drift.
 
+// ── MONEY MATH (integer cents) ─────────────────────────────────────────────
+// Every dollar amount inside computePricing() is calculated in integer cents,
+// rounded per line (half-up). Totals are sums of rounded lines — the standard
+// accounting convention — so all totals are exact and deterministic across
+// runs, platforms, and takeoff-quantity corrections. No float money leaves
+// this section: returned dollar fields are cents/100, and the `cents` block
+// carries the canonical integers for exact test assertions.
+// Rule: never do float arithmetic on money outside these helpers.
+const toCents=v=>Math.round(Number(v)*100);
+const centsOf=(unitDollars,qty)=>Math.round(toCents(unitDollars)*Number(qty));
+const applyPctC=(cents,pct)=>Math.round(cents*(100+pct)/100);
+const dollars=c=>c/100;
+
 function computePricing(){
   const stats=getStats();
   const manualBom=S.materials.map(item=>{
@@ -3312,64 +3326,76 @@ function computePricing(){
   const hoursOverride=parseFloat(document.getElementById('labor-hours')?.value);
   const useHours=Number.isFinite(hoursOverride)&&hoursOverride>0;
 
-  // ── 1. MATERIAL COST — price every BOM line at buy cost ──
-  let matCost=0; const matLines=[]; const unknown=[];
+  // ── 1. MATERIAL COST — price every BOM line at buy cost (integer cents) ──
+  let matCostC=0; const matLines=[]; const unknown=[];
   bom.forEach(it=>{
     const unit=lookupCost(it.name);
-    if(unit===null){ unknown.push(it.name); matLines.push({name:it.name,qty:it.qty,unit:it.unit,source:it.source,unitCost:null,ext:0}); return; }
-    const ext=unit*it.qty; matCost+=ext;
-    matLines.push({name:it.name,qty:it.qty,unit:it.unit,source:it.source,unitCost:unit,ext});
+    if(unit===null){ unknown.push(it.name); matLines.push({name:it.name,qty:it.qty,unit:it.unit,source:it.source,unitCost:null,ext:0,unitCostC:null,extC:0,clientUnitCost:null,clientExt:0,clientUnitCostC:null,clientExtC:0}); return; }
+    const unitC=toCents(unit);
+    const extC=centsOf(unit,it.qty);
+    matCostC+=extC;
+    matLines.push({name:it.name,qty:it.qty,unit:it.unit,source:it.source,unitCost:dollars(unitC),ext:dollars(extC),unitCostC:unitC,extC});
   });
 
   // ── 2. LABOR COST — $/LF by type (default) OR crew hours override ──
-  let laborCost=0; const laborLines=[];
+  let laborCostC=0; const laborLines=[];
   if(useHours){
-    laborCost=hoursOverride*LABOR.crewHourlyRate;
-    laborLines.push({label:`Crew labor (${hoursOverride}h × $${LABOR.crewHourlyRate}/h)`,ext:laborCost});
+    const extC=centsOf(LABOR.crewHourlyRate,hoursOverride);
+    laborCostC+=extC;
+    laborLines.push({label:`Crew labor (${hoursOverride}h × $${LABOR.crewHourlyRate}/h)`,ext:dollars(extC),extC});
   }else{
     Object.entries(stats.netFence).forEach(([type,ft])=>{
       const r=LABOR.perLF[type]; if(!r)return;
-      const ext=ft*r; laborCost+=ext;
-      laborLines.push({label:`${(FENCE_TYPES[type]||{}).label||type} labor (${ft.toFixed(0)} LF × $${r})`,ext});
+      const extC=centsOf(r,ft); laborCostC+=extC;
+      laborLines.push({label:`${(FENCE_TYPES[type]||{}).label||type} labor (${ft.toFixed(0)} LF × $${r})`,ext:dollars(extC),extC});
     });
     Object.entries(stats.gates||{}).forEach(([gt,cnt])=>{
-      if(!cnt)return; const r=LABOR.gate[gt]||0; const ext=cnt*r; laborCost+=ext;
-      if(ext)laborLines.push({label:`${(GATE_TYPES[gt]||{}).label||gt} install (${cnt} × $${r})`,ext});
+      if(!cnt)return; const r=LABOR.gate[gt]||0; const extC=toCents(r)*cnt; laborCostC+=extC;
+      if(extC)laborLines.push({label:`${(GATE_TYPES[gt]||{}).label||gt} install (${cnt} × $${r})`,ext:dollars(extC),extC});
     });
   }
 
   // ── 3. SITE UPCHARGES — applied to COST (they raise your real cost) ──
   let totalFt=stats.totalFt||0;
-  let demoCost=ucDemo?totalFt*3:0;        // your cost to demo/haul (not the upsell)
-  let slopeCost=ucSlope?totalFt*0.5:0;    // added labor for grade
-  let hardDigCost=ucHardDig?laborCost*0.30:0; // rocky terrain = +30% labor cost
-  laborCost+=slopeCost+hardDigCost;
-  matCost+=demoCost;
+  let demoCostC=ucDemo?Math.round(totalFt*300):0;             // your cost to demo/haul (not the upsell)
+  let slopeCostC=ucSlope?Math.round(totalFt*50):0;            // added labor for grade
+  let hardDigCostC=ucHardDig?Math.round(laborCostC*30/100):0;  // rocky terrain = +30% labor cost
+  laborCostC+=slopeCostC+hardDigCostC;
+  matCostC+=demoCostC;
 
   // ── 4. CLIENT PRICE — separate markup on materials vs labor ──
-  const matPrice  = matCost  *(1+MARKUP.materialPct/100);
-  const laborPrice= laborCost*(1+MARKUP.laborPct/100);
+  // Per-line client extensions, then summed: totals are sums of rounded lines.
   matLines.forEach(line=>{
-    line.clientUnitCost=line.unitCost===null?null:line.unitCost*(1+MARKUP.materialPct/100);
-    line.clientExt=line.clientUnitCost===null?0:line.clientUnitCost*line.qty;
+    if(line.unitCostC===null){line.clientUnitCost=null;line.clientExt=0;line.clientUnitCostC=null;line.clientExtC=0;return;}
+    const clientUnitC=applyPctC(line.unitCostC,MARKUP.materialPct);
+    const clientExtC=Math.round(line.unitCostC*line.qty*(100+MARKUP.materialPct)/100);
+    line.clientUnitCost=dollars(clientUnitC);line.clientExt=dollars(clientExtC);
+    line.clientUnitCostC=clientUnitC;line.clientExtC=clientExtC;
   });
-  let clientSubtotal = matPrice + laborPrice;
-  let urbanAdd = ucUrban?clientSubtotal*0.15:0;   // urban premium is pure margin
-  let clientTotal = clientSubtotal + urbanAdd;
+  const matPriceC=matLines.reduce((s,l)=>s+(l.clientExtC||0),0);
+  const laborPriceC=applyPctC(laborCostC,MARKUP.laborPct);
+  const clientSubtotalC=matPriceC+laborPriceC;
+  const urbanAddC=ucUrban?Math.round(clientSubtotalC*15/100):0;   // urban premium is pure margin
+  const clientTotalC=clientSubtotalC+urbanAddC;
 
   // ── 5. MARGIN — the number that matters ──
-  const internalCost = matCost + laborCost;        // demo/slope/harddig already folded in
-  const profit = clientTotal - internalCost;
-  const marginPct = clientTotal>0 ? (profit/clientTotal*100) : 0;
+  const internalCostC=matCostC+laborCostC;        // demo/slope/harddig already folded in
+  const profitC=clientTotalC-internalCostC;
+  const marginPct=clientTotalC>0?(profitC/clientTotalC*100):0;
 
+  // cents: canonical integer money for exact assertions — assert on these, not floats.
+  const cents={matCost:matCostC,laborCost:laborCostC,internalCost:internalCostC,
+    matPrice:matPriceC,laborPrice:laborPriceC,clientSubtotal:clientSubtotalC,
+    urbanAdd:urbanAddC,clientTotal:clientTotalC,profit:profitC};
   return {
-    matCost,laborCost,internalCost,
-    matPrice,laborPrice,clientSubtotal,urbanAdd,clientTotal,
-    profit,marginPct,
+    matCost:dollars(matCostC),laborCost:dollars(laborCostC),internalCost:dollars(internalCostC),
+    matPrice:dollars(matPriceC),laborPrice:dollars(laborPriceC),clientSubtotal:dollars(clientSubtotalC),
+    urbanAdd:dollars(urbanAddC),clientTotal:dollars(clientTotalC),
+    profit:dollars(profitC),marginPct,cents,
     matLines,laborLines,unknown,
     zeroCostLines:matLines.filter(m=>m.unitCost===0).map(m=>m.name),
     isFinalReady:unknown.length===0 && matLines.every(m=>m.unitCost!==0),
-    hasData: bom.length>0 || laborCost>0,
+    hasData: bom.length>0 || laborCostC>0,
     flags:{ucDemo,ucSlope,ucUrban,ucHardDig,useHours,hoursOverride}
   };
 }
@@ -3776,6 +3802,9 @@ function openCostEditor(){
         <div class="ce-sec">Material buy costs</div>
         <div class="ce-note" style="margin-bottom:6px">Your purchase price per unit. This is the cost basis the whole estimate is built from — keep it honest and current.</div>
         ${costRows}
+        <div class="ce-sec" id="ce-add-sec">Add a material</div>
+        <div class="ce-note" style="margin-bottom:6px">For materials the app doesn't list yet — name it, price it, and it joins your rate card when you Save.</div>
+        <div class="ce-row"><input type="text" id="ce-new-name" placeholder="Material name" style="flex:1;text-align:left;min-width:0"/><span style="color:var(--text3);font-size:10px">$</span><input type="number" id="ce-new-cost" placeholder="0.00" step="0.01" min="0" style="width:78px"/><select id="ce-new-unit" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:5px 7px;color:var(--text1);font-family:var(--font);font-size:11px;outline:none"><option value="ea">ea</option><option value="lf">lf</option><option value="bag">bag</option><option value="coil">coil</option><option value="box">box</option></select><button class="btn" id="ce-add-mat" style="font-size:10px">Add</button></div>
       </div>
       <div class="ce-foot">
         <button class="btn" id="ce-reset" style="font-size:10px"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M4 11a8 8 0 1 1 2.3 6.6"/><path d="M4 5v6h6"/></svg> Reset defaults</button>
@@ -3793,6 +3822,24 @@ function openCostEditor(){
   ov.style.display='flex';
   const close=()=>{ov.style.display='none';};
   ov.querySelector('#ce-cancel').onclick=close;
+  ov.querySelector('#ce-add-mat').onclick=()=>{
+    const name=String(ov.querySelector('#ce-new-name').value||'').trim();
+    const key=normalizeMatKey(name);
+    const v=parseFloat(ov.querySelector('#ce-new-cost').value);
+    const unit=ov.querySelector('#ce-new-unit').value||'ea';
+    if(!key){showToast('Enter a material name first',true);return;}
+    if(!Number.isFinite(v)||v<0){showToast('Enter a valid cost for the new material',true);return;}
+    if(COST_DB[key]){showToast('That material is already listed — edit its price above',true);return;}
+    COST_DB[key]={cost:Math.round(v*100)/100,unit};
+    // Append the row in place (no re-render) so any unsaved edits elsewhere survive.
+    // The Save handler picks up [data-cost] rows at save time, so this row saves normally.
+    const row=document.createElement('div');
+    row.className='ce-row';
+    row.innerHTML=`<span style="font-size:10px;color:var(--text2);flex:1">${key}</span><span style="color:var(--text3);font-size:10px">$</span><input type="number" data-cost="${key}" value="${COST_DB[key].cost}" step="0.05" style="width:78px"/><span style="color:var(--text3);font-size:10px;width:26px">${unit}</span>`;
+    ov.querySelector('#ce-add-sec').before(row);
+    ov.querySelector('#ce-new-name').value='';ov.querySelector('#ce-new-cost').value='';
+    showToast(`Added “${key}” — it joins your rate card on Save`);
+  };
   ov.onclick=e=>{if(e.target===ov)close();};
   ov.querySelector('#ce-save').onclick=()=>{
     if(_pricingFromLoadedProject&&!confirm('These displayed prices came from the loaded project. Saving will replace your company rate card with these prices. Continue?'))return;
@@ -3997,8 +4044,10 @@ function emptyExportStats(){
     gates:{walk:0,doubledrive:0,cantilever:0,other:0},gateTotal:0,linePosts:0};
 }
 function unavailableExportPricing(){
+  const zeroCents={matCost:0,laborCost:0,internalCost:0,matPrice:0,laborPrice:0,
+    clientSubtotal:0,urbanAdd:0,clientTotal:0,profit:0};
   return{matCost:0,laborCost:0,internalCost:0,matPrice:0,laborPrice:0,
-    clientSubtotal:0,urbanAdd:0,clientTotal:0,profit:0,marginPct:0,
+    clientSubtotal:0,urbanAdd:0,clientTotal:0,profit:0,marginPct:0,cents:zeroCents,
     matLines:[],laborLines:[],unknown:[],zeroCostLines:[],hasData:false,
     flags:{},pricingUnavailable:true};
 }

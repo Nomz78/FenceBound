@@ -405,10 +405,12 @@ test('R13 known manual material joins the existing marked-up material total',asy
     const after=computePricing();
     const manual=after.matLines.find(line=>line.source==='manual');
     const equivalentAuto=after.matLines.find(line=>line.source!=='manual'&&line.name==='Post Cap');
-    return{before:before.clientTotal,after:after.clientTotal,unit,markup:MARKUP.materialPct,manual,equivalentAuto};
+    return{before:before.cents.clientTotal,after:after.cents.clientTotal,unit,markup:MARKUP.materialPct,manual,equivalentAuto};
   })()`);
-  const expectedDelta=observed.unit*2*(1+observed.markup/100);
-  expect(observed.after-observed.before).toBeCloseTo(expectedDelta,10);
+  // Integer-cents contract: the delta is the rounded per-line client extension
+  // in cents (85¢ × 2 × 1.35 = 229.5¢ → 230¢), not the unrounded float 2.295.
+  const expectedDeltaC=Math.round(Math.round(observed.unit*100)*2*(100+observed.markup)/100);
+  expect(observed.after-observed.before).toBe(expectedDeltaC);
   expect(observed.manual).toMatchObject({name:'Post Cap',qty:2,unit:'ea',unitCost:observed.unit,ext:observed.unit*2});
   expect(observed.manual.clientUnitCost).toBe(observed.equivalentAuto.clientUnitCost);
 });
@@ -443,11 +445,12 @@ for(const quantityCase of [
     const observed=await state(page,`(()=>{
       S.materials=[{name:'Post Cap',qty:${JSON.stringify(quantityCase.input)},unit:'ea',id:3}];
       const pricing=computePricing(),manual=pricing.matLines.find(line=>line.source==='manual');
-      return{qty:manual&&manual.qty,ext:manual&&manual.ext,unit:lookupCost('Post Cap'),
+      return{qty:manual&&manual.qty,extC:manual&&manual.extC,unitC:Math.round(lookupCost('Post Cap')*100),
         totals:[pricing.matCost,pricing.matPrice,pricing.clientSubtotal,pricing.clientTotal,pricing.marginPct]};
     })()`);
     expect(observed.qty).toBe(quantityCase.expected);
-    expect(observed.ext).toBeCloseTo(observed.unit*quantityCase.expected,10);
+    // Integer-cents contract: ext is the half-up rounded cent extension.
+    expect(observed.extC).toBe(Math.round(observed.unitC*quantityCase.expected));
     expect(observed.totals.every(Number.isFinite)).toBe(true);
   });
 }
@@ -455,11 +458,14 @@ for(const quantityCase of [
 test('R15 zero manual rows preserve the pre-fix estimate total exactly',async({page})=>{
   await cleanOpen(page);
   await seedRun(page,'Auto Pricing Identity');
-  const serialized=await state(page,`(()=>{S.materials=[];return JSON.stringify(computePricing().clientTotal);})()`);
-  console.log('R15_PARENT_TOTAL',serialized);
+  const totals=await state(page,`(()=>{S.materials=[];const P=computePricing();return{cents:P.cents.clientTotal,dollars:JSON.stringify(P.clientTotal)};})()`);
+  console.log('R15_PARENT_TOTAL',JSON.stringify(totals));
   // Owner ruling: the former 382.01 baseline encoded pre-D1-D5 defective
   // quantities and is superseded by the corrected post/footing takeoff.
-  expect(serialized).toBe('386.195');
+  // Integer-cents money math supersedes the old float baseline ('386.195'):
+  // totals are now exact integer cents, so assert the integer, not a float string.
+  expect(totals.cents).toBe(38622);
+  expect(totals.dollars).toBe('386.22');
 });
 
 test('R16 manual material is visible on the estimate PDF',async({page})=>{
