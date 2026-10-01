@@ -72,6 +72,11 @@ while evaluating it.
   - The add-material row is feature work. It is included under the owner's
     instruction to integrate this proposal; it is not a general feature
     authorization.
+- Owner direction recorded 2026-10-01 after merge: FenceBound will not set
+  prices. Seed costs, including the `$2.50/ea` connector, are placeholders
+  that contractors replace with their own rate cards. The ratifications
+  above concern arithmetic and test baselines, not price authority. The
+  priority is material quantities and ratios.
 - Scope explicitly not changed: takeoff quantities, existing seed prices,
   labor rates, markups, persistence formats, saved-job schema, CSV/JSON
   formats, retail reference, FenceScraper. `CURRENT_STATE.json` and
