@@ -77,9 +77,54 @@ test('C3 cost editor can add a brand-new material', async ({ page }) => {
   await page.locator('#ce-new-cost').fill('4.25');
   await page.locator('#ce-new-unit').selectOption('ea');
   await page.locator('#ce-add-mat').click();
-  const result = await state(page, `({row:!!document.querySelector('[data-cost="test widget"]'),
-    inDb:!!COST_DB['test widget'],lookup:lookupCost('Test Widget')})`);
-  expect(result.row).toBe(true);
+  const staged = await state(page, `({row:!!document.querySelector('[data-cost="test widget"]'),
+    inDb:!!COST_DB['test widget']})`);
+  expect(staged.row).toBe(true);
+  // Staged only: the live rate card changes on Save, as the editor's toast says.
+  expect(staged.inDb).toBe(false);
+  await page.locator('#ce-save').click();
+  const result = await state(page, `({inDb:!!COST_DB['test widget'],lookup:lookupCost('Test Widget'),
+    persisted:JSON.parse(localStorage.getItem(COSTDB_KEY)).costs['test widget']})`);
   expect(result.inDb).toBe(true);
   expect(result.lookup).toBe(4.25);
+  expect(result.persisted).toEqual({cost:4.25,unit:'ea'});
+});
+
+test('C5 cancelling the cost editor discards an added material', async ({ page }) => {
+  await cleanOpen(page);
+  await page.locator('[data-tab="pricing"]').click();
+  await page.locator('#btn-cost-editor').click();
+  await page.locator('#ce-new-name').fill('Cancelled Widget');
+  await page.locator('#ce-new-cost').fill('9.99');
+  await page.locator('#ce-add-mat').click();
+  await page.locator('#ce-cancel').click();
+  const result = await state(page, `({inDb:!!COST_DB['cancelled widget'],lookup:lookupCost('Cancelled Widget')})`);
+  expect(result.inDb).toBe(false);
+  expect(result.lookup).toBe(null);
+});
+
+test('C4 site upcharges keep parity with the pre-cents formula (demo cost is marked up into the client price)', async ({ page }) => {
+  await seedTrussRodJob(page);
+  const result = await state(page, `(()=>{
+    ['uc-demo','uc-slope','uc-urban','uc-harddig'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=true;});
+    const P=computePricing();
+    // Legacy float formula (pre-cents), rebuilt from the same inputs.
+    const stats=getStats();const ft=stats.totalFt||0;
+    const priced=P.matLines.filter(l=>l.unitCost!==null);
+    const legacyMatCost=priced.reduce((s,l)=>s+l.unitCost*l.qty,0)+ft*3;
+    const legacySub=legacyMatCost*(1+MARKUP.materialPct/100)+P.laborCost*(1+MARKUP.laborPct/100);
+    const legacyTotal=legacySub*1.15;
+    const demoC=Math.round(ft*300);
+    return{lines:P.matLines.length,ft,demoC,pct:MARKUP.materialPct,cents:P.cents,
+      lineSumC:P.matLines.reduce((s,l)=>s+(l.clientExtC||0),0),
+      legacyTotalC:Math.round(legacyTotal*100)};
+  })()`);
+  expect(result.ft).toBeGreaterThan(0);
+  // Demo/haul is a cost: it must appear in client material price at material markup.
+  expect(result.cents.matPrice - result.lineSumC)
+    .toBe(Math.round(result.demoC*(100+result.pct)/100));
+  // Integer-cents totals differ from the float formula only by per-line rounding.
+  expect(Math.abs(result.cents.clientTotal - result.legacyTotalC))
+    .toBeLessThanOrEqual(result.lines + 4);
+  expect(result.cents.profit).toBe(result.cents.clientTotal - result.cents.internalCost);
 });

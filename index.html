@@ -3372,7 +3372,9 @@ function computePricing(){
     line.clientUnitCost=dollars(clientUnitC);line.clientExt=dollars(clientExtC);
     line.clientUnitCostC=clientUnitC;line.clientExtC=clientExtC;
   });
-  const matPriceC=matLines.reduce((s,l)=>s+(l.clientExtC||0),0);
+  // Demo/haul is folded into material cost above but has no BOM line, so it is
+  // marked up here; omitting it would drop it from the client price.
+  const matPriceC=matLines.reduce((s,l)=>s+(l.clientExtC||0),0)+applyPctC(demoCostC,MARKUP.materialPct);
   const laborPriceC=applyPctC(laborCostC,MARKUP.laborPct);
   const clientSubtotalC=matPriceC+laborPriceC;
   const urbanAddC=ucUrban?Math.round(clientSubtotalC*15/100):0;   // urban premium is pure margin
@@ -3822,6 +3824,8 @@ function openCostEditor(){
   ov.style.display='flex';
   const close=()=>{ov.style.display='none';};
   ov.querySelector('#ce-cancel').onclick=close;
+  // New materials are staged here and join COST_DB only on Save, so Cancel discards them.
+  const addedCosts={};
   ov.querySelector('#ce-add-mat').onclick=()=>{
     const name=String(ov.querySelector('#ce-new-name').value||'').trim();
     const key=normalizeMatKey(name);
@@ -3829,13 +3833,13 @@ function openCostEditor(){
     const unit=ov.querySelector('#ce-new-unit').value||'ea';
     if(!key){showToast('Enter a material name first',true);return;}
     if(!Number.isFinite(v)||v<0){showToast('Enter a valid cost for the new material',true);return;}
-    if(COST_DB[key]){showToast('That material is already listed — edit its price above',true);return;}
-    COST_DB[key]={cost:Math.round(v*100)/100,unit};
+    if(COST_DB[key]||addedCosts[key]){showToast('That material is already listed — edit its price above',true);return;}
+    addedCosts[key]={cost:Math.round(v*100)/100,unit};
     // Append the row in place (no re-render) so any unsaved edits elsewhere survive.
-    // The Save handler picks up [data-cost] rows at save time, so this row saves normally.
+    // The Save handler reads [data-cost] rows at save time, so this row saves normally.
     const row=document.createElement('div');
     row.className='ce-row';
-    row.innerHTML=`<span style="font-size:10px;color:var(--text2);flex:1">${key}</span><span style="color:var(--text3);font-size:10px">$</span><input type="number" data-cost="${key}" value="${COST_DB[key].cost}" step="0.05" style="width:78px"/><span style="color:var(--text3);font-size:10px;width:26px">${unit}</span>`;
+    row.innerHTML=`<span style="font-size:10px;color:var(--text2);flex:1">${esc(key)}</span><span style="color:var(--text3);font-size:10px">$</span><input type="number" data-cost="${esc(key)}" value="${addedCosts[key].cost}" step="0.05" style="width:78px"/><span style="color:var(--text3);font-size:10px;width:26px">${esc(unit)}</span>`;
     ov.querySelector('#ce-add-sec').before(row);
     ov.querySelector('#ce-new-name').value='';ov.querySelector('#ce-new-cost').value='';
     showToast(`Added “${key}” — it joins your rate card on Save`);
@@ -3843,6 +3847,7 @@ function openCostEditor(){
   ov.onclick=e=>{if(e.target===ov)close();};
   ov.querySelector('#ce-save').onclick=()=>{
     if(_pricingFromLoadedProject&&!confirm('These displayed prices came from the loaded project. Saving will replace your company rate card with these prices. Continue?'))return;
+    Object.entries(addedCosts).forEach(([k,e])=>{if(!COST_DB[k])COST_DB[k]={...e};});
     ov.querySelectorAll('[data-cost]').forEach(i=>{const k=i.dataset.cost;const v=parseFloat(i.value);if(Number.isFinite(v)&&COST_DB[k])COST_DB[k].cost=v;});
     ov.querySelectorAll('[data-labor]').forEach(i=>{const v=parseFloat(i.value);if(Number.isFinite(v))LABOR.perLF[i.dataset.labor]=v;});
     ov.querySelectorAll('[data-gatelabor]').forEach(i=>{const v=parseFloat(i.value);if(Number.isFinite(v))LABOR.gate[i.dataset.gatelabor]=v;});
