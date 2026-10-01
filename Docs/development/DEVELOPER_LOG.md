@@ -246,3 +246,9 @@ Append one entry for every development session. Preserve prior entries.
 - **Handoff:** `Docs/execution/INTEGER_CENTS_PRICING_HANDOFF_2026-10-01.md`.
 - **Owner decision (2026-10-01):** The truss-rod connector is purchased separately from the rod,
   so the separate BOM connector line is not a double count. No code change was made.
+- **Owner direction (2026-10-01): FenceBound does not set prices.** Contractors enter their own
+  costs, labor and markup; built-in seed prices are placeholders only. Product effort goes to
+  material takeoff correctness — quantities and ratios per run, post role, gate and termination.
+  The integer-cents work stands as arithmetic on contractor-entered prices; it is not a pricing
+  policy. The next correctness task remains reconciling the 168 LF field reference against the
+  executable fixture (see `Docs/CURRENT_HANDOFF.md`, item 3).
