@@ -1513,10 +1513,16 @@ function calcAutoMaterials(){
       items.push({name:'Tension Bar',qty:ends,unit:'ea'});
       items.push({name:'Tension Band',qty:ends*Math.max(Math.ceil(sp.heightIn/12)-1,0),unit:'ea'});
       items.push({name:'Top Rail Sleeve',qty:Math.ceil(ft/10),unit:'ea'});
-      items.push({name:'Post Cap',qty:hasBarbed?termCt+cornerCt:totalPosts,unit:'ea'});
-      items.push({name:'Terminal-size Brace Band',qty:ends+trussAssemblies,unit:'ea'});
-      if(sp.hasMidRail)items.push({name:'Line-size Brace Band',qty:lineCt,unit:'ea'});
-      items.push({name:'Rail End (Loop Cap)',qty:ends*((sp.hasTopRail?1:0)+(sp.hasMidRail?1:0)),unit:'ea'});
+      // Termination hardware is per fabric end (v5.4.0 owner field specification):
+      // framing takes 2 terminal brace bands + 2 rail-end cups, bottom tension wire
+      // 1 terminal band, barbed wire 1 terminal band per strand, and the mid rail
+      // 1 line-size band + 1 rail-end cup. Barb arms replace post caps.
+      const framingBands=sp.hasTopRail?2:1;
+      const terminalBandsPerEnd=framingBands+(sp.addons.has('bottom-wire')?1:0)+(hasBarbed?sp.barbStrands:0);
+      items.push({name:'Post Cap',qty:hasBarbed?0:totalPosts,unit:'ea'});
+      items.push({name:'Terminal-size Brace Band',qty:ends*terminalBandsPerEnd,unit:'ea'});
+      if(sp.hasMidRail)items.push({name:'Line-size Brace Band',qty:ends,unit:'ea'});
+      items.push({name:'Rail End (Loop Cap)',qty:ends*((sp.hasTopRail?2:0)+(sp.hasMidRail?1:0)),unit:'ea'});
       items.push({name:'Wire Ties 9ga',qty:Math.ceil(ft*5),unit:'ea'});
       const boltsPer=Math.ceil(sp.heightIn/12)*2;
       items.push({name:'3/8" Carriage Bolt+Nut',qty:ends*boltsPer,unit:'ea'});
@@ -1627,7 +1633,7 @@ function calcAutoMaterials(){
     const g=GATE_TYPES[gt]||{label:gt};
     items.push({name:`${g.label} w/ Hardware`,qty:1,unit:'ea'});
     items.push({name:postLengthLabel('gate',sp,'Gate Post'),qty:2,unit:'ea'});
-    if((owner?.fenceType||gate.fenceType)==='chainlink')items.push({name:'Post Cap',qty:2,unit:'ea'});
+    if((owner?.fenceType||gate.fenceType)==='chainlink'&&!sp.addons.has('barbed-wire'))items.push({name:'Post Cap',qty:2,unit:'ea'});
     items.push({name:`Gate Post Concrete (${FOOTING.bagWeightLb}lb bag)`,qty:concreteBagsForPosts('gate',2,sp),unit:'bag'});
   });
 

@@ -464,8 +464,11 @@ test('R15 zero manual rows preserve the pre-fix estimate total exactly',async({p
   // quantities and is superseded by the corrected post/footing takeoff.
   // Integer-cents money math supersedes the old float baseline ('386.195'):
   // totals are now exact integer cents, so assert the integer, not a float string.
-  expect(totals.cents).toBe(38622);
-  expect(totals.dollars).toBe('386.22');
+  // Per-end termination hardware now follows the v5.4.0 owner field
+  // specification (2026-10-01): on this 2-end run, terminal brace bands 2->6,
+  // line-size brace bands 0->2, rail-end cups 4->6 (+945 cents vs 38622).
+  expect(totals.cents).toBe(39567);
+  expect(totals.dollars).toBe('395.67');
 });
 
 test('R16 manual material is visible on the estimate PDF',async({page})=>{
