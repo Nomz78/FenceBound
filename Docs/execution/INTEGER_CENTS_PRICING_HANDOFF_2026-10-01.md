@@ -63,9 +63,12 @@ while evaluating it.
   - **Owner decision: ratify R15 = `386.22`.** It replaces the earlier
     owner-ratified `386.195`. The change comes only from rounding; the
     quantities are unchanged.
-  - Field question, not decided here: whether `truss rod w tightener` plus a
-    separate connector double-counts hardware. This BOM line predates this
-    branch.
+  - Field question resolved by the owner on 2026-10-01: the connector is
+    bought separately from the truss rod, so the BOM's separate connector
+    line does not double-count hardware. The `Truss Rod` BOM line still
+    borrows the `truss rod w tightener` price ($6.50) through lookup
+    fallback. The owner may set a rod-only cost in the cost editor; no
+    pricing value was changed.
   - The add-material row is feature work. It is included under the owner's
     instruction to integrate this proposal; it is not a general feature
     authorization.
