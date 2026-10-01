@@ -214,3 +214,33 @@ Append one entry for every development session. Preserve prior entries.
   without an EIN. No software purchase or retailer feature was implemented.
 - **Gate:** Initialization, unchanged source comparison and documentation diff checks; prior
   browser evidence is preserved as historical evidence, not a new main test run.
+
+## 2026-10-01 — Integer-cents pricing proposal integrated (branch `fix/integer-cents-pricing`)
+
+- **Owner direction:** Evaluate the external proposal `fencebound-proposal-files.zip`, integrate
+  it and open a pull request.
+- **Inbound verification:** The ZIP's SHA-256 is
+  `4d8f4c59f7399e444fc2bbd200b1a581ebd0769fda47f829093738d6b15f4070` and its size is 85,810
+  bytes. Per-file hashes are in the handoff. The diff against main contained only the described
+  changes.
+- **Integrated (`a6bb2fb`):**
+  - integer-cents money math in `computePricing()`, with a `cents` block;
+  - a provisional `truss rod connector` seed, which repairs the permanent MISSING_COST on
+    mid-rail + truss-rod jobs;
+  - an "Add a material" row in the cost editor;
+  - R15 changes from `386.195` to `38622` cents (`386.22`).
+- **Repaired in the proposal (`c271e98`):**
+  - Demo/haul cost was dropped from the client price (−$243.00 on 60 LF). Test C4 was red, then
+    green.
+  - The cost editor's Add bypassed Cancel. Test C5 and the revised C3 were red, then green.
+- **Tests:**
+  - Main baseline: 42 passed, 29 failed.
+  - Branch: 47 passed, 29 failed. The failure set is identical by name; all 29 are jsPDF
+    timeouts because cdnjs was blocked in this container.
+  - Persistence matrix: 12/12 passed.
+  - Syntax checks and `git diff --check`: passed.
+- **Owner decisions pending:**
+  - ratify or replace the `$2.50/ea` connector seed;
+  - ratify R15 `386.22`;
+  - run the PDF-path tests with network access before merging.
+- **Handoff:** `Docs/execution/INTEGER_CENTS_PRICING_HANDOFF_2026-10-01.md`.
