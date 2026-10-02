@@ -68,7 +68,8 @@ test('ratified footing parameters persist and bagsForHole uses the seeded schedu
     bagsByDepthIn:{24:2,30:3,36:3,42:4},bagWeightLb:60,
     diaMultiplierAtOrBelow4in:4,diaMultiplierAbove4in:3
   });
-  expect(result.defaults.postOD).toEqual({line:2.375,terminal:2.875,corner:2.875,gate:4});
+  // Owner 4 ft residential default (2026-10-02): 2-1/2" nominal terminals/gates, 1-5/8" line.
+  expect(result.defaults.postOD).toEqual({line:1.625,terminal:2.375,corner:2.375,gate:2.375});
   expect(result.defaults.postEmbed).toEqual({line:18,terminal:30,corner:30,gate:30});
   expect(result.defaults.runPostDia).toEqual(result.defaults.postOD);
   expect(result.defaults.runPostEmbed).toEqual(result.defaults.postEmbed);
@@ -151,4 +152,45 @@ test('unchecking Top Rail removes top rail and sleeves from the takeoff', async 
   // Owner ruling 2026-10-02: top rail is standard; a run without it is a spec
   // change, so the takeoff must at least stop ordering top rail.
   expect(result).toEqual([]);
+});
+
+// Owner field rules (2026-10-02): default chain link is 4 ft with top rail and
+// bottom tension wire. Per fabric end: (height ft - 1) tension bands; one
+// terminal brace band + one rail-end cup per rail (top, mid, bottom); one
+// terminal brace band per tension wire (bottom, top) and per barbed strand;
+// the mid rail also lands on the first line post (line-size band + cup).
+async function perEnd(page, mutate) {
+  return state(page, `(()=>{
+    const specs=cloneRunSpecs(S.specs);(${mutate})(specs);
+    S.elements=[{type:'fence',start:{x:0,y:0},end:{x:40*GRID_FT,y:0},fenceType:'chainlink',
+      runId:'per-end',specs,postSpacing:10,autoPostSpacing:10}];
+    const bom=calcAutoMaterials(),q=name=>bom.filter(r=>r.name===name).reduce((t,r)=>t+r.qty,0);
+    return {ends:getStats().terminationEnds,tensionBands:q('Tension Band'),
+      terminalBands:q('Terminal-size Brace Band'),lineBands:q('Line-size Brace Band'),
+      cups:q('Rail End (Loop Cap)'),bottomRail:q('Bottom Rail 1-5/8"'),topRail:q('Top Rail 1-5/8"')};
+  })()`);
+}
+
+test('default chain link is the owner 4 ft residential spec', async ({ page }) => {
+  await cleanOpen(page);
+  const defaults=await state(page, `({heightIn:S.specs.heightIn,top:S.specs.hasTopRail,mid:S.specs.hasMidRail,
+    bottomWire:S.specs.addons.has('bottom-wire'),postOD:{...POST_OD_IN}})`);
+  expect(defaults).toEqual({heightIn:48,top:true,mid:false,bottomWire:true,
+    postOD:{line:1.625,terminal:2.375,corner:2.375,gate:2.375}});
+  const r=await perEnd(page,'s=>{}');
+  expect(r.ends).toBe(2);
+  expect({tensionBands:r.tensionBands/2,terminalBands:r.terminalBands/2,cups:r.cups/2,lineBands:r.lineBands})
+    .toEqual({tensionBands:3,terminalBands:2,cups:1,lineBands:0});
+});
+
+test('every rail gets a band and cup per end; every tension wire gets a band per end', async ({ page }) => {
+  await cleanOpen(page);
+  const r=await perEnd(page,`s=>{s.hasMidRail=true;s.hasBottomRail=true;s.addons.add('bottom-wire');s.addons.add('top-wire');}`);
+  // top, mid, bottom rail + bottom wire + top wire = 5 terminal bands per end;
+  // cups: 3 rails + mid rail at the first line post = 4 per end.
+  expect({terminalBands:r.terminalBands/2,cups:r.cups/2,lineBands:r.lineBands/2}).toEqual({terminalBands:5,cups:4,lineBands:1});
+  expect(r.bottomRail).toBe(40);
+  const bare=await perEnd(page,`s=>{s.hasTopRail=false;s.hasMidRail=false;s.addons.clear();s.addons.add('top-wire');}`);
+  // No top rail is a spec change: top wire takes a band, no rail means no cup.
+  expect({terminalBands:bare.terminalBands/2,cups:bare.cups,topRail:bare.topRail}).toEqual({terminalBands:1,cups:0,topRail:0});
 });
