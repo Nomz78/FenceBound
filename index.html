@@ -1506,13 +1506,13 @@ function calcAutoMaterials(){
       const trussAssemblies=sp.hasMidRail&&sp.hasTrussRod?runStats.cornerEndCt+runStats.gatePostCt:0;
       const hasBarbed=sp.addons.has('barbed-wire');
       items.push({name:`Chain Link Fabric (${sp.heightIn}")`,qty:Math.ceil(ft),unit:'lf'});
-      items.push({name:`Top Rail 1-5/8"`,qty:Math.ceil(ft),unit:'lf'});
+      if(sp.hasTopRail)items.push({name:`Top Rail 1-5/8"`,qty:Math.ceil(ft),unit:'lf'});
       items.push({name:postLengthLabel('line',sp,'Line Post'),qty:lineCt,unit:'ea'});
       items.push({name:postLengthLabel('terminal',sp,'Terminal/Corner Post'),qty:termCt,unit:'ea'});
       items.push({name:postLengthLabel('corner',sp,'Terminal/Corner Post'),qty:cornerCt,unit:'ea'});
       items.push({name:'Tension Bar',qty:ends,unit:'ea'});
       items.push({name:'Tension Band',qty:ends*Math.max(Math.ceil(sp.heightIn/12)-1,0),unit:'ea'});
-      items.push({name:'Top Rail Sleeve',qty:Math.ceil(ft/10),unit:'ea'});
+      if(sp.hasTopRail)items.push({name:'Top Rail Sleeve',qty:Math.ceil(ft/10),unit:'ea'});
       // Termination hardware is per fabric end (v5.4.0 owner field specification):
       // framing takes 2 terminal brace bands + 2 rail-end cups, bottom tension wire
       // 1 terminal band, barbed wire 1 terminal band per strand, and the mid rail

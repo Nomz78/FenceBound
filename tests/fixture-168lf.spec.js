@@ -139,3 +139,16 @@ test('168 LF house-terminated reference job matches the authoritative takeoff', 
   // Gate positions remain representational; no per-segment line-post placement
   // rule is asserted by this quantity-only fixture.
 });
+
+test('unchecking Top Rail removes top rail and sleeves from the takeoff', async ({ page }) => {
+  await cleanOpen(page);
+  const result=await state(page, `(()=>{
+    const specs=cloneRunSpecs(S.specs);specs.hasTopRail=false;
+    S.elements=[{type:'fence',start:{x:0,y:0},end:{x:40*GRID_FT,y:0},fenceType:'chainlink',
+      runId:'no-top-rail',specs,postSpacing:10,autoPostSpacing:10}];
+    return calcAutoMaterials().filter(row=>/^Top Rail/.test(row.name)).map(row=>row.name);
+  })()`);
+  // Owner ruling 2026-10-02: top rail is standard; a run without it is a spec
+  // change, so the takeoff must at least stop ordering top rail.
+  expect(result).toEqual([]);
+});
