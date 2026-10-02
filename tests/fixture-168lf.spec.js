@@ -11,10 +11,15 @@ async function state(page, expression) {
   return page.evaluate(source => window.eval(source), expression);
 }
 
+// Authoritative D1–D5 reference job (v5.4.0 supplement, "D1–D5 regression
+// reference job"): a 168 LF square backyard tying into the house at both ends.
+// Three 56 LF runs form the U; the house is the fourth side. That gives two
+// house terminals (one fabric end each), two corners (two ends each) and four
+// gate posts (one end each): ten fabric termination ends.
 async function seed168LfFixture(page) {
   await cleanOpen(page);
   return state(page, `(()=>{
-    const points=[{x:0,y:0},{x:42*GRID_FT,y:0},{x:42*GRID_FT,y:42*GRID_FT},{x:0,y:42*GRID_FT}];
+    const points=[{x:0,y:0},{x:0,y:56*GRID_FT},{x:56*GRID_FT,y:56*GRID_FT},{x:56*GRID_FT,y:0}];
     const specs=cloneRunSpecs(S.specs);
     Object.assign(specs,{
       heightIn:72,postHeightIn:102,embedDepthIn:30,
@@ -24,17 +29,16 @@ async function seed168LfFixture(page) {
       barbStrands:3,barbArm:'angled',
       addons:new Set(['bottom-wire','barbed-wire'])
     });
-    const runs=points.map((start,index)=>({
-      type:'fence',start,end:points[(index+1)%points.length],
+    const runs=points.slice(0,-1).map((start,index)=>({
+      type:'fence',start,end:points[index+1],
       fenceType:'chainlink',runId:'fixture-run-'+(index+1),
       specs:cloneRunSpecs(specs),postSpacing:10,autoPostSpacing:10
     }));
     const posts=runs.flatMap(run=>autoPostsForRun(run.start,run.end,10,'chainlink',run.runId,run.specs));
+    const y=56*GRID_FT;
     const gates=[
-      // Placement is representational only; the owner-ratified quantity table
-      // controls the line-post count without inventing a segmentation rule.
-      attachGateToRun({type:'gate',start:{x:5*GRID_FT,y:0},end:{x:9*GRID_FT,y:0},gateType:'walk',hinge:'start',swingDir:1},runs[0]),
-      attachGateToRun({type:'gate',start:{x:15*GRID_FT,y:0},end:{x:27*GRID_FT,y:0},gateType:'doubledrive',hinge:'start',swingDir:1},runs[0])
+      attachGateToRun({type:'gate',start:{x:5*GRID_FT,y},end:{x:9*GRID_FT,y},gateType:'walk',hinge:'start',swingDir:1},runs[1]),
+      attachGateToRun({type:'gate',start:{x:15*GRID_FT,y},end:{x:27*GRID_FT,y},gateType:'doubledrive',hinge:'start',swingDir:1},runs[1])
     ];
     S.elements=[...runs,...posts,...gates];
     return {runs:runs.length,autoPosts:posts.length,gates:gates.length};
@@ -79,13 +83,14 @@ test('ratified footing parameters persist and bagsForHole uses the seeded schedu
   expect(result.legacyLoaded).toEqual({lineOD:3,gateOD:4.5,lineEmbed:28,gateEmbed:28});
 });
 
-test('168 LF closed-loop quantity diagnostic', async ({ page }) => {
+test('168 LF house-terminated reference job matches the authoritative takeoff', async ({ page }) => {
   await seed168LfFixture(page);
   const actual=await state(page, `(()=>{
     const stats=getStats(),bom=calcAutoMaterials();
     const sum=predicate=>bom.filter(predicate).reduce((total,row)=>total+Number(row.qty||0),0);
     const exact=name=>sum(row=>row.name===name);
     return {
+      terminalPosts:stats.terminalPosts.size,
       cornerPosts:stats.cornerPosts.size,
       linePosts:stats.linePosts,
       gatePosts:sum(row=>/^Gate Post (?!Concrete)/.test(row.name)),
@@ -112,18 +117,38 @@ test('168 LF closed-loop quantity diagnostic', async ({ page }) => {
       concrete80:sum(row=>/Concrete \(80lb bag\)/.test(row.name))
     };
   })()`);
+  // Known-correct values from the authoritative supplement. Per fabric end:
+  // 1 tension bar; (fabric ft - 1) tension bands; 2 terminal brace bands + 2
+  // rail-end cups for framing; 1 terminal band for bottom wire; 1 terminal band
+  // per barbed strand; 1 line-size band + 1 rail-end cup for the mid rail.
+  // 6-plus-1 carries zero post caps. Items the supplement does not list are
+  // logged, not asserted.
   const expected={
-    cornerPosts:4,linePosts:16,gatePosts:4,tensionBars:12,tensionBands:60,
-    trussRods:12,trussConnectors:12,terminalBraceBands:24,
+    terminalPosts:2,cornerPosts:2,gatePosts:4,tensionBars:10,tensionBands:50,
+    terminalBraceBands:60,lineBraceBands:10,railEndCups:30,postCaps:0,
     fabric:152,topRail:152,midRail:152,bottomWire:152,barbedWire:456,
-    railEndCups:24,barbArms:16,postCaps:8,lineBraceBands:16,
-    terminalPost105:4,gatePost105:4,linePost9Cut87:16,wrongLinePostLength:0,
-    postConcrete60:12,gateConcrete60:12,concrete80:0
+    terminalPost105:4,gatePost105:4,wrongLinePostLength:0,
+    gateConcrete60:12,concrete80:0
   };
+  console.log('FIXTURE_168LF_UNASSERTED',JSON.stringify({linePosts:actual.linePosts,trussRods:actual.trussRods,
+    trussConnectors:actual.trussConnectors,barbArms:actual.barbArms,linePost9Cut87:actual.linePost9Cut87,postConcrete60:actual.postConcrete60}));
   const deltas=Object.keys(expected).map(item=>({item,expected:expected[item],actual:actual[item],delta:actual[item]-expected[item]}));
   console.log('FIXTURE_168LF_DELTAS',JSON.stringify(deltas.filter(row=>row.delta!==0)));
   for(const row of deltas)expect.soft(row.actual,`${row.item}: expected ${row.expected}, actual ${row.actual}, delta ${row.delta>=0?'+':''}${row.delta}`).toBe(row.expected);
 
   // Gate positions remain representational; no per-segment line-post placement
   // rule is asserted by this quantity-only fixture.
+});
+
+test('unchecking Top Rail removes top rail and sleeves from the takeoff', async ({ page }) => {
+  await cleanOpen(page);
+  const result=await state(page, `(()=>{
+    const specs=cloneRunSpecs(S.specs);specs.hasTopRail=false;
+    S.elements=[{type:'fence',start:{x:0,y:0},end:{x:40*GRID_FT,y:0},fenceType:'chainlink',
+      runId:'no-top-rail',specs,postSpacing:10,autoPostSpacing:10}];
+    return calcAutoMaterials().filter(row=>/^Top Rail/.test(row.name)).map(row=>row.name);
+  })()`);
+  // Owner ruling 2026-10-02: top rail is standard; a run without it is a spec
+  // change, so the takeoff must at least stop ordering top rail.
+  expect(result).toEqual([]);
 });

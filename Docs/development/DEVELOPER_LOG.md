@@ -244,3 +244,31 @@ Append one entry for every development session. Preserve prior entries.
   - ratify R15 `386.22`;
   - run the PDF-path tests with network access before merging.
 - **Handoff:** `Docs/execution/INTEGER_CENTS_PRICING_HANDOFF_2026-10-01.md`.
+
+## 2026-10-01 — Per-end termination hardware brought to the owner field specification
+
+- **Owner direction:** Use the documented references and correct the takeoff. Material
+  quantities and ratios are the product; prices are the contractor's.
+- **Finding:** The 168 LF fixture modelled a closed square (12 ends). The authoritative job in the
+  v5.4.0 supplement is house-terminated (10 ends). The "field vs fixture" disagreement in the
+  2026-09-18 handoff was therefore a fixture geometry error plus real runtime defects, not two
+  competing specifications.
+- **Red before the fix (main):** terminal brace bands 18 vs 60, line-size brace bands 15 vs 10,
+  rail-end cups 20 vs 30, post caps 8 vs 0. Tension bars 10 and tension bands 50 (fabric height
+  minus 1 per end) were already correct.
+- **Repair:** per fabric end, framing 2 terminal bands + 2 rail-end cups; bottom wire +1 terminal
+  band; barbed +1 terminal band per strand; mid rail 1 line-size band + 1 cup; barbed wire carries
+  zero post caps, including on gate posts. Without a top rail the prior behavior is kept because
+  the specification does not state that case.
+- **Not changed:** barb arm count (an arm on every post is D7, still deferred), truss counts, line
+  post placement, any price value.
+- **Tests:** fixture green with zero deltas; R15 moves to 39567 cents (fully attributed); the
+  persistence matrix passed 12/12. The jsPDF tests still cannot run in the cloud container.
+- **Auto-post repair:** `fix/cad-auto-post-integrity` exists only as uncommitted work in the
+  owner's local checkout; it was not reachable from this session and has not been committed.
+- **Owner ruling (2026-10-02): top rail is standard on chain link.** A run without top rail is a
+  spec change, not normal practice: tension wire (bottom wire, and now top wire) runs through the
+  loop caps or barb arms. That variant is recorded, not implemented. The no-top-rail per-end
+  hardware keeps its prior counts until the owner authorizes that spec. Repaired the defect where
+  an unchecked Top Rail still ordered top rail and sleeves. The red test showed both rows present
+  on the takeoff; after the fix the test passes.
