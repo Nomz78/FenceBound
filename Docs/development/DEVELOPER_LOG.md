@@ -266,3 +266,9 @@ Append one entry for every development session. Preserve prior entries.
   persistence matrix passed 12/12. The jsPDF tests still cannot run in the cloud container.
 - **Auto-post repair:** `fix/cad-auto-post-integrity` exists only as uncommitted work in the
   owner's local checkout; it was not reachable from this session and has not been committed.
+- **Owner ruling (2026-10-02): top rail is standard on chain link.** A run without top rail is a
+  spec change, not normal practice: tension wire (bottom wire, and now top wire) runs through the
+  loop caps or barb arms. That variant is recorded, not implemented. The no-top-rail per-end
+  hardware keeps its prior counts until the owner authorizes that spec. Repaired the defect where
+  an unchecked Top Rail still ordered top rail and sleeves. The red test showed both rows present
+  on the takeoff; after the fix the test passes.
