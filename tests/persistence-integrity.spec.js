@@ -467,8 +467,11 @@ test('R15 zero manual rows preserve the pre-fix estimate total exactly',async({p
   // Per-end termination hardware now follows the v5.4.0 owner field
   // specification (2026-10-01): on this 2-end run, terminal brace bands 2->6,
   // line-size brace bands 0->2, rail-end cups 4->6 (+945 cents vs 38622).
-  expect(totals.cents).toBe(39567);
-  expect(totals.dollars).toBe('395.67');
+  // Owner default (2026-10-02) is 4 ft chain link with top rail and bottom wire,
+  // no mid rail: per end 3 tension bands, 2 terminal brace bands, 1 rail-end cup
+  // (was 8 ft: 7 / 3 / 3 plus mid rail and line-size bands; 39567 cents).
+  expect(totals.cents).toBe(34369);
+  expect(totals.dollars).toBe('343.69');
 });
 
 test('R16 manual material is visible on the estimate PDF',async({page})=>{
