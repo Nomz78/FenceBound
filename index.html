@@ -657,7 +657,14 @@ const DEFAULT_FOOTING={
 // Default chain link is the owner's 4 ft residential spec: 2-1/2" nominal (2.375" OD)
 // terminal/corner/gate posts and 1-5/8" line posts.
 const DEFAULT_POST_OD_IN={line:1.625,terminal:2.375,corner:2.375,gate:2.375};
-const DEFAULT_POST_EMBED_IN={line:18,terminal:30,corner:30,gate:30};
+// Hole depths are realistic field numbers (owner, 2026-10-03), not paper submittal
+// spec. The rate-card embed applies to fences 6 ft and taller; shorter fences use
+// SHORT_FENCE_EMBED_IN. Per-run edits still override either tier.
+const DEFAULT_POST_EMBED_IN={line:24,terminal:30,corner:30,gate:30};
+const SHORT_FENCE_EMBED_IN={line:18,terminal:24,corner:24,gate:24};
+function embedDefaultFor(role,sp){
+  return (sp&&Number(sp.heightIn)<72?SHORT_FENCE_EMBED_IN:POST_EMBED_IN)[role];
+}
 let FOOTING=JSON.parse(JSON.stringify(DEFAULT_FOOTING));
 let POST_OD_IN={...DEFAULT_POST_OD_IN};
 let POST_EMBED_IN={...DEFAULT_POST_EMBED_IN};
@@ -1159,7 +1166,7 @@ function applyHeightDrivenSpecs(opts){
   // remains as a legacy/UI alias for terminal embed in schema-3 job files.
   sp.postEmbedIn={...POST_EMBED_IN,...(sp.postEmbedIn||{})};
   sp.postEmbedDirty={line:false,terminal:false,corner:false,gate:false,...(sp.postEmbedDirty||{})};
-  POST_ROLES.forEach(role=>{if(!sp.postEmbedDirty[role])sp.postEmbedIn[role]=POST_EMBED_IN[role];});
+  POST_ROLES.forEach(role=>{if(!sp.postEmbedDirty[role])sp.postEmbedIn[role]=embedDefaultFor(role,sp);});
   if(!sp.embedDirty) sp.embedDepthIn=sp.postEmbedIn.terminal;
   // Post height — auto until user edited it (post = height + embed)
   if(!sp.postDirty) sp.postHeightIn=h+sp.embedDepthIn;
@@ -1323,7 +1330,7 @@ function refreshPostDiaDefaults(){
     POST_ROLES.forEach(role=>{if(!sp.postDiaDirty[role])sp.postDiaIn[role]=POST_OD_IN[role];});
     sp.postEmbedIn={...POST_EMBED_IN,...(sp.postEmbedIn||{})};
     sp.postEmbedDirty={line:false,terminal:false,corner:false,gate:false,...(sp.postEmbedDirty||{})};
-    POST_ROLES.forEach(role=>{if(!sp.postEmbedDirty[role])sp.postEmbedIn[role]=POST_EMBED_IN[role];});
+    POST_ROLES.forEach(role=>{if(!sp.postEmbedDirty[role])sp.postEmbedIn[role]=embedDefaultFor(role,sp);});
   });
 }
 // Accept both legacy Rate Card bare-number costs and canonical CAD {cost,unit} costs.
@@ -3830,7 +3837,7 @@ function openCostEditor(){
         <div class="ce-row"><span>Hole diameter multiplier ≤4&quot; OD</span><input type="number" id="ce-dia-mult-low" value="${FOOTING.diaMultiplierAtOrBelow4in}" min="1" step="0.1" style="width:70px"/><span style="color:var(--text3);font-size:10px">× OD</span></div>
         <div class="ce-row"><span>Hole diameter multiplier &gt;4&quot; OD</span><input type="number" id="ce-dia-mult-high" value="${FOOTING.diaMultiplierAbove4in}" min="1" step="0.1" style="width:70px"/><span style="color:var(--text3);font-size:10px">× OD</span></div>
         ${POST_ROLES.map(role=>`<div class="ce-row"><span>${role[0].toUpperCase()+role.slice(1)} post OD</span><input type="number" data-post-od="${role}" value="${POST_OD_IN[role]}" min="0.1" step="0.001" style="width:70px"/><span style="color:var(--text3);font-size:10px">in</span></div>`).join('')}
-        ${POST_ROLES.map(role=>`<div class="ce-row"><span>${role[0].toUpperCase()+role.slice(1)} post embed</span><input type="number" data-post-embed="${role}" value="${POST_EMBED_IN[role]}" min="0" step="1" style="width:70px"/><span style="color:var(--text3);font-size:10px">in</span></div>`).join('')}
+        ${POST_ROLES.map(role=>`<div class="ce-row"><span>${role[0].toUpperCase()+role.slice(1)} post embed (6 ft+)</span><input type="number" data-post-embed="${role}" value="${POST_EMBED_IN[role]}" min="0" step="1" style="width:70px"/><span style="color:var(--text3);font-size:10px">in</span></div>`).join('')}
         <div class="ce-sec">Material buy costs</div>
         <div class="ce-note" style="margin-bottom:6px">Your purchase price per unit. This is the cost basis the whole estimate is built from — keep it honest and current.</div>
         ${costRows}

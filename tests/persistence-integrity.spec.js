@@ -473,8 +473,10 @@ test('R15 zero manual rows preserve the pre-fix estimate total exactly',async({p
   // Owner fastening rules (2026-10-03): 5 ties per bay per rail, 5 hog rings per
   // bay per tension wire. This 10 ft run has one bay: ties 50 -> 5, hog rings +5
   // (34369 -> 34092 cents).
-  expect(totals.cents).toBe(34092);
-  expect(totals.dollars).toBe('340.92');
+  // Owner field hole depths (2026-10-03): 4 ft terminals sit in 24" holes, so
+  // concrete drops 3 -> 2 bags per terminal (6 -> 4) (34092 -> 31122 cents).
+  expect(totals.cents).toBe(31122);
+  expect(totals.dollars).toBe('311.22');
 });
 
 test('R16 manual material is visible on the estimate PDF',async({page})=>{

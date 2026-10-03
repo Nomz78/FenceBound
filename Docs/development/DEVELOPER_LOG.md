@@ -319,3 +319,29 @@ Append one entry for every development session. Preserve prior entries.
   posts. Buying full sticks and cutting them applies mainly to schedule 40 pipe. The runtime
   still applies the supplement's 10.5 ft terminal and 9 ft line purchase lengths at every
   height. This needs the stock lengths and the schedule-40 criterion before it can change.
+
+## 2026-10-03 — Hole-depth verification and field-rules closeout
+
+- **Tested implementation:** `cdbb36656ab9e59d07f3fe7ffe98b79bc7f0c908` on `fix/field-hole-depths`.
+- **Gate completed 2026-10-03T19:06:08Z:** `npm test` passed 96/96, including PDF tests;
+  `node scripts/cad-persistence-matrix.js` passed 12/12. R15 = 31122 cents;
+  the house-terminated 168 LF fixture reported no asserted quantity deltas.
+- **Merged record:** #6 integer-cents pricing, demo cost restored, “Add a material” staged
+  until Save; #8 house-terminated fixture and per-end hardware, unchecked Top Rail removes
+  rail/sleeves; #9 4 ft defaults (top rail + bottom wire, 2-1/2" terminals, 1-5/8" line posts),
+  height−1 tension bands per end, 1 band + 1 cup per rail, 1 band per wire/strand;
+  #10 auto-post repair; #11 5 ties per bay per rail, 5 hog rings per bay per wire or razor
+  ribbon, height−1 ties per line post. Connector bought separately; FenceBound doesn't set prices.
+- **This branch:** under 6 ft line/terminal depths 18"/24"; 6 ft+ 24"/30"
+  (terminal includes corner/gate). Per-run overrides remain available.
+- **Docs-only closeout:** state/current handoff/log and new
+  `Docs/handoffs/2026-10-03__takeoff-field-rules.md`, preserving September 18 content
+  verbatim as history. Removed the auto-post and 168 LF fixture-conflict defect entries;
+  retained the rest. Recorded session:init merge-commit drift without editing its script.
+- **Deferred dependency issue:** Playwright 1.40.1 npm audit advisory GHSA-7mvr-c777-76hp;
+  newer Playwright does not support macOS Catalina. No dependency change.
+- **Next:** residential post purchase lengths (schedule 40 = commercial; full sticks cut
+  to length). Owner questions: residential stock lengths; mid/bottom rail ties (currently
+  yes); under-6 ft depth editability; session:init handling of PR merge commits.
+- **Authority drift:** older CLAUDE/SOURCE_OF_TRUTH ordering and supplement listings differ
+  from START_HERE; embedded Development Index remains stale. Recorded, not revised.

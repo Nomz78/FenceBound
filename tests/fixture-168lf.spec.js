@@ -50,6 +50,8 @@ test('ratified footing parameters persist and bagsForHole uses the seeded schedu
   const result=await state(page, `(()=>{
     const defaults={footing:JSON.parse(JSON.stringify(FOOTING)),postOD:{...POST_OD_IN},postEmbed:{...POST_EMBED_IN},runPostDia:{...S.specs.postDiaIn},runPostEmbed:{...S.specs.postEmbedIn}};
     const bags=[24,30,36,42].map(depth=>bagsForHole('terminal',undefined,depth));
+    // The rate-card embed is the 6 ft+ tier, so exercise its persistence on a 6 ft run.
+    S.specs.heightIn=72;applyHeightDrivenSpecs({specs:S.specs});
     FOOTING.bagsByDepthIn[30]=7;POST_OD_IN.gate=4.5;POST_EMBED_IN.gate=36;refreshPostDiaDefaults();saveCostDB();
     FOOTING=JSON.parse(JSON.stringify(DEFAULT_FOOTING));POST_OD_IN={...DEFAULT_POST_OD_IN};POST_EMBED_IN={...DEFAULT_POST_EMBED_IN};refreshPostDiaDefaults();loadCostDB();
     S.specs.postDiaIn.line=9;S.specs.postDiaDirty.line=true;S.specs.postEmbedIn.line=17;S.specs.postEmbedDirty.line=true;
@@ -70,9 +72,11 @@ test('ratified footing parameters persist and bagsForHole uses the seeded schedu
   });
   // Owner 4 ft residential default (2026-10-02): 2-1/2" nominal terminals/gates, 1-5/8" line.
   expect(result.defaults.postOD).toEqual({line:1.625,terminal:2.375,corner:2.375,gate:2.375});
-  expect(result.defaults.postEmbed).toEqual({line:18,terminal:30,corner:30,gate:30});
+  // Owner field depths (2026-10-03): rate-card embed is the 6 ft+ tier; the 4 ft
+  // default run uses the short-fence tier.
+  expect(result.defaults.postEmbed).toEqual({line:24,terminal:30,corner:30,gate:30});
   expect(result.defaults.runPostDia).toEqual(result.defaults.postOD);
-  expect(result.defaults.runPostEmbed).toEqual(result.defaults.postEmbed);
+  expect(result.defaults.runPostEmbed).toEqual({line:18,terminal:24,corner:24,gate:24});
   expect(result.bags).toEqual([2,3,3,4]);
   expect(result.restoredBags).toBe(7);
   expect(result.restoredGateOD).toBe(4.5);
@@ -233,4 +237,24 @@ test('wire ties and hog rings follow the per-bay and per-line-post rules', async
   const bays=gated.linePosts+2;
   expect(gated.ties).toBe(5*bays + gated.linePosts*3);
   expect(gated.hogRings).toBe(5*bays);
+});
+
+// Owner field hole depths (2026-10-03), realistic field numbers rather than
+// paper spec: below 6 ft, line posts 18" and terminal/corner/gate posts 24";
+// 6 ft and taller, line posts 24" and terminal/corner/gate posts 30".
+test('hole depth defaults follow fence height', async ({ page }) => {
+  await cleanOpen(page);
+  const r=await state(page, `(()=>{
+    const at=h=>{const sp=cloneRunSpecs(S.specs);sp.heightIn=h;sp.postDirty=false;
+      applyHeightDrivenSpecs({specs:sp});return {...sp.postEmbedIn};};
+    return {boot:{...S.specs.postEmbedIn},h48:at(48),h60:at(60),h72:at(72),h96:at(96),
+      bags4ft:bagsForHole('terminal',undefined,S.specs.postEmbedIn.terminal)};
+  })()`);
+  const short={line:18,terminal:24,corner:24,gate:24},tall={line:24,terminal:30,corner:30,gate:30};
+  expect(r.boot).toEqual(short);
+  expect(r.h48).toEqual(short);
+  expect(r.h60).toEqual(short);
+  expect(r.h72).toEqual(tall);
+  expect(r.h96).toEqual(tall);
+  expect(r.bags4ft).toBe(2);   // 24" terminal hole uses the 24" bag schedule
 });
