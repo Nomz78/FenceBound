@@ -761,10 +761,17 @@ function activePostSpacing(){
   const run=selectedFenceRun();
   return run?(run.postSpacing||run.autoPostSpacing||S.postSpacing):S.postSpacing;
 }
-function setActivePostSpacing(v){
+function setActivePostSpacing(v,recordHistory=true){
   const n=Math.max(1,Math.min(20,+v||10));
   const run=selectedFenceRun();
-  if(run){run.postSpacing=n;run.autoPostSpacing=n;}
+  if(run){
+    if(activePostSpacing()!==n){
+      if(recordHistory)pushHistory();
+      run.postSpacing=n;
+      if(run.autoPostSpacing){run.autoPostSpacing=n;rebuildRunAutoPosts(run);}
+      draw();
+    }
+  }
   else S.postSpacing=n;
   return n;
 }
@@ -1418,6 +1425,51 @@ function autoPostsForRun(start,end,spacingFt,fenceType,runId,runSpecs){
   return Array.from({length:count},(_,i)=>({
     type:'post',pos:{x:start.x+(end.x-start.x)*(i+1)*sp/total,y:start.y+(end.y-start.y)*(i+1)*sp/total},fenceType,auto:true,runId,runSpecs:cloneRunSpecs(runSpecs)
   }));
+}
+
+// Rebuild only on an explicit drawing edit. Loading/undo restores saved coordinates as-is.
+// Ownership, not coincident coordinates, identifies the posts this run may replace.
+function rebuildRunAutoPosts(run){
+  if(!run||!run.runId||!run.autoPostSpacing)return;
+  if(S.elements.filter(el=>el.type==='fence'&&el.runId===run.runId).length!==1){
+    showToast('Cannot rebuild posts: duplicate fence run IDs. Validate this saved drawing before quoting.',true);
+    return;
+  }
+  const selected=S.elements[S.selected],gateEditor=S.editingGate&&S.elements[S.editingGate.index];
+  const gates=S.elements.filter(el=>el.type==='gate'&&el.runId===run.runId);
+  const posts=autoPostsForRun(run.start,run.end,run.autoPostSpacing,run.fenceType,run.runId,run.specs)
+    .filter(post=>!gates.some(gate=>ptSegDist(post.pos,gate.start,gate.end)<1e-6));
+  // The gate segment includes both endpoints: gate posts replace line posts there too.
+  S.elements=S.elements.filter(el=>!(el.type==='post'&&el.auto&&el.runId===run.runId));
+  S.elements.push(...posts);
+  if(selected){const index=S.elements.indexOf(selected);S.selected=index<0?null:index;}
+  if(gateEditor)S.editingGate.index=S.elements.indexOf(gateEditor);
+}
+
+function deleteSelectedElement(){
+  if(S.selected===null)return;
+  pushHistory();
+  const [removed]=S.elements.splice(S.selected,1);
+  S.selected=null;S.editingGate=null;
+  if(removed?.type==='gate')rebuildRunAutoPosts(fenceRunById(removed.runId));
+  syncSpecInputs();draw();updatePanel();updateGateEditor();scheduleAutosave();
+}
+
+function copySelectedElement(){
+  if(S.selected!==null)S.clipboard=snapshotDoc().elements[S.selected];
+}
+function pasteClipboardElement(){
+  if(!S.clipboard)return;
+  pushHistory();
+  const clone=hydrateDocElements([JSON.parse(JSON.stringify(S.clipboard))])[0];
+  const offset=2*GRID_FT;
+  if(clone.type==='post'){clone.pos.x+=offset;clone.pos.y+=offset;}
+  else{clone.start.x+=offset;clone.start.y+=offset;clone.end.x+=offset;clone.end.y+=offset;}
+  if(clone.type==='fence')clone.runId=makeRunId();
+  S.elements.push(clone);S.selected=S.elements.length-1;
+  if(clone.type==='fence')rebuildRunAutoPosts(clone);
+  if(clone.type==='gate')rebuildRunAutoPosts(fenceRunById(clone.runId));
+  draw();updatePanel();scheduleAutosave();
 }
 
 function getStats(){
@@ -2262,8 +2314,9 @@ function selectFenceType(key){
   const run=selectedFenceRun();
   const sp=activeSpecs();
   if(run){
+    pushHistory();
     run.fenceType=key;
-    setActivePostSpacing(fdef.defaultSpacing);
+    setActivePostSpacing(fdef.defaultSpacing,false);
   }else{
     S.fenceType=key;
     S.postSpacing=fdef.defaultSpacing;
@@ -2275,7 +2328,9 @@ function selectFenceType(key){
     sp.heightIn=fdef.defaultHeightIn;
     applyHeightDrivenSpecs({specs:sp});
   }
-  syncSpecInputs();updateTypeBar();updateHint();updateSpecsForFenceType();updatePanel();updatePricing();scheduleAutosave();
+  syncSpecInputs();updateTypeBar();updateHint();updateSpecsForFenceType();
+  if(run)rebuildRunAutoPosts(run);
+  draw();updatePanel();updatePricing();scheduleAutosave();
 }
 
 function updateHint(){
@@ -2549,42 +2604,12 @@ function handleUp(e){
   if(S.moving){
     const movingIdx=S.moving.idx;
     const el=S.elements[movingIdx];
-    if(el&&el.type==='fence'&&el.autoPostSpacing){
-      // Collect IDs of auto-posts that were generated with the original run endpoints
-      // Strategy: store original run in moveOrigEl, remove posts within snap distance
-      // of original run line, then re-add for new run position
-      const orig=S.moveOrigEl;
-      const origStart=orig.start,origEnd=orig.end;
-      const origSpFt=el.autoPostSpacing;
-      const origSpPx=origSpFt*GRID_FT;
-      // Build expected original post positions
-      const origLen=dist(origStart,origEnd);
-      const origPostPts=new Set();
-      if(origLen>0){
-        const ux=(origEnd.x-origStart.x)/origLen,uy=(origEnd.y-origStart.y)/origLen;
-        const cnt=Math.floor(origLen/origSpPx);
-        for(let p=1;p<cnt;p++){
-          const px=Math.round(origStart.x+ux*p*origSpPx);
-          const py=Math.round(origStart.y+uy*p*origSpPx);
-          origPostPts.add(`${px},${py}`);
-        }
-      }
-      // Remove only auto-posts that match the original run's post positions
-      S.elements=S.elements.filter((e2,i)=>{
-        if(i===movingIdx)return true;// keep the fence run itself
-        if(e2.type==='post'&&e2.auto){
-          const k=`${Math.round(e2.pos.x)},${Math.round(e2.pos.y)}`;
-          return!origPostPts.has(k);// remove if it was from this run
-        }
-        return true;
-      });
-      // Find new index of the fence run after filter
-      const newIdx=S.elements.indexOf(el);
-      if(newIdx!==-1){
-        const newPosts=autoPostsForRun(el.start,el.end,el.autoPostSpacing,el.fenceType,el.runId,el.specs);
-        S.elements.push(...newPosts);
-        S.selected=newIdx;
-      }
+    const orig=S.moveOrigEl;
+    const changed=el&&orig&&el.start&&el.end&&
+      (dist(el.start,orig.start)>1e-6||dist(el.end,orig.end)>1e-6);
+    if(changed){
+      if(el.type==='fence')rebuildRunAutoPosts(el);
+      if(el.type==='gate')rebuildRunAutoPosts(fenceRunById(el.runId));
     }
     S.moving=null;S.moveStart=null;S.moveOrigEl=null;
     draw();updatePanel();scheduleAutosave();return;
@@ -2604,6 +2629,7 @@ function handleUp(e){
         const gate=attachGateToRun({type:'gate',start:S.drawing.start,end:S.drawing.end,
           gateType:S.gateType,hinge:'start',swingDir:1},owner);
         S.elements.push(gate);
+        rebuildRunAutoPosts(owner);
       }else{
         const newEls=[{type:S.drawing.type,start:S.drawing.start,end:S.drawing.end,
           fenceType:S.drawing.type!=='boundary'?S.fenceType:undefined,
@@ -2936,7 +2962,7 @@ function init(){
   document.getElementById('btn-pdf').addEventListener('click',exportPDF);
   document.getElementById('btn-png').addEventListener('click',()=>{const a=document.createElement('a');a.download=S.projectName.replace(/\s+/g,'_')+'.png';a.href=canvas.toDataURL();a.click();});
   document.getElementById('btn-delete').addEventListener('click',()=>{
-    if(S.selected!==null){pushHistory();S.elements.splice(S.selected,1);S.selected=null;S.editingGate=null;syncSpecInputs();draw();updatePanel();updateGateEditor();}
+    deleteSelectedElement();
   });
   document.getElementById('btn-zoom-in').addEventListener('click',()=>{S.zoom=Math.min(4,S.zoom*1.2);draw();updatePanel();});
   document.getElementById('btn-zoom-out').addEventListener('click',()=>{S.zoom=Math.max(0.05,S.zoom*0.8);draw();updatePanel();});
@@ -3141,22 +3167,14 @@ function init(){
     }
     // Delete / Backspace — remove the selected element
     if((e.key==='Delete'||e.key==='Backspace')&&S.selected!==null&&!inField){
-      e.preventDefault();pushHistory();
-      S.elements.splice(S.selected,1);S.selected=null;S.editingGate=null;
-      draw();updatePanel();updateGateEditor();
+      e.preventDefault();deleteSelectedElement();
     }
     if((e.ctrlKey||e.metaKey)&&e.key==='c'){
-      if(S.selected!==null){S.clipboard=JSON.parse(JSON.stringify(S.elements[S.selected]));e.preventDefault();}
+      if(S.selected!==null&&!inField){copySelectedElement();e.preventDefault();}
     }
     if((e.ctrlKey||e.metaKey)&&e.key==='v'){
-      if(S.clipboard){
-        e.preventDefault();pushHistory();
-        const clone=JSON.parse(JSON.stringify(S.clipboard));
-        const offset=2*GRID_FT;// always 2 feet offset regardless of snap
-        if(clone.type==='post'){clone.pos.x+=offset;clone.pos.y+=offset;}
-        else{clone.start.x+=offset;clone.start.y+=offset;clone.end.x+=offset;clone.end.y+=offset;}
-        S.elements.push(clone);S.selected=S.elements.length-1;
-        draw();updatePanel();
+      if(S.clipboard&&!inField){
+        e.preventDefault();pasteClipboardElement();
       }
     }
     // Tool shortcuts
@@ -3174,7 +3192,7 @@ function init(){
   // Copy button — copies selected element to clipboard only, no immediate paste
   document.getElementById('btn-copy').addEventListener('click',()=>{
     if(S.selected!==null){
-      S.clipboard=JSON.parse(JSON.stringify(S.elements[S.selected]));
+      copySelectedElement();
       const btn=document.getElementById('btn-copy');
       btn.style.color='var(--green)';btn.style.borderColor='var(--green)';
       setTimeout(()=>{btn.style.color='var(--accent)';btn.style.borderColor='';},600);
@@ -3183,15 +3201,7 @@ function init(){
   });
   // Paste button
   document.getElementById('btn-paste').addEventListener('click',()=>{
-    if(S.clipboard){
-      pushHistory();
-      const clone=JSON.parse(JSON.stringify(S.clipboard));
-      const offset=2*GRID_FT;
-      if(clone.type==='post'){clone.pos.x+=offset;clone.pos.y+=offset;}
-      else{clone.start.x+=offset;clone.start.y+=offset;clone.end.x+=offset;clone.end.y+=offset;}
-      S.elements.push(clone);S.selected=S.elements.length-1;
-      draw();updatePanel();
-    }
+    pasteClipboardElement();
   });
 
   // jsPDF CDN
@@ -3249,27 +3259,27 @@ function init(){
   if(spVal){
     let sv=false,svx=0,svs=0;
     spVal.style.cursor='ew-resize';spVal.title='Drag ← → to adjust spacing';
-    spVal.addEventListener('touchstart',e=>{sv=true;svx=e.touches[0].clientX;svs=S.postSpacing;},{passive:true});
+    spVal.addEventListener('touchstart',e=>{sv=true;svx=e.touches[0].clientX;svs=activePostSpacing();},{passive:true});
     spVal.addEventListener('touchmove',e=>{
       if(!sv)return;e.preventDefault();
       const dx=e.touches[0].clientX-svx;
       const nv=Math.min(20,Math.max(1,Math.round(svs+dx/8)));
-      S.postSpacing=nv;
+      setActivePostSpacing(nv);
       document.getElementById('spacing-slider').value=nv;
       document.getElementById('spacing-val').textContent=nv+' ft';
       document.querySelectorAll('.chip[data-ps]').forEach(b=>b.classList.toggle('active',+b.dataset.ps===nv));
-      updateHint();
+      updateHint();updatePanel();scheduleAutosave();
     },{passive:false});
     spVal.addEventListener('touchend',()=>{sv=false;},{passive:true});
-    spVal.addEventListener('mousedown',e=>{sv=true;svx=e.clientX;svs=S.postSpacing;});
+    spVal.addEventListener('mousedown',e=>{sv=true;svx=e.clientX;svs=activePostSpacing();});
     window.addEventListener('mousemove',e=>{
       if(!sv)return;
       const dx=e.clientX-svx;
       const nv=Math.min(20,Math.max(1,Math.round(svs+dx/8)));
-      S.postSpacing=nv;
+      setActivePostSpacing(nv);
       document.getElementById('spacing-slider').value=nv;
       document.getElementById('spacing-val').textContent=nv+' ft';
-      updateHint();
+      updateHint();updatePanel();scheduleAutosave();
     });
     window.addEventListener('mouseup',()=>{sv=false;});
   }
@@ -4260,17 +4270,17 @@ init();
 <button class="fb-dev-btn" id="fb-dev-btn" type="button" hidden onclick="fbToggleDevIndex(true)">DEV INDEX</button>
 <div class="fb-dev-overlay" id="fb-dev-index" onclick="if(event.target===this)fbToggleDevIndex(false)">
  <div class="fb-dev-card"><button class="fb-dev-close" onclick="fbToggleDevIndex(false)">CLOSE</button>
- <h2>FenceboundCAD Development Index</h2><div class="fb-dev-meta">Local documentation authority · v5.4.0 · Updated 3 September 2026</div>
+ <h2>FenceboundCAD Development Index</h2><div class="fb-dev-meta">Local documentation authority · v5.4.0 · Updated 18 September 2026</div>
  <div class="fb-dev-grid">
   <div class="fb-dev-box"><h3>Purpose</h3><div>Drawing-driven fence layout, BOM generation, cost-basis estimating, quick-reference totals, and proposal output. Sold as a one-time perpetual licence: offline, no accounts, no subscription.</div></div>
-  <div class="fb-dev-box"><h3>Current Status</h3><div>v5.4.0 shipped and pushed. CSV price import, company profile, and full backup/restore are live. Estimate output is fully unbranded from Far-Out. Takeoff defects D1–D5 are specified with owner rulings but <b>not yet implemented</b>.</div></div>
+  <div class="fb-dev-box"><h3>Current Status</h3><div>v5.4.0 includes CSV price import, company profile, and full backup/restore. September 6 takeoff changes are implemented, but the passing 168 LF fixture disagrees with the authoritative field specification; pricing correctness is not fully established. The September 18 automatic-post repair is a local candidate pending closeout.</div></div>
 
-  <div class="fb-dev-box"><h3>Open — Takeoff Defects</h3><ul>
-   <li><b>D1</b> Post tallies disagree: calcAutoMaterials() recomputes posts independently of getStats(). Fix first — likely upstream of D3 and D4.</li>
-   <li><b>D2</b> Linear materials and labour are not net of gate openings. Gates already bill separately via LABOR.gate, so per-LF across an opening double-bills.</li>
-   <li><b>D3</b> Post caps are unconditional; a barb arm replaces the cap.</li>
-   <li><b>D4</b> No post type receives a correct length. Gate posts inherit the run’s length and a flat 2 bags of concrete.</li>
-   <li><b>D5</b> Terminal counts do not reconcile across posts, bars, and bands.</li>
+  <div class="fb-dev-box"><h3>Takeoff — Implemented and Unresolved</h3><ul>
+   <li><b>D1/D2</b> Statistics and materials share per-run post tallies; linear materials and per-LF labour exclude gate widths.</li>
+   <li><b>D3/D5 unresolved authority conflict:</b> the closed-loop fixture expects 12 tension bars, 60 tension bands, 24 terminal brace bands, 16 line brace bands, 24 rail-end cups and 8 caps. The house-terminated reference specifies 10, 50, 60, 10, 30 and 0 respectively. Passing that fixture is not field-specification approval.</li>
+   <li><b>D4</b> Role-specific lengths, embed settings and 60-pound concrete quantities are implemented. Current driven-line-post defaults also differ from the August field record; owner reconciliation remains pending.</li>
+   <li><b>Local repair:</b> run edits replace only owned automatic posts; spacing controls recalculate them; gate edits exclude posts on the opening; copied fences receive independent identities and posts. Undo/redo restores the edited quantities.</li>
+   <li>Opening a saved drawing preserves its stored post coordinates. This repair does not automatically clean historical duplicate posts or change the unresolved hardware rules.</li>
   </ul></div>
 
   <div class="fb-dev-box"><h3>Open — Product Decisions</h3><ul>
@@ -4283,9 +4293,9 @@ init();
   </ul></div>
 
   <div class="fb-dev-box"><h3>Completed / Locked</h3><ul>
-   <li>Automated regression runner — 69 Playwright tests, 12-route persistence matrix, v5.4 port suite</li>
+   <li>Automated regression runner — 86 Playwright tests, including 15 automatic-post checks; 12-route persistence matrix</li>
    <li>Chain link field specification ratified into repository authority</li>
-   <li>168 LF reference job locked as the D1–D5 regression fixture</li>
+   <li>168 LF closed-loop regression passes; its disagreement with the authoritative house-terminated job remains open</li>
    <li>CSV price-list import with column mapping and duplicate resolution</li>
    <li>Company profile — branding, terms, deposit, validity, accent</li>
    <li>Full backup / restore with staleness warning</li>
