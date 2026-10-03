@@ -3,9 +3,9 @@
   "stateSchemaVersion": 1,
   "project": "FenceBound",
   "repository": "~/Desktop/FenceBound",
-  "branch": "main",
-  "head": "ad5c31471bd61ccdabb9593377c9eaed22d9f1e1",
-  "upstream": "origin/main",
+  "branch": "fix/field-hole-depths",
+  "head": "cdbb36656ab9e59d07f3fe7ffe98b79bc7f0c908",
+  "upstream": "origin/fix/field-hole-depths",
   "worktreeClean": true,
   "canonicalRuntime": "index.html",
   "applicationVersion": "5.4.0",
@@ -22,27 +22,29 @@
   "developmentIndex": "index.html#FenceboundCAD-Development-Index",
   "projectInstructions": "PROJECT-INSTRUCTIONS.md",
   "currentHandoff": "Docs/CURRENT_HANDOFF.md",
-  "lastCompletedTask": "Recorded the exit note on main; the tested automatic-post repair remains uncommitted in the canonical checkout on fix/cad-auto-post-integrity.",
-  "activeTask": "Review and obtain closeout approval for the local automatic-post repair first. Reconcile field quantities before retail-reference implementation; benchmark software must be accessible without an EIN.",
-  "nextOwnerDecision": "Repair closeout commit/push; field-specification versus fixture quantities; approved retail data source and EIN-free benchmark software. O-6 continuity disposition remains unresolved.",
-  "repositoryHeadAtGeneration": "ad5c31471bd61ccdabb9593377c9eaed22d9f1e1",
-  "testedHead": "ad5c31471bd61ccdabb9593377c9eaed22d9f1e1",
+  "lastCompletedTask": "Verified hole-depth defaults and closed out merged PRs #6, #8, #9, #10 and #11 field/pricing rules; R15 = 31122 cents.",
+  "activeTask": "Residential post purchase lengths: establish owner-approved residential stock lengths and the schedule-40 commercial criterion before implementation.",
+  "nextOwnerDecision": "Residential post stock lengths (schedule 40 is commercial; full sticks cut to length); whether mid/bottom rails get ties (currently yes); whether under-6 ft depths should be editable; whether to fix session:init for PR merge commits. O-6 continuity disposition remains unresolved.",
+  "repositoryHeadAtGeneration": "cdbb36656ab9e59d07f3fe7ffe98b79bc7f0c908",
+  "testedHead": "cdbb36656ab9e59d07f3fe7ffe98b79bc7f0c908",
   "closeoutConvention": "The current HEAD may be one direct documentation-only closeout child of head; see START_HERE.md.",
   "gate": {
     "status": "PASS",
-    "command": "npm run session:init; git diff --quiet 559c1d8 HEAD -- index.html tests scripts package.json package-lock.json playwright.config.js; git diff --check (documentation/source-identity gate; no new main browser run)",
-    "timestamp": "2026-09-18T19:28:37Z",
-    "head": "ad5c31471bd61ccdabb9593377c9eaed22d9f1e1"
+    "command": "npm test; node scripts/cad-persistence-matrix.js",
+    "timestamp": "2026-10-03T19:06:08Z",
+    "head": "cdbb36656ab9e59d07f3fe7ffe98b79bc7f0c908",
+    "results": {
+      "npm test": "96/96 passed, including PDF tests",
+      "node scripts/cad-persistence-matrix.js": "12/12 passed"
+    }
   },
   "knownDrift": [
-    "Main's embedded Development Index says D1-D5 are not implemented, while the prior handoff overstates closure. The local candidate documents the unresolved field-specification conflict.",
+    "The embedded Development Index retains stale D1-D5 status metadata. September handoff field-conflict and pending auto-post claims are historical; merged PRs #8-#11 and the current tested runtime supersede them.",
     "System Atlas v0.1 is a working draft based on older sources; a v0.2 candidate exists only on the unresolved continuity branch.",
     "The historical v5.3.9 Git tag intentionally points to a runtime whose in-app APP_VERSION remained 5.3.8-release-validation; rationale is recorded in the 2026-08-01 remediation handoff.",
     "No repository-orientation document is authoritative on main; a candidate exists only on the unresolved continuity branch."
   ],
   "knownDefects": [
-    "Main retains automatic-post duplication and spacing/gate recalculation defects; the verified repair is still uncommitted on fix/cad-auto-post-integrity, not published.",
-    "The authoritative house-terminated 168 LF reference and the closed-loop executable fixture disagree on hardware quantities and driven-line-post assumptions. Passing tests do not establish field correctness.",
     "Portable import is non-atomic if work after applyState throws.",
     "Persistence matrix route 10 does not verify migrated-job pricing; unknown legacy types may produce incomplete or zero pricing.",
     "ADDON_STATE validation is currently unreachable after hydration.",
@@ -53,6 +55,8 @@
     "D6 deferred: margin reads 0.0% when price-first per-LF and material-multiplier selling prices are entered as cost.",
     "D7 deferred: 6 plus 1 is not represented as a first-class assembly.",
     "Deferred: the model cannot separately represent real installation hole depth and submittal specification depth.",
-    "Tooling: session:init falsely rejects approved one-child documentation closeouts when governance files fall outside its closeout allowlist; the allowlist needs to accommodate the approved structure."
+    "Tooling: session:init falsely rejects approved one-child documentation closeouts when governance files fall outside its closeout allowlist; the allowlist needs to accommodate the approved structure.",
+    "Tooling: session:init reports PR merge commits as drift because they are not a direct allowlisted documentation child of the recorded implementation head.",
+    "Playwright 1.40.1 has npm audit advisory GHSA-7mvr-c777-76hp; upgrade deferred because newer Playwright does not support macOS Catalina."
   ]
 }
