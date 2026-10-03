@@ -1214,6 +1214,7 @@ const DEFAULT_COST_DB={
   'brace band':               {cost:0.80, unit:'ea'},
   'rail end loop cap':        {cost:1.10, unit:'ea'},
   'wire ties':                {cost:0.05, unit:'ea'},
+  'hog rings':                {cost:0.04, unit:'ea'}, // placeholder seed; contractors set their own costs
   'carriage bolt nut':        {cost:0.40, unit:'ea'},
   'galv nails':               {cost:0.03, unit:'ea'},
   'truss rod w tightener':    {cost:6.50, unit:'ea'},
@@ -1527,7 +1528,15 @@ function calcAutoMaterials(){
       items.push({name:'Terminal-size Brace Band',qty:ends*(rails+wires),unit:'ea'});
       if(sp.hasMidRail)items.push({name:'Line-size Brace Band',qty:ends,unit:'ea'});
       items.push({name:'Rail End (Loop Cap)',qty:ends*(rails+(sp.hasMidRail?1:0)),unit:'ea'});
-      items.push({name:'Wire Ties 9ga',qty:Math.ceil(ft*5),unit:'ea'});
+      // Fastening (owner rules 2026-10-03): 5 per bay on every horizontal element,
+      // whatever the bay length — wire ties on rails, hog rings on tension wires and
+      // razor ribbon. Line posts take (height ft - 1) ties, like tension bands.
+      // Bays = line posts + fabric sections (each gate splits the run).
+      const bays=lineCt+runStats.gatePostCt/2+1;
+      const fastenedWires=['bottom-wire','top-wire','tension-wire','razor-ribbon'].filter(a=>sp.addons.has(a)).length;
+      const tiesPerLinePost=Math.max(Math.ceil(sp.heightIn/12)-1,0);
+      items.push({name:'Wire Ties 9ga',qty:5*bays*rails+lineCt*tiesPerLinePost,unit:'ea'});
+      if(fastenedWires)items.push({name:'Hog Rings',qty:5*bays*fastenedWires,unit:'ea'});
       const boltsPer=Math.ceil(sp.heightIn/12)*2;
       items.push({name:'3/8" Carriage Bolt+Nut',qty:ends*boltsPer,unit:'ea'});
       if(sp.hasMidRail){items.push({name:'Mid Rail 1-5/8"',qty:Math.ceil(ft),unit:'lf'});}

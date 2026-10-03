@@ -115,7 +115,9 @@ test('168 LF house-terminated reference job matches the authoritative takeoff', 
       wrongLinePostLength:sum(row=>/^Line Post (?!9')/.test(row.name)),
       postConcrete60:exact('Post Concrete (60lb bag)'),
       gateConcrete60:exact('Gate Post Concrete (60lb bag)'),
-      concrete80:sum(row=>/Concrete \(80lb bag\)/.test(row.name))
+      concrete80:sum(row=>/Concrete \(80lb bag\)/.test(row.name)),
+      wireTies:exact('Wire Ties 9ga'),
+      hogRings:exact('Hog Rings')
     };
   })()`);
   // Known-correct values from the authoritative supplement. Per fabric end:
@@ -132,7 +134,7 @@ test('168 LF house-terminated reference job matches the authoritative takeoff', 
     gateConcrete60:12,concrete80:0
   };
   console.log('FIXTURE_168LF_UNASSERTED',JSON.stringify({linePosts:actual.linePosts,trussRods:actual.trussRods,
-    trussConnectors:actual.trussConnectors,barbArms:actual.barbArms,linePost9Cut87:actual.linePost9Cut87,postConcrete60:actual.postConcrete60}));
+    trussConnectors:actual.trussConnectors,barbArms:actual.barbArms,wireTies:actual.wireTies,hogRings:actual.hogRings,linePost9Cut87:actual.linePost9Cut87,postConcrete60:actual.postConcrete60}));
   const deltas=Object.keys(expected).map(item=>({item,expected:expected[item],actual:actual[item],delta:actual[item]-expected[item]}));
   console.log('FIXTURE_168LF_DELTAS',JSON.stringify(deltas.filter(row=>row.delta!==0)));
   for(const row of deltas)expect.soft(row.actual,`${row.item}: expected ${row.expected}, actual ${row.actual}, delta ${row.delta>=0?'+':''}${row.delta}`).toBe(row.expected);
@@ -193,4 +195,42 @@ test('every rail gets a band and cup per end; every tension wire gets a band per
   const bare=await perEnd(page,`s=>{s.hasTopRail=false;s.hasMidRail=false;s.addons.clear();s.addons.add('top-wire');}`);
   // No top rail is a spec change: top wire takes a band, no rail means no cup.
   expect({terminalBands:bare.terminalBands/2,cups:bare.cups,topRail:bare.topRail}).toEqual({terminalBands:1,cups:0,topRail:0});
+});
+
+// Owner fastening rules (2026-10-03): 5 fasteners per bay (post-to-post span)
+// on every horizontal element the fabric is fastened to, regardless of
+// spacing: wire ties on rails, hog rings on tension wire and razor ribbon.
+// Line posts take (height ft - 1) ties, matching the tension-band rule.
+async function fastening(page, mutate, gates=[]) {
+  return state(page, `(()=>{
+    const specs=cloneRunSpecs(S.specs);(${mutate})(specs);
+    const run={type:'fence',start:{x:0,y:0},end:{x:40*GRID_FT,y:0},fenceType:'chainlink',
+      runId:'fasten',specs,postSpacing:10,autoPostSpacing:10};
+    const posts=autoPostsForRun(run.start,run.end,10,'chainlink',run.runId,run.specs);
+    const gs=${JSON.stringify(gates)}.map(([a,b])=>attachGateToRun({type:'gate',start:{x:a*GRID_FT,y:0},
+      end:{x:b*GRID_FT,y:0},gateType:'walk',hinge:'start',swingDir:1},run));
+    S.elements=[run,...posts,...gs];
+    const bom=calcAutoMaterials(),q=name=>bom.filter(r=>r.name===name).reduce((t,r)=>t+r.qty,0);
+    return {linePosts:getStats().linePosts,ties:q('Wire Ties 9ga'),hogRings:q('Hog Rings'),
+      hogCost:lookupCost('Hog Rings')};
+  })()`);
+}
+
+test('wire ties and hog rings follow the per-bay and per-line-post rules', async ({ page }) => {
+  await cleanOpen(page);
+  // Default 4 ft: top rail + bottom wire. 40 LF at 10 ft = 3 line posts, 4 bays.
+  const base=await fastening(page,'s=>{}');
+  expect(base.linePosts).toBe(3);
+  expect(base.ties).toBe(5*4 + 3*3);     // top rail 5/bay + 3 ties per line post
+  expect(base.hogRings).toBe(5*4);       // bottom wire 5/bay
+  expect(base.hogCost).not.toBeNull();   // priceable, so the job can validate
+  // Mid rail adds a tied rail; razor ribbon adds a fastened element.
+  const more=await fastening(page,`s=>{s.hasMidRail=true;s.addons.add('razor-ribbon');}`);
+  expect(more.ties).toBe(2*5*4 + 3*3);
+  expect(more.hogRings).toBe(2*5*4);
+  // A gate splits the run into two fabric sections: bays = line posts + sections.
+  const gated=await fastening(page,'s=>{}',[[18,22]]);
+  const bays=gated.linePosts+2;
+  expect(gated.ties).toBe(5*bays + gated.linePosts*3);
+  expect(gated.hogRings).toBe(5*bays);
 });
