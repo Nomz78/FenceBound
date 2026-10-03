@@ -470,8 +470,11 @@ test('R15 zero manual rows preserve the pre-fix estimate total exactly',async({p
   // Owner default (2026-10-02) is 4 ft chain link with top rail and bottom wire,
   // no mid rail: per end 3 tension bands, 2 terminal brace bands, 1 rail-end cup
   // (was 8 ft: 7 / 3 / 3 plus mid rail and line-size bands; 39567 cents).
-  expect(totals.cents).toBe(34369);
-  expect(totals.dollars).toBe('343.69');
+  // Owner fastening rules (2026-10-03): 5 ties per bay per rail, 5 hog rings per
+  // bay per tension wire. This 10 ft run has one bay: ties 50 -> 5, hog rings +5
+  // (34369 -> 34092 cents).
+  expect(totals.cents).toBe(34092);
+  expect(totals.dollars).toBe('340.92');
 });
 
 test('R16 manual material is visible on the estimate PDF',async({page})=>{

@@ -63,12 +63,20 @@ while evaluating it.
   - **Owner decision: ratify R15 = `386.22`.** It replaces the earlier
     owner-ratified `386.195`. The change comes only from rounding; the
     quantities are unchanged.
-  - Field question, not decided here: whether `truss rod w tightener` plus a
-    separate connector double-counts hardware. This BOM line predates this
-    branch.
+  - Field question resolved by the owner on 2026-10-01: the connector is
+    bought separately from the truss rod, so the BOM's separate connector
+    line does not double-count hardware. The `Truss Rod` BOM line still
+    borrows the `truss rod w tightener` price ($6.50) through lookup
+    fallback. The owner may set a rod-only cost in the cost editor; no
+    pricing value was changed.
   - The add-material row is feature work. It is included under the owner's
     instruction to integrate this proposal; it is not a general feature
     authorization.
+- Owner direction recorded 2026-10-01 after merge: FenceBound will not set
+  prices. Seed costs, including the `$2.50/ea` connector, are placeholders
+  that contractors replace with their own rate cards. The ratifications
+  above concern arithmetic and test baselines, not price authority. The
+  priority is material quantities and ratios.
 - Scope explicitly not changed: takeoff quantities, existing seed prices,
   labor rates, markups, persistence formats, saved-job schema, CSV/JSON
   formats, retail reference, FenceScraper. `CURRENT_STATE.json` and

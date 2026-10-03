@@ -244,6 +244,14 @@ Append one entry for every development session. Preserve prior entries.
   - ratify R15 `386.22`;
   - run the PDF-path tests with network access before merging.
 - **Handoff:** `Docs/execution/INTEGER_CENTS_PRICING_HANDOFF_2026-10-01.md`.
+- **Owner decision (2026-10-01):** The truss-rod connector is purchased separately from the rod,
+  so the separate BOM connector line is not a double count. No code change was made.
+- **Owner direction (2026-10-01): FenceBound does not set prices.** Contractors enter their own
+  costs, labor and markup; built-in seed prices are placeholders only. Product effort goes to
+  material takeoff correctness — quantities and ratios per run, post role, gate and termination.
+  The integer-cents work stands as arithmetic on contractor-entered prices; it is not a pricing
+  policy. The next correctness task remains reconciling the 168 LF field reference against the
+  executable fixture (see `Docs/CURRENT_HANDOFF.md`, item 3).
 
 ## 2026-10-01 — Per-end termination hardware brought to the owner field specification
 
@@ -293,3 +301,21 @@ Append one entry for every development session. Preserve prior entries.
 - **Open question:** whether the 10.5 ft terminal and 9 ft line post purchase lengths in the
   supplement also apply at 4 ft. The 4 ft defaults currently cut 80" from 10.5 ft sticks and 63"
   from 9 ft line posts.
+
+## 2026-10-03 — Fastening rules (wire ties, hog rings)
+
+- **Owner rules:**
+  - 5 fasteners per bay, spread evenly, whatever the bay length.
+  - Wire ties go on each rail. Hog rings go on each tension wire and on razor ribbon, copying
+    the tie placement.
+  - Line posts take (fabric height in feet − 1) ties, the same as the tension-band rule.
+- **Implemented:**
+  - Bays per run = line posts + fabric sections (gates split a run).
+  - Replaces the undocumented flat 5 ties per LF and adds a Hog Rings line.
+  - Adds a placeholder `hog rings` seed cost so the line validates.
+  - The red test showed 200 ties; with the fix it shows 29.
+  - R15 moves to 34092 cents.
+- **Owner ruling, not yet implemented — post purchase lengths:** shorter fences get shorter
+  posts. Buying full sticks and cutting them applies mainly to schedule 40 pipe. The runtime
+  still applies the supplement's 10.5 ft terminal and 9 ft line purchase lengths at every
+  height. This needs the stock lengths and the schedule-40 criterion before it can change.
