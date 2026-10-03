@@ -293,3 +293,21 @@ Append one entry for every development session. Preserve prior entries.
 - **Open question:** whether the 10.5 ft terminal and 9 ft line post purchase lengths in the
   supplement also apply at 4 ft. The 4 ft defaults currently cut 80" from 10.5 ft sticks and 63"
   from 9 ft line posts.
+
+## 2026-10-03 — Fastening rules (wire ties, hog rings)
+
+- **Owner rules:**
+  - 5 fasteners per bay, spread evenly, whatever the bay length.
+  - Wire ties go on each rail. Hog rings go on each tension wire and on razor ribbon, copying
+    the tie placement.
+  - Line posts take (fabric height in feet − 1) ties, the same as the tension-band rule.
+- **Implemented:**
+  - Bays per run = line posts + fabric sections (gates split a run).
+  - Replaces the undocumented flat 5 ties per LF and adds a Hog Rings line.
+  - Adds a placeholder `hog rings` seed cost so the line validates.
+  - The red test showed 200 ties; with the fix it shows 29.
+  - R15 moves to 34092 cents.
+- **Owner ruling, not yet implemented — post purchase lengths:** shorter fences get shorter
+  posts. Buying full sticks and cutting them applies mainly to schedule 40 pipe. The runtime
+  still applies the supplement's 10.5 ft terminal and 9 ft line purchase lengths at every
+  height. This needs the stock lengths and the schedule-40 criterion before it can change.
