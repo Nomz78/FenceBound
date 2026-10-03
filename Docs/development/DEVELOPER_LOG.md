@@ -272,3 +272,24 @@ Append one entry for every development session. Preserve prior entries.
   hardware keeps its prior counts until the owner authorizes that spec. Repaired the defect where
   an unchecked Top Rail still ordered top rail and sleeves. The red test showed both rows present
   on the takeoff; after the fix the test passes.
+- **Owner field rules (2026-10-02), implemented:**
+  - Defaults: chain link defaults to 4 ft with top rail and bottom tension wire, and no mid rail.
+    Bottom wire is standard at every height. Terminal, corner and gate posts are 2-1/2" nominal
+    (stored as 2.375" OD, following the existing nominal-to-OD convention). Line posts are 1-5/8".
+  - Per fabric end:
+    - tension bands: fabric height in feet minus 1;
+    - each rail (top, mid, bottom): one terminal brace band and one rail-end cup;
+    - each tension wire (bottom, top) and each barbed strand: one terminal brace band;
+    - the mid rail also lands on the first line post with a line-size band and a cup.
+  - Effect on yesterday's change: this replaces its 2-band framing reading for top rail. The 168
+    LF reference still matches the supplement exactly. A checked chain-link Bottom Rail is now
+    ordered.
+  - R15 moves to 34369 cents.
+- **Open, pending owner ratios:**
+  - Wire ties: the runtime uses 5 per LF, with no documented basis.
+  - Hog rings for tension wire are missing.
+  - The ASTM F567, CLFMI and Merchants Metals sources were blocked from the cloud container, and
+    the search summaries conflicted, so no spacing was invented.
+- **Open question:** whether the 10.5 ft terminal and 9 ft line post purchase lengths in the
+  supplement also apply at 4 ft. The 4 ft defaults currently cut 80" from 10.5 ft sticks and 63"
+  from 9 ft line posts.
