@@ -85,3 +85,7 @@ introduce explicit restore cloning with a red-before test.
   identification.
 - Never generate artifacts inside the working tree. A stray
   untracked file blocks the cleanliness gate.
+
+## Session Handoffs
+
+@SESSION_HANDOFF_PROTOCOL.md

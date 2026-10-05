@@ -27,3 +27,8 @@ project-specific layer only.
 - Still required: new tests fail before the fix and pass after; record owner field rules
   in the developer log; don't change existing price values; never `git add -A` in the
   canonical checkout.
+
+## Session Handoffs (Owner Decision, 2026-10-05)
+
+Read `SESSION_HANDOFF_PROTOCOL.md`. Hand off to a fresh session as soon as re-reading this one costs more than a
+handoff and a fresh start, even by one token, and open the next session with a `<repo> · <topic> r<round>` title.
