@@ -109,8 +109,8 @@ test('E2 wood rails, chain-link rails and brace-band sizes price from separate k
   expect(after['Terminal-size Brace Band']).toBe(3);
   expect(after['Line-size Brace Band']).toBe(4);
 
-  // A saved rate card from before the split has none of the new keys: they fall
-  // back to their seed values and the saved prices for existing keys still apply.
+  // A saved rate card from before the split has none of the new keys: each new
+  // key inherits the saved price of the shared key its line was charged from.
   const merged = await state(page, `(()=>{
     localStorage.setItem(COSTDB_KEY,JSON.stringify({costs:{'top rail':{cost:2.5,unit:'lf'},'bottom rail':{cost:5,unit:'lf'},'brace band':{cost:1,unit:'ea'}}}));
     reloadSavedCostDB();
@@ -118,7 +118,7 @@ test('E2 wood rails, chain-link rails and brace-band sizes price from separate k
       clBottom:COST_DB['bottom rail'].cost,term:COST_DB['terminal size brace band'].cost,line:COST_DB['line size brace band'].cost,
       unknown:computePricing().unknown};
   })()`);
-  expect(merged).toEqual({top:2.5,woodTop:1.85,woodBottom:4.2,clBottom:5,term:0.8,line:0.8,unknown:[]});
+  expect(merged).toEqual({top:2.5,woodTop:2.5,woodBottom:5,clBottom:5,term:1,line:1,unknown:[]});
 });
 
 test('E3 an unknown material is a validation error, not a borrowed price', async ({ page }) => {
@@ -186,4 +186,83 @@ test('E5 pricing is independent of rate-card key insertion order', async ({ page
       forward:forward.cents.clientTotal,reversed:reversed.cents.clientTotal};
   })()`);
   expect(result.same, JSON.stringify(result)).toBe(true);
+});
+
+// The pre-repair resolver, kept only as a reference for what each line was
+// charged before the upgrade (exact normalized key, brace-band alias, trailing
+// word trim, then prefix match in key order).
+const LEGACY_RESOLVE = `(name,db)=>{
+  const k=normalizeMatKey(name);
+  if(db[k])return db[k].cost;
+  if((k==='terminal size brace band'||k==='line size brace band')&&db['brace band'])return db['brace band'].cost;
+  const parts=k.split(' ');
+  for(let n=Math.min(5,parts.length);n>=2;n--){const sub=parts.slice(0,n).join(' ');if(db[sub])return db[sub].cost;}
+  for(const dbk in db){if(dbk.startsWith(k+' ')||k.startsWith(dbk+' '))return db[dbk].cost;}
+  return null;}`;
+
+test('E6 an upgraded saved rate card keeps every customised line price', async ({ page }) => {
+  await cleanOpen(page);
+  // A pre-split saved card: the old key set ('brace band' shared, no split keys),
+  // every price customised to a distinct value.
+  const result = await state(page, `(()=>{
+    const split=['wood top rail','wood mid rail','wood bottom rail','terminal size brace band','line size brace band'];
+    const old={};let i=0;
+    Object.entries(DEFAULT_COST_DB).forEach(([k,v])=>{
+      if(k==='terminal size brace band')old['brace band']={cost:0.8,unit:'ea'};
+      if(!split.includes(k))old[k]={...v};
+    });
+    Object.values(old).forEach(v=>{v.cost=Math.round((v.cost+0.37+(i++)*0.11)*100)/100;});
+    localStorage.setItem(COSTDB_KEY,JSON.stringify({costs:old}));
+    reloadSavedCostDB();
+    const legacy=${LEGACY_RESOLVE};
+    const diffs=[];let lines=0;
+    for(const type of Object.keys(FENCE_TYPES)){
+      ${seedAllLinesSource('__TYPE__').replace(/^\(\(\)=>\{/, '').replace(/\}\)\(\)$/, '').replace(/"__TYPE__"/g, 'type')}
+      computePricing().matLines.forEach(l=>{
+        if(/Concrete/.test(l.name))return; // concrete was mispriced; its change is the defect repair
+        lines++;
+        const before=legacy(l.name,old);
+        if(before!==l.unitCost)diffs.push(type+': '+l.name+' '+before+' -> '+l.unitCost);
+      });
+    }
+    return{lines,diffs:[...new Set(diffs)]};
+  })()`);
+  expect(result.lines).toBeGreaterThan(100);
+  expect(result.diffs).toEqual([]);
+});
+
+test('E7 CSV import lands each emitted BOM line name on its exact cost key', async ({ page }) => {
+  await cleanOpen(page);
+  await seedMixedJob(page);
+  await state(page, `(()=>{
+    openCsvImporter([['Description','Cost'],['2x4 Top Rail','3.10'],['2x4 Mid Rail','3.20'],['2x4 Bottom Rail','3.30'],
+      ['Top Rail 1-5/8"','2.10'],['Mid Rail 1-5/8"','2.20'],['Bottom Rail 1-5/8"','2.30'],['Post Concrete (60lb bag)','5.75']]);
+  })()`);
+  await page.locator('#cs-apply').click();
+  const prices = await state(page, `(()=>{const P=computePricing();return{
+    lines:Object.fromEntries(P.matLines.map(l=>[l.name,l.unitCost])),
+    keys:{post:COST_DB['post'].cost,orphans:['post concrete','top rail 1 5 8'].filter(k=>k in COST_DB)}};})()`);
+  expect(prices.lines['2x4 Top Rail']).toBe(3.1);
+  expect(prices.lines['2x4 Mid Rail']).toBe(3.2);
+  expect(prices.lines['2x4 Bottom Rail']).toBe(3.3);
+  expect(prices.lines['Top Rail 1-5/8"']).toBe(2.1);
+  expect(prices.lines['Mid Rail 1-5/8"']).toBe(2.2);
+  expect(prices.lines['Bottom Rail 1-5/8"']).toBe(2.3);
+  expect(prices.lines['Post Concrete (60lb bag)']).toBe(5.75);
+  expect(prices.lines['Gate Post Concrete (60lb bag)']).toBe(5.75);
+  expect(prices.keys.orphans).toEqual([]);
+});
+
+test('E8 the CSV name mapping agrees with every emitted BOM line costKey', async ({ page }) => {
+  await cleanOpen(page);
+  const types = await state(page, 'Object.keys(FENCE_TYPES)');
+  const arms = await state(page, `[...document.querySelectorAll('#barb-arm option')].map(o=>o.value)`);
+  const mismatches = [];
+  for (const [type, arm] of [...types.map(t => [t, 'vertical']), ...arms.map(a => ['chainlink', a])]) {
+    await state(page, seedAllLinesSource(type, arm));
+    const rows = await state(page, `(()=>{const r=csvBuildPreview([['Description','Cost'],...calcAutoMaterials().map(it=>[it.name,'1'])],{name:0,cost:1,unit:-1},true,'last');
+      return calcAutoMaterials().map(it=>[it.name,it.costKey,(r.entries.find(e=>e.sources.includes(it.name))||{}).key]);})()`);
+    rows.forEach(([name, costKey, csvKey]) => { if (costKey !== csvKey) mismatches.push(`${name}: ${costKey} vs ${csvKey}`); });
+  }
+  expect([...new Set(mismatches)]).toEqual([]);
 });

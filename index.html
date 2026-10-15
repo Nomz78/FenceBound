@@ -852,7 +852,7 @@ function applyState(st){
   if(typeof st.showCostView==='boolean')S.showCostView=st.showCostView;
   // Prices ride along inside the job file → a reopened quote shows the costs it
   // was built on. Merge over current so partial/old files don't wipe categories.
-  if(st.costs)COST_DB={...COST_DB,...st.costs};
+  if(st.costs)COST_DB={...COST_DB,...migrateLegacyCostKeys(st.costs)};
   if(st.labor)LABOR={...LABOR,...st.labor,perLF:{...LABOR.perLF,...(st.labor.perLF||{})},gate:{...LABOR.gate,...(st.labor.gate||{})}};
   if(st.markup)MARKUP={...MARKUP,...st.markup};
   _pricingFromLoadedProject=!!(st.costs||st.labor||st.markup);
@@ -1294,6 +1294,40 @@ const DEFAULT_COST_DB={
 };
 // Gate kit line → cost key. An unknown gate type has no key and surfaces as MISSING_COST.
 const GATE_COST_KEYS={walk:'walk gate w hardware',doubledrive:'dbl drive w hardware',cantilever:'cantilever w hardware'};
+// Emitted BOM line names whose cost key is not their normalized name (the
+// calcAutoMaterials costKey for that line). Used to map a supplier CSV row that
+// carries a BOM line name onto the same key that line is priced from.
+const BOM_NAME_COST_KEYS=[
+  [/^2x4 top rail$/i,'wood top rail'],
+  [/^2x4 mid rail$/i,'wood mid rail'],
+  [/^2x4 bottom rail$/i,'wood bottom rail'],
+  [/^(gate )?post concrete \(\d+(\.\d+)?lb bag\)$/i,'post concrete bag'],
+  [/^truss rod$/i,'truss rod w tightener'],
+  [/^rail end \(loop cap\)$/i,'rail end loop cap'],
+  [/^barb arm (vertical|outward|inward|yarm)$/i,'barb arm'],
+];
+function costKeyForName(name){
+  const n=String(name||'').trim().replace(/\s+/g,' ');
+  const hit=BOM_NAME_COST_KEYS.find(([re])=>re.test(n));
+  return hit?hit[1]:normalizeMatKey(n);
+}
+// Rate cards saved before the shared keys were split carry none of the split
+// keys. Each split key inherits the saved price of the shared key its line was
+// charged from, so an upgraded card keeps every customised line price.
+const LEGACY_SPLIT_COST_KEYS={'wood top rail':'top rail','wood mid rail':'mid rail','wood bottom rail':'bottom rail',
+  'terminal size brace band':'brace band','line size brace band':'brace band'};
+function migrateLegacyCostKeys(costs){
+  if(!costs||typeof costs!=='object'||Array.isArray(costs))return costs;
+  const has=k=>Object.prototype.hasOwnProperty.call(costs,k);
+  if(Object.keys(LEGACY_SPLIT_COST_KEYS).some(has))return costs;
+  const out={...costs};
+  Object.entries(LEGACY_SPLIT_COST_KEYS).forEach(([splitKey,sharedKey])=>{
+    if(!has(sharedKey))return;
+    const v=costs[sharedKey];
+    out[splitKey]=v&&typeof v==='object'?{...v}:v;
+  });
+  return out;
+}
 
 // DEFAULT_LABOR — internal labor cost as $/LF by fence type (the "Both" model:
 // this flat rate is the default; an optional crew-hours override can replace it
@@ -1344,7 +1378,7 @@ function refreshPostDiaDefaults(){
 // Accept both legacy Rate Card bare-number costs and canonical CAD {cost,unit} costs.
 function normalizeImportedCosts(src){
   const out={};
-  Object.entries(src||{}).forEach(([k,v])=>{
+  Object.entries(migrateLegacyCostKeys(src)||{}).forEach(([k,v])=>{
     if(typeof v==='number') out[k]={cost:v,unit:(COST_DB[k]&&COST_DB[k].unit)||'ea'};
     else if(v&&typeof v.cost==='number') out[k]={cost:v.cost,unit:v.unit||((COST_DB[k]&&COST_DB[k].unit)||'ea')};
   });
@@ -3732,7 +3766,7 @@ function csvBuildPreview(rows,map,hasHeader,dupeMode){
   for(let i=hasHeader?1:0;i<rows.length;i++){
     const r=rows[i],name=String(map.name>=0?r[map.name]??'':'').trim();
     if(!name){rejected.push({row:i+1,name:'(blank)',why:'no material name'});continue;}
-    const key=normalizeMatKey(name);if(!key){rejected.push({row:i+1,name,why:'name normalized to empty'});continue;}
+    const key=costKeyForName(name);if(!key){rejected.push({row:i+1,name,why:'name normalized to empty'});continue;}
     const cost=csvParseMoney(map.cost>=0?r[map.cost]:'');
     if(!Number.isFinite(cost)){rejected.push({row:i+1,name,why:'price not a number'});continue;}
     if(cost<0){rejected.push({row:i+1,name,why:'negative price'});continue;}
