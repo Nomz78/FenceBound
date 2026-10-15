@@ -475,14 +475,20 @@ test('R15 zero manual rows preserve the pre-fix estimate total exactly',async({p
   // (34369 -> 34092 cents).
   // Owner field hole depths (2026-10-03): 4 ft terminals sit in 24" holes, so
   // concrete drops 3 -> 2 bags per terminal (6 -> 4) (34092 -> 31122 cents).
-  expect(totals.cents).toBe(31122);
-  expect(totals.dollars).toBe('311.22');
+  // Exact-key pricing (owner ruling 2026-10-15, "approve new R15"): the 4 concrete
+  // bags were priced from the wood 'post' key ($11) through the fuzzy name
+  // fallback; they now price from 'post concrete bag' ($6.50):
+  // 4 x (1100 - 650) x 1.35 = 2430 cents (31122 -> 28692 cents).
+  expect(totals.cents).toBe(28692);
+  expect(totals.dollars).toBe('286.92');
 });
 
 test('R16 manual material is visible on the estimate PDF',async({page})=>{
   await cleanOpen(page);
   await seedRun(page,'Manual Estimate Visibility');
-  await state(page,`S.materials=[{name:'Post Cap Special',qty:'2',unit:'ea',id:4}]`);
+  // Exact-key pricing: a manual row prices only from its own rate-card entry
+  // (as the cost editor's "Add a material" creates), not by borrowing 'post cap'.
+  await state(page,`COST_DB['post cap special']={cost:COST_DB['post cap'].cost,unit:'ea'};S.materials=[{name:'Post Cap Special',qty:'2',unit:'ea',id:4}]`);
   const visibleAmount=await state(page,`computePricing().matLines.find(line=>line.source==='manual').clientExt.toFixed(2)`);
   const pdf=await exportEstimateAndRead(page,'manual-material-visible');
   expect(pdf.pageErrors).toEqual([]);

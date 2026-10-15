@@ -1213,7 +1213,9 @@ function normalizeMatKey(name){
 
 // DEFAULT_COST_DB — seed buy costs (USD). cost = your purchase price per unit.
 // These are reasonable 2025 NC starting points; override them in-app to YOUR numbers.
-// Keyed by normalized material name. unit is informational (matched item carries qty).
+// Keyed by cost key. Every auto BOM line names its key explicitly (costKey in
+// calcAutoMaterials); manual lines use the exact normalized name. unit is
+// informational (matched item carries qty).
 const DEFAULT_COST_DB={
   // chain link
   'chain link fabric':        {cost:3.20, unit:'lf'},
@@ -1225,7 +1227,8 @@ const DEFAULT_COST_DB={
   'tension band':             {cost:0.75, unit:'ea'},
   'top rail sleeve':          {cost:0.60, unit:'ea'},
   'post cap':                 {cost:0.85, unit:'ea'},
-  'brace band':               {cost:0.80, unit:'ea'},
+  'terminal size brace band': {cost:0.80, unit:'ea'}, // distinct SKUs (v5.4.0 authority); both seeded at the former shared 'brace band' price
+  'line size brace band':     {cost:0.80, unit:'ea'},
   'rail end loop cap':        {cost:1.10, unit:'ea'},
   'wire ties':                {cost:0.05, unit:'ea'},
   'hog rings':                {cost:0.04, unit:'ea'}, // placeholder seed; contractors set their own costs
@@ -1236,7 +1239,10 @@ const DEFAULT_COST_DB={
   // privacy wood
   'dog ear picket':           {cost:2.40, unit:'ea'},
   'post':                     {cost:11.00,unit:'ea'},
-  'bottom rail':              {cost:4.20, unit:'lf'},
+  'bottom rail':              {cost:4.20, unit:'lf'}, // chain-link 1-5/8" bottom rail; seed is the price it resolved to before exact-key pricing
+  'wood top rail':            {cost:1.85, unit:'lf'}, // 2x4 rails: own keys, seeded at the price each resolved to before exact-key pricing
+  'wood mid rail':            {cost:1.85, unit:'lf'},
+  'wood bottom rail':         {cost:4.20, unit:'lf'},
   'post cap finial':          {cost:1.75, unit:'ea'},
   'galv nails approx':        {cost:0.03, unit:'ea'},
   'post concrete bag':        {cost:6.50, unit:'bag'},
@@ -1286,6 +1292,8 @@ const DEFAULT_COST_DB={
   'cantilever w hardware':    {cost:980.00,unit:'ea'},
   'gate post':                {cost:24.00, unit:'ea'},
 };
+// Gate kit line → cost key. An unknown gate type has no key and surfaces as MISSING_COST.
+const GATE_COST_KEYS={walk:'walk gate w hardware',doubledrive:'dbl drive w hardware',cantilever:'cantilever w hardware'};
 
 // DEFAULT_LABOR — internal labor cost as $/LF by fence type (the "Both" model:
 // this flat rate is the default; an optional crew-hours override can replace it
@@ -1386,20 +1394,17 @@ function saveCostDB(){
   try{localStorage.setItem(COSTDB_KEY,JSON.stringify({costs:COST_DB,labor:LABOR,markup:MARKUP,footing:FOOTING,postODIn:POST_OD_IN,postEmbedIn:POST_EMBED_IN}));return true;}
   catch(e){return false;}
 }
-// lookupCost: normalized match against COST_DB; returns unit cost or null if unknown.
+// costKeyFor: the one rate-card key a BOM line is priced from. Auto lines carry
+// an explicit costKey; manual lines use their exact normalized name. There is
+// no fuzzy fallback: a line whose key is absent prices as unknown (MISSING_COST),
+// never as another item, and the result does not depend on COST_DB key order.
+function costKeyFor(it){
+  return it&&it.source==='manual'?normalizeMatKey(it.name):(it&&typeof it.costKey==='string'?it.costKey:null);
+}
+// lookupCost: exact rate-card match for a material name; returns unit cost or null if unknown.
 function lookupCost(name){
   const k=normalizeMatKey(name);
-  if(COST_DB[k])return COST_DB[k].cost;
-  if((k==='terminal size brace band'||k==='line size brace band')&&COST_DB['brace band'])return COST_DB['brace band'].cost;
-  // soft fallback A: trim trailing words off the BOM name
-  const parts=k.split(' ');
-  for(let n=Math.min(5,parts.length);n>=2;n--){
-    const sub=parts.slice(0,n).join(' ');
-    if(COST_DB[sub])return COST_DB[sub].cost;
-  }
-  // soft fallback B: a DB key that starts with the BOM key (e.g. "post concrete" → "post concrete bag")
-  for(const dbk in COST_DB){ if(dbk.startsWith(k+' ')||k.startsWith(dbk+' '))return COST_DB[dbk].cost; }
-  return null;
+  return Object.prototype.hasOwnProperty.call(COST_DB,k)&&COST_DB[k]?COST_DB[k].cost:null;
 }
 
 // ── HELPERS ────────────────────────────────────────────────────────────────
@@ -1568,14 +1573,14 @@ function calcAutoMaterials(){
       const ends=runStats.terminationEnds;
       const trussAssemblies=sp.hasMidRail&&sp.hasTrussRod?runStats.cornerEndCt+runStats.gatePostCt:0;
       const hasBarbed=sp.addons.has('barbed-wire');
-      items.push({name:`Chain Link Fabric (${sp.heightIn}")`,qty:Math.ceil(ft),unit:'lf'});
-      if(sp.hasTopRail)items.push({name:`Top Rail 1-5/8"`,qty:Math.ceil(ft),unit:'lf'});
-      items.push({name:postLengthLabel('line',sp,'Line Post'),qty:lineCt,unit:'ea'});
-      items.push({name:postLengthLabel('terminal',sp,'Terminal/Corner Post'),qty:termCt,unit:'ea'});
-      items.push({name:postLengthLabel('corner',sp,'Terminal/Corner Post'),qty:cornerCt,unit:'ea'});
-      items.push({name:'Tension Bar',qty:ends,unit:'ea'});
-      items.push({name:'Tension Band',qty:ends*Math.max(Math.ceil(sp.heightIn/12)-1,0),unit:'ea'});
-      if(sp.hasTopRail)items.push({name:'Top Rail Sleeve',qty:Math.ceil(ft/10),unit:'ea'});
+      items.push({name:`Chain Link Fabric (${sp.heightIn}")`,costKey:'chain link fabric',qty:Math.ceil(ft),unit:'lf'});
+      if(sp.hasTopRail)items.push({name:`Top Rail 1-5/8"`,costKey:'top rail',qty:Math.ceil(ft),unit:'lf'});
+      items.push({name:postLengthLabel('line',sp,'Line Post'),costKey:'line post',qty:lineCt,unit:'ea'});
+      items.push({name:postLengthLabel('terminal',sp,'Terminal/Corner Post'),costKey:'terminal corner post',qty:termCt,unit:'ea'});
+      items.push({name:postLengthLabel('corner',sp,'Terminal/Corner Post'),costKey:'terminal corner post',qty:cornerCt,unit:'ea'});
+      items.push({name:'Tension Bar',costKey:'tension bar',qty:ends,unit:'ea'});
+      items.push({name:'Tension Band',costKey:'tension band',qty:ends*Math.max(Math.ceil(sp.heightIn/12)-1,0),unit:'ea'});
+      if(sp.hasTopRail)items.push({name:'Top Rail Sleeve',costKey:'top rail sleeve',qty:Math.ceil(ft/10),unit:'ea'});
       // Termination hardware is per fabric end (owner field specification, v5.4.0
       // supplement and 2026-10-02 rules): each rail (top, mid, bottom) takes one
       // terminal brace band + one rail-end cup; each tension wire (bottom, top) and
@@ -1583,10 +1588,10 @@ function calcAutoMaterials(){
       // the first line post with a line-size band + cup. Barb arms replace post caps.
       const rails=(sp.hasTopRail?1:0)+(sp.hasMidRail?1:0)+(sp.hasBottomRail?1:0);
       const wires=(sp.addons.has('bottom-wire')?1:0)+(sp.addons.has('top-wire')?1:0)+(hasBarbed?sp.barbStrands:0);
-      items.push({name:'Post Cap',qty:hasBarbed?0:totalPosts,unit:'ea'});
-      items.push({name:'Terminal-size Brace Band',qty:ends*(rails+wires),unit:'ea'});
-      if(sp.hasMidRail)items.push({name:'Line-size Brace Band',qty:ends,unit:'ea'});
-      items.push({name:'Rail End (Loop Cap)',qty:ends*(rails+(sp.hasMidRail?1:0)),unit:'ea'});
+      items.push({name:'Post Cap',costKey:'post cap',qty:hasBarbed?0:totalPosts,unit:'ea'});
+      items.push({name:'Terminal-size Brace Band',costKey:'terminal size brace band',qty:ends*(rails+wires),unit:'ea'});
+      if(sp.hasMidRail)items.push({name:'Line-size Brace Band',costKey:'line size brace band',qty:ends,unit:'ea'});
+      items.push({name:'Rail End (Loop Cap)',costKey:'rail end loop cap',qty:ends*(rails+(sp.hasMidRail?1:0)),unit:'ea'});
       // Fastening (owner rules 2026-10-03): 5 per bay on every horizontal element,
       // whatever the bay length — wire ties on rails, hog rings on tension wires and
       // razor ribbon. Line posts take (height ft - 1) ties, like tension bands.
@@ -1594,108 +1599,108 @@ function calcAutoMaterials(){
       const bays=lineCt+runStats.gatePostCt/2+1;
       const fastenedWires=['bottom-wire','top-wire','tension-wire','razor-ribbon'].filter(a=>sp.addons.has(a)).length;
       const tiesPerLinePost=Math.max(Math.ceil(sp.heightIn/12)-1,0);
-      items.push({name:'Wire Ties 9ga',qty:5*bays*rails+lineCt*tiesPerLinePost,unit:'ea'});
-      if(fastenedWires)items.push({name:'Hog Rings',qty:5*bays*fastenedWires,unit:'ea'});
+      items.push({name:'Wire Ties 9ga',costKey:'wire ties',qty:5*bays*rails+lineCt*tiesPerLinePost,unit:'ea'});
+      if(fastenedWires)items.push({name:'Hog Rings',costKey:'hog rings',qty:5*bays*fastenedWires,unit:'ea'});
       const boltsPer=Math.ceil(sp.heightIn/12)*2;
-      items.push({name:'3/8" Carriage Bolt+Nut',qty:ends*boltsPer,unit:'ea'});
-      if(sp.hasMidRail){items.push({name:'Mid Rail 1-5/8"',qty:Math.ceil(ft),unit:'lf'});}
-      if(sp.hasBottomRail){items.push({name:'Bottom Rail 1-5/8"',qty:Math.ceil(ft),unit:'lf'});}
+      items.push({name:'3/8" Carriage Bolt+Nut',costKey:'carriage bolt nut',qty:ends*boltsPer,unit:'ea'});
+      if(sp.hasMidRail){items.push({name:'Mid Rail 1-5/8"',costKey:'mid rail',qty:Math.ceil(ft),unit:'lf'});}
+      if(sp.hasBottomRail){items.push({name:'Bottom Rail 1-5/8"',costKey:'bottom rail',qty:Math.ceil(ft),unit:'lf'});}
       if(trussAssemblies){
-        items.push({name:'Truss Rod',qty:trussAssemblies,unit:'ea'});
-        items.push({name:'Truss Rod Connector (turnbuckle-style, threaded)',qty:trussAssemblies,unit:'ea'});
+        items.push({name:'Truss Rod',costKey:'truss rod w tightener',qty:trussAssemblies,unit:'ea'});
+        items.push({name:'Truss Rod Connector (turnbuckle-style, threaded)',costKey:'truss rod connector',qty:trussAssemblies,unit:'ea'});
       }
       const concrete=concreteBagsForPosts('terminal',termCt,sp)+concreteBagsForPosts('corner',cornerCt,sp);
-      if(concrete)items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,qty:concrete,unit:'bag'});
+      if(concrete)items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concrete,unit:'bag'});
     } else if(mat==='wood'&&style==='privacy'){
       const picketCt=Math.ceil(ft/(3.5/12));
       const railCt=2+(sp.hasMidRail?1:0);
-      items.push({name:`Dog-Ear Picket 1x4x${sp.heightIn/12}'`,qty:picketCt,unit:'ea'});
-      items.push({name:`Post 4x4x${postLen}`,qty:typePostCount,unit:'ea'});
-      items.push({name:'2x4 Top Rail',qty:Math.ceil(ft),unit:'lf'});
-      items.push({name:'2x4 Bottom Rail',qty:Math.ceil(ft),unit:'lf'});
-      if(sp.hasMidRail)items.push({name:'2x4 Mid Rail',qty:Math.ceil(ft),unit:'lf'});
-      items.push({name:'Post Cap / Finial',qty:typePostCount,unit:'ea'});
+      items.push({name:`Dog-Ear Picket 1x4x${sp.heightIn/12}'`,costKey:'dog ear picket',qty:picketCt,unit:'ea'});
+      items.push({name:`Post 4x4x${postLen}`,costKey:'post',qty:typePostCount,unit:'ea'});
+      items.push({name:'2x4 Top Rail',costKey:'wood top rail',qty:Math.ceil(ft),unit:'lf'});
+      items.push({name:'2x4 Bottom Rail',costKey:'wood bottom rail',qty:Math.ceil(ft),unit:'lf'});
+      if(sp.hasMidRail)items.push({name:'2x4 Mid Rail',costKey:'wood mid rail',qty:Math.ceil(ft),unit:'lf'});
+      items.push({name:'Post Cap / Finial',costKey:'post cap finial',qty:typePostCount,unit:'ea'});
       // v5.3 fastener respec: 2 screws per frame board per post + 9 per picket.
-      items.push({name:'Exterior Screws (rails)',qty:railCt*typePostCount*2,unit:'ea'});
-      items.push({name:'Exterior Screws (pickets)',qty:picketCt*9,unit:'ea'});
-      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
+      items.push({name:'Exterior Screws (rails)',costKey:'exterior screws',qty:railCt*typePostCount*2,unit:'ea'});
+      items.push({name:'Exterior Screws (pickets)',costKey:'exterior screws',qty:picketCt*9,unit:'ea'});
+      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
     } else if(mat==='wood'&&style==='shadowbox'){
       // Shadowbox: pickets alternate front/back — ~1.5x picket count vs solid privacy
       const picketCt=Math.ceil(ft/(5.5/12)*1.5);
       const railCt=2+(sp.hasMidRail?1:0);
-      items.push({name:`Dog-Ear Picket 1x6x${sp.heightIn/12}'`,qty:picketCt,unit:'ea'});
-      items.push({name:`Post 4x4x${postLen}`,qty:typePostCount,unit:'ea'});
-      items.push({name:'2x4 Top Rail',qty:Math.ceil(ft),unit:'lf'});
-      items.push({name:'2x4 Bottom Rail',qty:Math.ceil(ft),unit:'lf'});
-      if(sp.hasMidRail)items.push({name:'2x4 Mid Rail',qty:Math.ceil(ft),unit:'lf'});
-      items.push({name:'Post Cap / Finial',qty:typePostCount,unit:'ea'});
+      items.push({name:`Dog-Ear Picket 1x6x${sp.heightIn/12}'`,costKey:'dog ear picket',qty:picketCt,unit:'ea'});
+      items.push({name:`Post 4x4x${postLen}`,costKey:'post',qty:typePostCount,unit:'ea'});
+      items.push({name:'2x4 Top Rail',costKey:'wood top rail',qty:Math.ceil(ft),unit:'lf'});
+      items.push({name:'2x4 Bottom Rail',costKey:'wood bottom rail',qty:Math.ceil(ft),unit:'lf'});
+      if(sp.hasMidRail)items.push({name:'2x4 Mid Rail',costKey:'wood mid rail',qty:Math.ceil(ft),unit:'lf'});
+      items.push({name:'Post Cap / Finial',costKey:'post cap finial',qty:typePostCount,unit:'ea'});
       // v5.3 fastener respec: same rule as privacy — 2/frame board/post + 9/picket.
-      items.push({name:'Exterior Screws (rails)',qty:railCt*typePostCount*2,unit:'ea'});
-      items.push({name:'Exterior Screws (pickets)',qty:picketCt*9,unit:'ea'});
-      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
+      items.push({name:'Exterior Screws (rails)',costKey:'exterior screws',qty:railCt*typePostCount*2,unit:'ea'});
+      items.push({name:'Exterior Screws (pickets)',costKey:'exterior screws',qty:picketCt*9,unit:'ea'});
+      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
     } else if(mat==='vinyl'&&(style==='privacy6'||style==='privacy8')){
-      items.push({name:`Vinyl Privacy Panel ${sp.heightIn}"`,qty:Math.ceil(ft/8),unit:'ea'});
-      items.push({name:`Vinyl Post ${postLen}`,qty:typePostCount,unit:'ea'});
-      items.push({name:'Vinyl Top Rail',qty:Math.ceil(ft),unit:'lf'});
-      items.push({name:'Vinyl Bottom Rail',qty:Math.ceil(ft),unit:'lf'});
-      if(sp.hasMidRail)items.push({name:'Vinyl Mid Rail',qty:Math.ceil(ft),unit:'lf'});
-      items.push({name:'Post Cap Vinyl',qty:typePostCount,unit:'ea'});
+      items.push({name:`Vinyl Privacy Panel ${sp.heightIn}"`,costKey:'vinyl privacy panel',qty:Math.ceil(ft/8),unit:'ea'});
+      items.push({name:`Vinyl Post ${postLen}`,costKey:'vinyl post',qty:typePostCount,unit:'ea'});
+      items.push({name:'Vinyl Top Rail',costKey:'vinyl top rail',qty:Math.ceil(ft),unit:'lf'});
+      items.push({name:'Vinyl Bottom Rail',costKey:'vinyl bottom rail',qty:Math.ceil(ft),unit:'lf'});
+      if(sp.hasMidRail)items.push({name:'Vinyl Mid Rail',costKey:'vinyl mid rail',qty:Math.ceil(ft),unit:'lf'});
+      items.push({name:'Post Cap Vinyl',costKey:'post cap vinyl',qty:typePostCount,unit:'ea'});
       // v5.3 fastener respec: vinyl is a snap-together panel system — the only
       // screw is one securing each top rail. 1 screw per top rail = 1 per 8' panel.
-      items.push({name:'Stainless Screws',qty:Math.ceil(ft/8),unit:'ea'});
-      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
+      items.push({name:'Stainless Screws',costKey:'stainless screws',qty:Math.ceil(ft/8),unit:'ea'});
+      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
     } else if(mat==='vinyl'&&(style==='split2'||style==='split3')){
       const rails=style==='split2'?2:3;
       const railSpans=Math.ceil(ft/8);
-      items.push({name:'Vinyl Split Rail',qty:railSpans*rails,unit:'ea'});
-      items.push({name:`Vinyl Split Rail Post ${postLen}`,qty:typePostCount,unit:'ea'});
-      items.push({name:'Post Cap Vinyl',qty:typePostCount,unit:'ea'});
-      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
+      items.push({name:'Vinyl Split Rail',costKey:'vinyl split rail',qty:railSpans*rails,unit:'ea'});
+      items.push({name:`Vinyl Split Rail Post ${postLen}`,costKey:'vinyl split rail post',qty:typePostCount,unit:'ea'});
+      items.push({name:'Post Cap Vinyl',costKey:'post cap vinyl',qty:typePostCount,unit:'ea'});
+      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
     } else if(type==='ornamental'){
       const panelCt=Math.ceil(ft/6);
-      items.push({name:`Ornamental Panel ${sp.heightIn}"`,qty:panelCt,unit:'ea'});
-      items.push({name:`Ornamental Post ${postLen}`,qty:typePostCount,unit:'ea'});
-      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
-      items.push({name:'Panel Bracket Kit',qty:panelCt,unit:'ea'});
+      items.push({name:`Ornamental Panel ${sp.heightIn}"`,costKey:'ornamental panel',qty:panelCt,unit:'ea'});
+      items.push({name:`Ornamental Post ${postLen}`,costKey:'ornamental post',qty:typePostCount,unit:'ea'});
+      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
+      items.push({name:'Panel Bracket Kit',costKey:'panel bracket kit',qty:panelCt,unit:'ea'});
       // v5.3 fastener respec: every panel connects with screws.
       // ASSUMED 4 per panel (2 brackets x 2 screws) — pending Justin sign-off.
-      items.push({name:'Self-Tapping Screws',qty:panelCt*4,unit:'ea'});
+      items.push({name:'Self-Tapping Screws',costKey:'self tapping screws',qty:panelCt*4,unit:'ea'});
     } else if(mat==='wood'&&(style==='split2'||style==='split3'||style==='split3fb')){
       const rails=style==='split2'?2:3;
       // Split rail: 11ft rails at 10ft post spacing (rails protrude past posts via hole inserts)
       const railSpans=Math.ceil(ft/10);
-      items.push({name:`Split Rail 11ft Rail`,qty:railSpans*rails,unit:'ea'});
-      items.push({name:`Split Rail Post ${postLen}`,qty:typePostCount,unit:'ea'});
-      if(style==='split3fb')items.push({name:'1x6 Face Board',qty:Math.ceil(ft),unit:'lf'});
+      items.push({name:`Split Rail 11ft Rail`,costKey:'split rail rail',qty:railSpans*rails,unit:'ea'});
+      items.push({name:`Split Rail Post ${postLen}`,costKey:'split rail post',qty:typePostCount,unit:'ea'});
+      if(style==='split3fb')items.push({name:'1x6 Face Board',costKey:'face board',qty:Math.ceil(ft),unit:'lf'});
     } else if(mat==='cattle'){
       // T-posts on line, wood corner/brace posts at terminals.
-      items.push({name:'T-Post 6ft',qty:lineCt,unit:'ea'});
-      items.push({name:`Wood Corner/Brace Post ${postLen}`,qty:termCt+cornerCt,unit:'ea'});
-      items.push({name:'Brace Wire',qty:(termCt+cornerCt)*2,unit:'ea'});
-      items.push({name:'T-Post Clips',qty:Math.ceil(ft*0.6),unit:'ea'});
+      items.push({name:'T-Post 6ft',costKey:'t post',qty:lineCt,unit:'ea'});
+      items.push({name:`Wood Corner/Brace Post ${postLen}`,costKey:'wood corner brace post',qty:termCt+cornerCt,unit:'ea'});
+      items.push({name:'Brace Wire',costKey:'brace wire',qty:(termCt+cornerCt)*2,unit:'ea'});
+      items.push({name:'T-Post Clips',costKey:'t post clips',qty:Math.ceil(ft*0.6),unit:'ea'});
       if(style==='field'){
         const strands=sp.barbStrands||4;
-        for(let s=1;s<=strands;s++)items.push({name:`Barbed Wire Strand ${s}`,qty:Math.ceil(ft),unit:'lf'});
+        for(let s=1;s<=strands;s++)items.push({name:`Barbed Wire Strand ${s}`,costKey:'barbed wire strand',qty:Math.ceil(ft),unit:'lf'});
       }else{
-        items.push({name:'Hog Wire Welded Panel (red-top)',qty:Math.ceil(ft),unit:'lf'});
+        items.push({name:'Hog Wire Welded Panel (red-top)',costKey:'hog wire welded panel',qty:Math.ceil(ft),unit:'lf'});
       }
-      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,qty:concreteBagsForPosts('terminal',termCt,sp)+concreteBagsForPosts('corner',cornerCt,sp),unit:'bag'});
+      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',termCt,sp)+concreteBagsForPosts('corner',cornerCt,sp),unit:'bag'});
     } else if(type==='temporary'){
-      items.push({name:'Temp Panel 6x12',qty:Math.ceil(ft/12),unit:'ea'});
-      items.push({name:'Temp Panel Coupler',qty:Math.ceil(ft/12),unit:'ea'});
-      items.push({name:'Panel Stand / Base',qty:Math.ceil(ft/12),unit:'ea'});
+      items.push({name:'Temp Panel 6x12',costKey:'temp panel',qty:Math.ceil(ft/12),unit:'ea'});
+      items.push({name:'Temp Panel Coupler',costKey:'temp panel coupler',qty:Math.ceil(ft/12),unit:'ea'});
+      items.push({name:'Panel Stand / Base',costKey:'panel stand base',qty:Math.ceil(ft/12),unit:'ea'});
     }
 
     // Common addon materials
-    if(sp.addons.has('top-wire'))items.push({name:'Top Tension Wire 9ga',qty:Math.ceil(ft),unit:'lf'});
-    if(sp.addons.has('bottom-wire'))items.push({name:'Bottom Tension Wire 9ga',qty:Math.ceil(ft),unit:'lf'});
+    if(sp.addons.has('top-wire'))items.push({name:'Top Tension Wire 9ga',costKey:'top tension wire',qty:Math.ceil(ft),unit:'lf'});
+    if(sp.addons.has('bottom-wire'))items.push({name:'Bottom Tension Wire 9ga',costKey:'bottom tension wire',qty:Math.ceil(ft),unit:'lf'});
     if(sp.addons.has('barbed-wire')){
-      for(let s=1;s<=sp.barbStrands;s++)items.push({name:`Barbed Wire Strand ${s}`,qty:Math.ceil(ft),unit:'lf'});
-      items.push({name:`Barb Arm ${sp.barbArm}`,qty:lineCt,unit:'ea'});
+      for(let s=1;s<=sp.barbStrands;s++)items.push({name:`Barbed Wire Strand ${s}`,costKey:'barbed wire strand',qty:Math.ceil(ft),unit:'lf'});
+      items.push({name:`Barb Arm ${sp.barbArm}`,costKey:'barb arm',qty:lineCt,unit:'ea'});
     }
-    if(sp.addons.has('razor-ribbon'))items.push({name:'Razor Ribbon Coil',qty:Math.ceil(ft/50),unit:'coil'});
-    if(sp.addons.has('welded-wire'))items.push({name:'Welded Wire 2x4',qty:Math.ceil(ft),unit:'lf'});
-    if(sp.addons.has('tension-wire'))items.push({name:'Tension Wire 9ga',qty:Math.ceil(ft),unit:'lf'});
+    if(sp.addons.has('razor-ribbon'))items.push({name:'Razor Ribbon Coil',costKey:'razor ribbon coil',qty:Math.ceil(ft/50),unit:'coil'});
+    if(sp.addons.has('welded-wire'))items.push({name:'Welded Wire 2x4',costKey:'welded wire',qty:Math.ceil(ft),unit:'lf'});
+    if(sp.addons.has('tension-wire'))items.push({name:'Tension Wire 9ga',costKey:'tension wire',qty:Math.ceil(ft),unit:'lf'});
   });
 
   // Gates are priced from their owning run, never from project-global specs.
@@ -1704,10 +1709,10 @@ function calcAutoMaterials(){
     const sp=hydrateRunSpecs(owner?.specs||gate.specs||S.specs);
     const gt=gate.gateType||'walk';
     const g=GATE_TYPES[gt]||{label:gt};
-    items.push({name:`${g.label} w/ Hardware`,qty:1,unit:'ea'});
-    items.push({name:postLengthLabel('gate',sp,'Gate Post'),qty:2,unit:'ea'});
-    if((owner?.fenceType||gate.fenceType)==='chainlink'&&!sp.addons.has('barbed-wire'))items.push({name:'Post Cap',qty:2,unit:'ea'});
-    items.push({name:`Gate Post Concrete (${FOOTING.bagWeightLb}lb bag)`,qty:concreteBagsForPosts('gate',2,sp),unit:'bag'});
+    items.push({name:`${g.label} w/ Hardware`,costKey:GATE_COST_KEYS[gt],qty:1,unit:'ea'});
+    items.push({name:postLengthLabel('gate',sp,'Gate Post'),costKey:'gate post',qty:2,unit:'ea'});
+    if((owner?.fenceType||gate.fenceType)==='chainlink'&&!sp.addons.has('barbed-wire'))items.push({name:'Post Cap',costKey:'post cap',qty:2,unit:'ea'});
+    items.push({name:`Gate Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('gate',2,sp),unit:'bag'});
   });
 
   const merged=new Map();
@@ -3366,12 +3371,14 @@ function computePricing(){
   // ── 1. MATERIAL COST — price every BOM line at buy cost (integer cents) ──
   let matCostC=0; const matLines=[]; const unknown=[];
   bom.forEach(it=>{
-    const unit=lookupCost(it.name);
-    if(unit===null){ unknown.push(it.name); matLines.push({name:it.name,qty:it.qty,unit:it.unit,source:it.source,unitCost:null,ext:0,unitCostC:null,extC:0,clientUnitCost:null,clientExt:0,clientUnitCostC:null,clientExtC:0}); return; }
+    const costKey=costKeyFor(it);
+    const entry=costKey!==null&&Object.prototype.hasOwnProperty.call(COST_DB,costKey)?COST_DB[costKey]:null;
+    const unit=entry?entry.cost:null;
+    if(unit===null){ unknown.push(it.name); matLines.push({name:it.name,qty:it.qty,unit:it.unit,source:it.source,costKey,unitCost:null,ext:0,unitCostC:null,extC:0,clientUnitCost:null,clientExt:0,clientUnitCostC:null,clientExtC:0}); return; }
     const unitC=toCents(unit);
     const extC=centsOf(unit,it.qty);
     matCostC+=extC;
-    matLines.push({name:it.name,qty:it.qty,unit:it.unit,source:it.source,unitCost:dollars(unitC),ext:dollars(extC),unitCostC:unitC,extC});
+    matLines.push({name:it.name,qty:it.qty,unit:it.unit,source:it.source,costKey,unitCost:dollars(unitC),ext:dollars(extC),unitCostC:unitC,extC});
   });
 
   // ── 2. LABOR COST — $/LF by type (default) OR crew hours override ──
