@@ -400,3 +400,26 @@ Append one entry for every development session. Preserve prior entries.
   green. Suite 85 passed / 29 jsPDF-only; matrix 12/12; `git diff --check` clean.
   Not done (out of scope): F6 job persistence of the upcharge checkboxes; F13/F14; per-run or
   slope-%-graded adders; the PDF urban row is not test-covered here (jsPDF blocked by cdnjs).
+- **Boundary coercion (owner directive 2026-10-15 "start the fixes", audit Step 1.2; pricing
+  F3/F4/F8/F11, inventory qty known defect):** one rule, `coerceNonNegNumber()`, applies at every
+  pricing boundary: finite numbers >= 0 pass, plain decimal strings ("12", "12.5", ".5") coerce,
+  everything else (NaN, Infinity, negatives, "1e2", "12,50", "35%", blank) is rejected.
+  `sanitizePricingInputs()` runs it over costs/labor/markup for job load (`applyState`, so saved
+  jobs, autosave and job-file import), the saved rate card and backup restore
+  (`mergeSavedCostDB`) and JSON price import. Legacy bare-number costs load as `{cost,unit}`.
+  JSON price import and backup restore refuse the whole file before writing anything; a loaded
+  job keeps the bad value and `computePricing` lists it in `invalidInputs` (unpriced line, or
+  0 for a non-numeric rate), which blocks `isFinalReady` and raises validation error
+  `INVALID_PRICING_INPUT`. FINAL-READY also requires every cents total to be finite. Cost editor
+  Save rejects any negative/blank/malformed cost, labor, gate, markup or crew-rate field.
+  CSV money: `$1,234.50`, `12.50`, `45¢`/`45c` (= 0.45), `(3.20)` negative; comma decimals
+  (`12,50`, `0,85`, `1.234,56`) are a row error, not a guess; `3.20 per 100` is a row error.
+  Manual qty is stored as a number at entry ('1e2' and blank rejected); old string qtys load as
+  numbers; non-plain loaded qtys stay, price at 0 and are reported. Site-adder keys stay with
+  `siteAdderRate()` (seed fallback, accepted in `5f4241a`). No pricing value changed; R15 stays
+  28692. A finite negative rate keeps its value in the arithmetic so F2 `TOTAL_INVALID`
+  (markup -100) still fires alongside the new error. New `tests/input-boundary-validation.spec.js`
+  IB1–IB10 (19 tests): 19/19 red on `c2e682a`, 19/19 green. Suite 104 passed / 29 jsPDF-only
+  (same failing set as baseline); matrix 12/12; `git diff --check` clean.
+  Not done: matrix route 10 / unknown legacy fence types; failed portable import atomicity;
+  footing/post-OD/embed inputs keep their existing guards.
