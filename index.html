@@ -733,21 +733,81 @@ function selectedFenceRun(){
   if(el.type==='gate')return fenceRunById(el.runId);
   return null;
 }
-function nearestFenceRunForGate(start,end){
-  const runs=S.elements.filter(el=>el.type==='fence');
-  if(!runs.length)return null;
-  const mid={x:(start.x+end.x)/2,y:(start.y+end.y)/2};
-  let best=null,bestScore=Infinity;
-  runs.forEach(run=>{
-    const score=Math.min(
-      ptSegDist(mid,run.start,run.end),
-      ptSegDist(start,run.start,run.end),
-      ptSegDist(end,run.start,run.end),
-      dist(start,run.start),dist(start,run.end),dist(end,run.start),dist(end,run.end)
-    );
-    if(score<bestScore){bestScore=score;best=run;}
+// A gate belongs to a run only when it lies on that run: both gate edges within
+// GATE_ON_RUN_TOL of the run's line and inside its span (±GATE_ON_RUN_TOL). The
+// tolerance is half the diagonal of the default 1 ft snap cell (0.71 ft): the
+// farthest a grid-snapped point aimed at a run line can land from it. Requiring
+// both edges on the line also bounds the angle (a 4 ft gate at most ~0.34 rad, a
+// 12 ft gate ~0.12 rad). Gate edges within the same distance of a run end or of
+// another gate edge are one post.
+const GATE_ON_RUN_TOL=GRID_FT*Math.SQRT1_2;
+function runAxis(run){
+  const L=dist(run.start,run.end);
+  if(!(L>0))return null;
+  const ux=(run.end.x-run.start.x)/L,uy=(run.end.y-run.start.y)/L;
+  return{L,ux,uy,along:p=>(p.x-run.start.x)*ux+(p.y-run.start.y)*uy,off:p=>Math.abs((p.y-run.start.y)*ux-(p.x-run.start.x)*uy)};
+}
+// Gate interval along the run in world px, or null when the gate is not on it.
+// lo/hi snap to the run ends within tolerance (post identity); rawLo/rawHi are the
+// opening actually removed from the fence.
+function gateSpanOnRun(gate,run){
+  if(!gate?.start||!gate?.end||!run?.start||!run?.end)return null;
+  const ax=runAxis(run),T=GATE_ON_RUN_TOL;
+  if(!ax||ax.off(gate.start)>T||ax.off(gate.end)>T)return null;
+  const a=ax.along(gate.start),b=ax.along(gate.end),lo=Math.min(a,b),hi=Math.max(a,b);
+  if(lo<-T||hi>ax.L+T)return null;
+  const end=v=>v<T?0:v>ax.L-T?ax.L:v;
+  return{lo:end(lo),hi:end(hi),rawLo:Math.max(0,lo),rawHi:Math.min(ax.L,hi),L:ax.L};
+}
+function gateOwnerRun(gate){
+  const run=fenceRunById(gate?.runId);
+  return run&&gateSpanOnRun(gate,run)?run:null;
+}
+function runUnderGate(gate){
+  return S.elements.find(el=>el.type==='fence'&&el.runId&&fenceRunById(el.runId)===el&&gateSpanOnRun(gate,el))||null;
+}
+function pointOnRun(run,s,L){
+  if(s<=0)return{x:run.start.x,y:run.start.y};
+  if(s>=L)return{x:run.end.x,y:run.end.y};
+  return{x:run.start.x+(run.end.x-run.start.x)*s/L,y:run.start.y+(run.end.y-run.start.y)*s/L};
+}
+// Owned gates of a run, in order along it, and the fabric sections between them.
+function runGateLayout(run){
+  const L=dist(run.start,run.end);
+  const spans=S.elements.filter(el=>el.type==='gate'&&gateOwnerRun(el)===run)
+    .map(gate=>({gate,...gateSpanOnRun(gate,run)})).sort((a,b)=>a.lo-b.lo||a.hi-b.hi);
+  if(!spans.length)return{L,spans,sections:[[0,L]],openingPx:0};
+  const sections=[];let cur=0,openingPx=0,rawCur=0;
+  spans.forEach(g=>{
+    if(g.lo-cur>GATE_ON_RUN_TOL)sections.push([cur,g.lo]);
+    cur=Math.max(cur,g.hi);
+    openingPx+=Math.max(0,g.rawHi-Math.max(rawCur,g.rawLo));rawCur=Math.max(rawCur,g.rawHi);
   });
-  return best;
+  if(L-cur>GATE_ON_RUN_TOL)sections.push([cur,L]);
+  return{L,spans,sections,openingPx};
+}
+// Re-bind a gate after it is drawn, moved or pasted: it belongs to the run it
+// now lies on, or to none. Returns the previous and current owning runs.
+function rebindGate(gate){
+  const prev=fenceRunById(gate.runId);
+  if(prev&&gateSpanOnRun(gate,prev))return{prev,next:prev};
+  const next=runUnderGate(gate);
+  if(next)attachGateToRun(gate,next);else delete gate.runId;
+  return{prev,next};
+}
+// Moving a run carries the gates it owns: a body move translates them; an endpoint
+// stretch keeps each gate's distance from the fixed end along the new direction.
+function carryRunGates(run,orig,carried,moving){
+  if(!carried||!carried.length)return;
+  const fixed=moving.type==='endpoint'&&moving.endpoint==='start'?'end':'start';
+  const a0=orig[fixed],a1=run[fixed],ax0=runAxis(orig),ax1=runAxis(run)||ax0;
+  if(!ax0)return;
+  const map=p=>{
+    if(moving.type!=='endpoint')return{x:p.x+a1.x-a0.x,y:p.y+a1.y-a0.y};
+    const dx=p.x-a0.x,dy=p.y-a0.y,s=dx*ax0.ux+dy*ax0.uy,d=dy*ax0.ux-dx*ax0.uy;
+    return{x:a1.x+s*ax1.ux-d*ax1.uy,y:a1.y+s*ax1.uy+d*ax1.ux};
+  };
+  carried.forEach(c=>{c.gate.start=map(c.start);c.gate.end=map(c.end);});
 }
 function attachGateToRun(gate,run){
   if(!gate||!run)return gate;
@@ -796,6 +856,7 @@ function syncSelectedRunToPanel(){
   syncSpecInputs();updateTypeBar();updateHint();
 }
 function migrateRunOwnership(){
+  S.elements.forEach(el=>{if(el.type==='fence'&&!el.runId)el.runId=makeRunId();});
   S.elements.forEach(el=>{
     if(el.type==='fence'){
       if(!el.runId)el.runId=makeRunId();
@@ -804,7 +865,7 @@ function migrateRunOwnership(){
     }
     if(el.type==='gate'){
       let owner=fenceRunById(el.runId);
-      if(!owner)owner=nearestFenceRunForGate(el.start,el.end);
+      if(!owner)owner=runUnderGate(el);
       if(owner)attachGateToRun(el,owner);
       else if(el.specs)el.specs=hydrateSavedRunSpecs(el.specs);
     }
@@ -1556,10 +1617,11 @@ function rebuildRunAutoPosts(run){
     return;
   }
   const selected=S.elements[S.selected],gateEditor=S.editingGate&&S.elements[S.editingGate.index];
-  const gates=S.elements.filter(el=>el.type==='gate'&&el.runId===run.runId);
-  const posts=autoPostsForRun(run.start,run.end,run.autoPostSpacing,run.fenceType,run.runId,run.specs)
-    .filter(post=>!gates.some(gate=>ptSegDist(post.pos,gate.start,gate.end)<1e-6));
-  // The gate segment includes both endpoints: gate posts replace line posts there too.
+  // Gates split the run into fabric sections; each section is spaced from its own
+  // start, so no line post lands in a gate opening or on a gate post.
+  const lay=runGateLayout(run);
+  const posts=lay.sections.flatMap(([a,b])=>autoPostsForRun(pointOnRun(run,a,lay.L),pointOnRun(run,b,lay.L),
+    run.autoPostSpacing,run.fenceType,run.runId,run.specs));
   S.elements=S.elements.filter(el=>!(el.type==='post'&&el.auto&&el.runId===run.runId));
   S.elements.push(...posts);
   if(selected){const index=S.elements.indexOf(selected);S.selected=index<0?null:index;}
@@ -1571,6 +1633,10 @@ function deleteSelectedElement(){
   pushHistory();
   const [removed]=S.elements.splice(S.selected,1);
   S.selected=null;S.editingGate=null;
+  // A deleted run takes its gates and automatic posts with it (unless its ID is
+  // ambiguous, in which case ownership cannot be told apart).
+  if(removed?.type==='fence'&&removed.runId&&!fenceRunById(removed.runId))
+    S.elements=S.elements.filter(el=>!((el.type==='gate'||(el.type==='post'&&el.auto))&&el.runId===removed.runId));
   if(removed?.type==='gate')rebuildRunAutoPosts(fenceRunById(removed.runId));
   syncSpecInputs();draw();updatePanel();updateGateEditor();scheduleAutosave();
 }
@@ -1588,41 +1654,61 @@ function pasteClipboardElement(){
   if(clone.type==='fence')clone.runId=makeRunId();
   S.elements.push(clone);S.selected=S.elements.length-1;
   if(clone.type==='fence')rebuildRunAutoPosts(clone);
-  if(clone.type==='gate')rebuildRunAutoPosts(fenceRunById(clone.runId));
+  if(clone.type==='gate'){const {next}=rebindGate(clone);rebuildRunAutoPosts(next);}
   draw();updatePanel();scheduleAutosave();
 }
 
 function getStats(){
   const cs=buildCornerSet(S.elements);
   const acc={fence:{},totalFt:0,cornerPosts:new Set(),terminalPosts:new Set(),
-    gates:{walk:0,doubledrive:0,cantilever:0,other:0},gateTotal:0,gatePosts:0,
-    netFence:{},netTotalFt:0,terminationEnds:0,byRunId:{}};
-  const claimed=new Set();
-  S.elements.filter(el=>el.type==='fence').forEach(run=>{
-    const grossFt=dist(run.start,run.end)/GRID_FT;
-    const row=acc.byRunId[run.runId]={runId:run.runId,grossFt,gateOpeningFt:0,netFt:grossFt,
-      lineCt:0,termCt:0,cornerCt:0,gatePostCt:0,terminalEndCt:0,cornerEndCt:0,terminationEnds:0};
+    gates:{walk:0,doubledrive:0,cantilever:0,other:0},gateTotal:0,gatePosts:0,unownedGates:0,
+    gatePostsByGate:new Map(),netFence:{},netTotalFt:0,terminationEnds:0,byRunId:{}};
+  const claimed=new Set(),runs=S.elements.filter(el=>el.type==='fence');
+  // Gate posts: one per distinct gate edge. Adjacent gates, and a gate edge at a
+  // run end or corner, share one post; the first gate in drawing order buys it.
+  const layouts=new Map(),gatePostPts=[];
+  const isGatePost=p=>gatePostPts.some(q=>dist(p,q)<=GATE_ON_RUN_TOL);
+  runs.forEach(run=>{
+    const lay=runGateLayout(run);layouts.set(run,lay);
+    lay.spans.forEach(g=>[g.lo,g.hi].forEach(sv=>{
+      const p=pointOnRun(run,sv,lay.L);
+      if(isGatePost(p))return;
+      gatePostPts.push(p);acc.gatePostsByGate.set(g.gate,(acc.gatePostsByGate.get(g.gate)||0)+1);
+    }));
+  });
+  acc.gatePosts=gatePostPts.length;
+  runs.forEach(run=>{
+    const lay=layouts.get(run),grossFt=dist(run.start,run.end)/GRID_FT;
+    const row=acc.byRunId[run.runId]={runId:run.runId,grossFt,gateOpeningFt:lay.openingPx/GRID_FT,netFt:grossFt,
+      lineCt:0,termCt:0,cornerCt:0,sections:lay.sections.length,gateEndCt:0,terminalEndCt:0,cornerEndCt:0,terminationEnds:0};
     acc.fence[run.fenceType]=(acc.fence[run.fenceType]||0)+grossFt;
     acc.totalFt+=grossFt;
-    [run.start,run.end].forEach(pt=>{
-      const k=ptKey(pt),isCorner=cs.has(k);
-      if(isCorner){acc.cornerPosts.add(k);row.cornerEndCt++;}
-      else{acc.terminalPosts.add(k);row.terminalEndCt++;}
+    // Fabric ends: each section has two. A run end covered by its own gate has
+    // none; a section edge on a gate post ends on that gate post.
+    const first=lay.sections[0],last=lay.sections[lay.sections.length-1];
+    lay.sections.forEach(([a,b])=>{if(a>0)row.gateEndCt++;if(b<lay.L)row.gateEndCt++;});
+    [[run.start,!!first&&first[0]===0],[run.end,!!last&&last[1]===lay.L]].forEach(([pt,fabric])=>{
+      const k=ptKey(pt),isCorner=cs.has(k),gatePost=isGatePost(pt);
+      if(fabric){if(gatePost)row.gateEndCt++;else if(isCorner)row.cornerEndCt++;else row.terminalEndCt++;}
+      if(gatePost)return;// bought once, as a gate post
+      if(isCorner)acc.cornerPosts.add(k);else acc.terminalPosts.add(k);
       if(!claimed.has(k)){claimed.add(k);if(isCorner)row.cornerCt++;else row.termCt++;}
     });
   });
   S.elements.filter(el=>el.type==='post'&&el.auto).forEach(post=>{
     const row=acc.byRunId[post.runId];if(row)row.lineCt++;
   });
+  // A gate that does not lie on its run is neither deducted nor priced;
+  // validateProject reports it.
   S.elements.filter(el=>el.type==='gate').forEach(gate=>{
-    const gt=gate.gateType||'walk',row=acc.byRunId[gate.runId];
-    acc.gates[gt]=(acc.gates[gt]||0)+1;acc.gateTotal++;acc.gatePosts+=2;
-    if(row){row.gateOpeningFt+=dist(gate.start,gate.end)/GRID_FT;row.gatePostCt+=2;}
+    if(!gateOwnerRun(gate)){acc.unownedGates++;return;}
+    const gt=gate.gateType||'walk';
+    acc.gates[gt]=(acc.gates[gt]||0)+1;acc.gateTotal++;
   });
-  S.elements.filter(el=>el.type==='fence').forEach(run=>{
+  runs.forEach(run=>{
     const row=acc.byRunId[run.runId];
     row.netFt=Math.max(0,row.grossFt-row.gateOpeningFt);
-    row.terminationEnds=row.terminalEndCt+row.cornerEndCt+row.gatePostCt;
+    row.terminationEnds=row.terminalEndCt+row.cornerEndCt+row.gateEndCt;
     acc.terminationEnds+=row.terminationEnds;
     acc.netFence[run.fenceType]=(acc.netFence[run.fenceType]||0)+row.netFt;
     acc.netTotalFt+=row.netFt;
@@ -1674,7 +1760,7 @@ function calcAutoMaterials(){
 
     if(type==='chainlink'){
       const ends=runStats.terminationEnds;
-      const trussAssemblies=sp.hasMidRail&&sp.hasTrussRod?runStats.cornerEndCt+runStats.gatePostCt:0;
+      const trussAssemblies=sp.hasMidRail&&sp.hasTrussRod?runStats.cornerEndCt+runStats.gateEndCt:0;
       const hasBarbed=sp.addons.has('barbed-wire');
       items.push({name:`Chain Link Fabric (${sp.heightIn}")`,costKey:'chain link fabric',qty:Math.ceil(ft),unit:'lf'});
       if(sp.hasTopRail)items.push({name:`Top Rail 1-5/8"`,costKey:'top rail',qty:Math.ceil(ft),unit:'lf'});
@@ -1699,7 +1785,7 @@ function calcAutoMaterials(){
       // whatever the bay length — wire ties on rails, hog rings on tension wires and
       // razor ribbon. Line posts take (height ft - 1) ties, like tension bands.
       // Bays = line posts + fabric sections (each gate splits the run).
-      const bays=lineCt+runStats.gatePostCt/2+1;
+      const bays=lineCt+runStats.sections;
       const fastenedWires=['bottom-wire','top-wire','tension-wire','razor-ribbon'].filter(a=>sp.addons.has(a)).length;
       const tiesPerLinePost=Math.max(Math.ceil(sp.heightIn/12)-1,0);
       items.push({name:'Wire Ties 9ga',costKey:'wire ties',qty:5*bays*rails+lineCt*tiesPerLinePost,unit:'ea'});
@@ -1807,15 +1893,20 @@ function calcAutoMaterials(){
   });
 
   // Gates are priced from their owning run, never from project-global specs.
+  // A gate off its run is not priced (validateProject reports it). Gate posts
+  // shared with a neighbouring gate are bought once.
   S.elements.filter(el=>el.type==='gate').forEach(gate=>{
-    const owner=fenceRunById(gate.runId);
-    const sp=hydrateRunSpecs(owner?.specs||gate.specs||S.specs);
+    const owner=gateOwnerRun(gate);
+    if(!owner)return;
+    const sp=hydrateRunSpecs(owner.specs||gate.specs||S.specs);
     const gt=gate.gateType||'walk';
     const g=GATE_TYPES[gt]||{label:gt};
+    const posts=stats.gatePostsByGate.get(gate)||0;
     items.push({name:`${g.label} w/ Hardware`,costKey:GATE_COST_KEYS[gt],qty:1,unit:'ea'});
-    items.push({name:postLengthLabel('gate',sp,'Gate Post'),costKey:'gate post',qty:2,unit:'ea'});
-    if((owner?.fenceType||gate.fenceType)==='chainlink'&&!sp.addons.has('barbed-wire'))items.push({name:'Post Cap',costKey:'post cap',qty:2,unit:'ea'});
-    items.push({name:`Gate Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('gate',2,sp),unit:'bag'});
+    if(!posts)return;
+    items.push({name:postLengthLabel('gate',sp,'Gate Post'),costKey:'gate post',qty:posts,unit:'ea'});
+    if(owner.fenceType==='chainlink'&&!sp.addons.has('barbed-wire'))items.push({name:'Post Cap',costKey:'post cap',qty:posts,unit:'ea'});
+    items.push({name:`Gate Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('gate',posts,sp),unit:'bag'});
   });
 
   const merged=new Map();
@@ -2682,6 +2773,9 @@ function handleDown(e){
       S.moving={idx:foundIdx,type:foundType,endpoint:foundEndpoint};
       S.moveStart=pt;
       S.moveOrigEl=JSON.parse(JSON.stringify(S.elements[foundIdx]));
+      const movingRun=S.elements[foundIdx].type==='fence'?S.elements[foundIdx]:null;
+      S.moveCarried=movingRun?S.elements.filter(el=>el.type==='gate'&&gateOwnerRun(el)===movingRun)
+        .map(gate=>({gate,start:{...gate.start},end:{...gate.end}})):[];
       S.selected=foundIdx;
     } else {
       // Tapped empty space — just deselect, do NOT push history
@@ -2725,6 +2819,7 @@ function handleMove(e){
     } else if(S.moving.type==='post'){
       el.pos={x:pt.x,y:pt.y};
     }
+    if(el.type==='fence')carryRunGates(el,orig,S.moveCarried,S.moving);
     draw();return;
   }
   if(S.drawing){
@@ -2745,9 +2840,13 @@ function handleUp(e){
       (dist(el.start,orig.start)>1e-6||dist(el.end,orig.end)>1e-6);
     if(changed){
       if(el.type==='fence')rebuildRunAutoPosts(el);
-      if(el.type==='gate')rebuildRunAutoPosts(fenceRunById(el.runId));
+      if(el.type==='gate'){
+        const {prev,next}=rebindGate(el);
+        if(prev&&prev!==next)rebuildRunAutoPosts(prev);
+        rebuildRunAutoPosts(next);
+      }
     }
-    S.moving=null;S.moveStart=null;S.moveOrigEl=null;
+    S.moving=null;S.moveStart=null;S.moveOrigEl=null;S.moveCarried=null;
     draw();updatePanel();scheduleAutosave();return;
   }
   if(S.drawing){
@@ -2760,12 +2859,13 @@ function handleUp(e){
       const runId=S.drawing.type==='fence'?makeRunId():undefined;
       const runSpecs=S.drawing.type==='fence'?cloneRunSpecs(S.specs):undefined;
       if(S.drawing.type==='gate'){
-        const owner=nearestFenceRunForGate(S.drawing.start,S.drawing.end);
-        if(!owner){showToast('Draw a fence run before placing a gate');S.drawing=null;S._snapTarget=null;draw();updatePanel();return;}
-        const gate=attachGateToRun({type:'gate',start:S.drawing.start,end:S.drawing.end,
-          gateType:S.gateType,hinge:'start',swingDir:1},owner);
+        if(!S.elements.some(el=>el.type==='fence')){showToast('Draw a fence run before placing a gate');S.drawing=null;S._snapTarget=null;draw();updatePanel();return;}
+        const gate={type:'gate',start:S.drawing.start,end:S.drawing.end,
+          gateType:S.gateType,hinge:'start',swingDir:1,fenceType:S.fenceType};
+        const {next:owner}=rebindGate(gate);
         S.elements.push(gate);
-        rebuildRunAutoPosts(owner);
+        if(owner)rebuildRunAutoPosts(owner);
+        else showToast('This gate is not on a fence run, so it is not priced. Draw it on the fence line.',true);
       }else{
         const newEls=[{type:S.drawing.type,start:S.drawing.start,end:S.drawing.end,
           fenceType:S.drawing.type!=='boundary'?S.fenceType:undefined,
@@ -3561,7 +3661,7 @@ function computePricing(){
     profit:dollars(profitC),marginPct,cents,
     matLines,laborLines,unknown,invalidInputs,
     zeroCostLines:matLines.filter(m=>m.unitCost===0).map(m=>m.name),
-    isFinalReady:unknown.length===0 && invalidInputs.length===0 && matLines.every(m=>m.unitCost!==0)
+    isFinalReady:unknown.length===0 && invalidInputs.length===0 && matLines.every(m=>m.unitCost!==0) && !stats.unownedGates
       && Object.values(cents).every(Number.isFinite),
     hasData: bom.length>0 || laborCostC>0,
     flags:{ucDemo,ucSlope,ucUrban,ucHardDig,useHours,hoursOverride}
@@ -4179,8 +4279,17 @@ function validateProject(options={}){
 
   gates.forEach((gate,index)=>{
     const label=`Gate ${index+1}`;
-    const owner=fenceRunById(gate.runId);
-    if(!gate.runId||!owner)err('ORPHAN_GATE',`${label} is not attached to a fence run.`,gate);
+    const bound=fenceRunById(gate.runId),owner=gateOwnerRun(gate);
+    if(!owner)err('ORPHAN_GATE',bound?`${label} does not lie on its fence run; it is not deducted or priced.`
+      :`${label} is not on a fence run; it is not deducted or priced.`,gate);
+    const gateFt=gate.start&&gate.end?dist(gate.start,gate.end):0;
+    const along=(bound?[bound]:fences).find(run=>{
+      const ax=run.start&&run.end?runAxis(run):null;
+      return ax&&ax.off(gate.start)<=GATE_ON_RUN_TOL&&ax.off(gate.end)<=GATE_ON_RUN_TOL
+        &&Math.max(ax.along(gate.start),ax.along(gate.end))>=0&&Math.min(ax.along(gate.start),ax.along(gate.end))<=ax.L;
+    });
+    if(along&&gateFt>dist(along.start,along.end)+GATE_ON_RUN_TOL)
+      err('GATE_LONGER_THAN_RUN',`${label} is wider than the fence run it is drawn on.`,gate);
     if(!GATE_TYPES[gate.gateType])err('GATE_TYPE',`${label} has an unknown gate type: ${gate.gateType||'blank'}.`,gate);
     const widthFt=gate.start&&gate.end?dist(gate.start,gate.end)/GRID_FT:0;
     if(!Number.isFinite(widthFt)||widthFt<=0)err('GATE_WIDTH',`${label} has zero or invalid width.`,gate);
@@ -4191,6 +4300,13 @@ function validateProject(options={}){
       const gs=hydrateRunSpecs(gate.specs),rs=hydrateRunSpecs(owner.specs);
       if(+gs.heightIn!==+rs.heightIn)warn('GATE_SPEC_DRIFT',`${label} height snapshot differs from its owning run.`,gate);
     }
+  });
+
+  fences.forEach((run,index)=>{
+    const spans=runGateLayout(run).spans;
+    for(let i=0;i<spans.length;i++)for(let j=i+1;j<spans.length;j++)
+      if(Math.min(spans[i].rawHi,spans[j].rawHi)-Math.max(spans[i].rawLo,spans[j].rawLo)>GATE_ON_RUN_TOL)
+        err('GATE_OVERLAP',`Run ${index+1} has overlapping gates ${gates.indexOf(spans[i].gate)+1} and ${gates.indexOf(spans[j].gate)+1}.`,spans[j].gate);
   });
 
   posts.filter(p=>p.auto).forEach((post,index)=>{
@@ -4276,6 +4392,8 @@ function projectExportWarning(validation){
     POST_SPACING:'A fence section has no valid post spacing.',
     ADDON_STATE:'A fence section has add-on selections that could not be verified.',
     ORPHAN_GATE:'A gate is not connected to a fence section.',
+    GATE_OVERLAP:'Two gates overlap on one fence section.',
+    GATE_LONGER_THAN_RUN:'A gate is wider than the fence section it is drawn on.',
     GATE_TYPE:'A gate has an unrecognized style.',
     GATE_WIDTH:'A gate has no measurable width.',
     PRICING_RUNTIME:'Pricing could not be calculated; materials, labor, and the estimate total were not priced.',
