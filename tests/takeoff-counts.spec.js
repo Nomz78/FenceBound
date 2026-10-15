@@ -5,6 +5,7 @@ const { test, expect } = require('@playwright/test');
 // before its repair and passes after it.
 //  - T1: panel and section counts round per fabric section, not per run (F-4).
 //  - T2: vinyl split-rail rails follow the run's post spacing (F-3).
+//  - T3: concrete is never silently 0 for a hole depth off the footing table (F-9).
 
 async function cleanOpen(page) {
   await page.goto('/index.html');
@@ -74,4 +75,22 @@ test('T2 vinyl split-rail rails equal bays at the run post spacing times rails p
   const at8 = await bomFor(page, 'vinylsplit2', false, 'S.postSpacing=8;');
   expect(at8['Vinyl Split Rail']).toBe(13 * 2);
   expect(await state(page, `getStats().linePosts`)).toBe(12);
+});
+
+test('T3 concrete for an off-table hole depth rounds up to the next table depth and warns', async ({ page }) => {
+  await cleanOpen(page);
+  const concrete = async extra => {
+    const bom = await bomFor(page, 'chainlink', true, extra);
+    const codes = await state(page, `validateProject({includePricing:false,requireClient:false}).warnings.filter(w=>w.code==='CONCRETE_DEPTH_OFF_TABLE').length`);
+    return [bom['Post Concrete (60lb bag)'] || 0, bom['Gate Post Concrete (60lb bag)'] || 0, codes];
+  };
+  // Table depths (4 ft default: 24" terminal and gate holes, 2 bags each; 2 terminals, 4 gate posts).
+  expect(await concrete('')).toEqual([4, 8, 0]);
+  // Legacy 28" on every role (hydrateSavedRunSpecs migration): next table depth 30" = 3 bags.
+  expect(await concrete(`Object.assign(specs,hydrateSavedRunSpecs({...serializeRunSpecs(specs),postEmbedIn:undefined,embedDepthIn:28}));`))
+    .toEqual([6, 12, 3]);
+  // Per-run 20" terminal override: next table depth 24" = 2 bags.
+  expect(await concrete(`specs.postEmbedIn.terminal=20;`)).toEqual([4, 8, 1]);
+  // Deeper than the deepest entry: 4 bags at 42" scaled to 48" and rounded up = 5.
+  expect(await concrete(`specs.postEmbedIn.gate=48;`)).toEqual([4, 20, 1]);
 });

@@ -1281,7 +1281,22 @@ function bagsForHole(postRole,postDiaIn,depthIn){
   const dia=Number(postDiaIn??(role?POST_OD_IN[role]:NaN));
   const depth=Number(depthIn);
   if(!role||!Number.isFinite(dia)||dia<=0||!Number.isFinite(depth))return undefined;
-  return FOOTING.bagsByDepthIn[depth];
+  return footingBagsForDepth(depth);
+}
+// A depth off the ratified schedule (a legacy 28" job, a per-run override) is never
+// silently 0 bags. There is no ratified volume model, so it takes the next deeper
+// table depth (conservative round-up); beyond the deepest entry, that entry scaled
+// by depth and rounded up. validateProject warns whenever this is used.
+function footingDepthOnTable(depth){return Object.prototype.hasOwnProperty.call(FOOTING.bagsByDepthIn,Number(depth));}
+function footingBagsForDepth(depth){
+  const table=FOOTING.bagsByDepthIn;
+  if(footingDepthOnTable(depth))return table[depth];
+  const depths=Object.keys(table).map(Number).filter(d=>d>0&&Number.isFinite(+table[d])).sort((a,b)=>a-b);
+  if(!depths.length||!(depth>0))return undefined;
+  const next=depths.find(d=>d>=depth);
+  if(next!==undefined)return table[next];
+  const deepest=depths[depths.length-1];
+  return Math.ceil(table[deepest]*depth/deepest);
 }
 // midRailForHeight: off <6', on at 6' (commercial-leaning default, overridable),
 // mandatory 8'+. Returns true if mid rail should be on by default for this height.
@@ -4413,6 +4428,11 @@ function validateProject(options={}){
     if(!Number.isFinite(spacing)||spacing<=0)err('POST_SPACING',`${label} has no valid post spacing.`,run);
     else if(spacing>20)warn('POST_SPACING_HIGH',`${label} post spacing exceeds 20 ft.`,run);
     if(!(sp.addons instanceof Set))err('ADDON_STATE',`${label} add-ons are malformed.`,run);
+    ['terminal','corner','gate'].forEach(role=>{
+      const depth=Number(sp.postEmbedIn?.[role]);
+      if(depth>0&&!footingDepthOnTable(depth))warn('CONCRETE_DEPTH_OFF_TABLE',
+        `${label} ${role} hole depth ${depth}" is not on the footing schedule; its concrete is estimated at ${footingBagsForDepth(depth)} bag(s) per post. Verify.`,run);
+    });
   });
 
   gates.forEach((gate,index)=>{
