@@ -1989,7 +1989,9 @@ function calcAutoMaterials(){
     // Common addon materials
     if(sp.addons.has('top-wire'))items.push({name:'Top Tension Wire 9ga',costKey:'top tension wire',qty:Math.ceil(ft),unit:'lf'});
     if(sp.addons.has('bottom-wire'))items.push({name:'Bottom Tension Wire 9ga',costKey:'bottom tension wire',qty:Math.ceil(ft),unit:'lf'});
-    if(sp.addons.has('barbed-wire')){
+    // Field cattle fence already carries its barbed strands (count from the same
+    // barbStrands setting) on T-posts; the add-on adds no second set and no arms.
+    if(sp.addons.has('barbed-wire')&&!(mat==='cattle'&&style==='field')){
       for(let s=1;s<=sp.barbStrands;s++)items.push({name:`Barbed Wire Strand ${s}`,costKey:'barbed wire strand',qty:Math.ceil(ft),unit:'lf'});
       items.push({name:`Barb Arm ${sp.barbArm}`,costKey:'barb arm',qty:lineCt,unit:'ea'});
     }

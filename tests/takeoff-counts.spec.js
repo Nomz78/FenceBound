@@ -6,6 +6,7 @@ const { test, expect } = require('@playwright/test');
 //  - T1: panel and section counts round per fabric section, not per run (F-4).
 //  - T2: vinyl split-rail rails follow the run's post spacing (F-3).
 //  - T3: concrete is never silently 0 for a hole depth off the footing table (F-9).
+//  - T4: field cattle fence with the Barbed Wire add-on does not double strands (F-8).
 
 async function cleanOpen(page) {
   await page.goto('/index.html');
@@ -93,4 +94,19 @@ test('T3 concrete for an off-table hole depth rounds up to the next table depth 
   expect(await concrete(`specs.postEmbedIn.terminal=20;`)).toEqual([4, 8, 1]);
   // Deeper than the deepest entry: 4 bags at 42" scaled to 48" and rounded up = 5.
   expect(await concrete(`specs.postEmbedIn.gate=48;`)).toEqual([4, 20, 1]);
+});
+
+test('T4 cattle field fence with the Barbed Wire add-on keeps one set of strands and no barb arms', async ({ page }) => {
+  await cleanOpen(page);
+  const strands = bom => Object.entries(bom).filter(([n]) => /^Barbed Wire Strand/.test(n)).map(([, q]) => q);
+  const off = await bomFor(page, 'cattlefield', false, `specs.addons.delete('barbed-wire');specs.barbStrands=4;`);
+  const on = await bomFor(page, 'cattlefield', false, `specs.addons.add('barbed-wire');specs.barbStrands=4;`);
+  expect(strands(off)).toEqual([100, 100, 100, 100]);
+  expect(strands(on)).toEqual([100, 100, 100, 100]);
+  expect(Object.keys(on).filter(n => /^Barb Arm/.test(n))).toEqual([]);
+  expect(on['T-Post 6ft']).toBe(8);
+  // Chain link still takes its barbed add-on strands and arms.
+  const cl = await bomFor(page, 'chainlink', false, `specs.addons.add('barbed-wire');specs.barbStrands=3;`);
+  expect(strands(cl)).toEqual([100, 100, 100]);
+  expect(cl['Barb Arm vertical']).toBe(9);
 });
