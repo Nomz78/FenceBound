@@ -1763,7 +1763,7 @@ function getStats(){
   runs.forEach(run=>{
     const lay=layouts.get(run),grossFt=dist(run.start,run.end)/GRID_FT;
     const row=acc.byRunId[run.runId]={runId:run.runId,grossFt,gateOpeningFt:lay.openingPx/GRID_FT,netFt:grossFt,
-      lineCt:0,termCt:0,cornerCt:0,sections:lay.sections.length,gateEndCt:0,terminalEndCt:0,cornerEndCt:0,terminationEnds:0};
+      lineCt:0,termCt:0,cornerCt:0,sections:lay.sections.length,sectionFt:lay.sections.map(([a,b])=>(b-a)/GRID_FT),gateEndCt:0,terminalEndCt:0,cornerEndCt:0,terminationEnds:0};
     acc.fence[run.fenceType]=(acc.fence[run.fenceType]||0)+grossFt;
     acc.totalFt+=grossFt;
     // Fabric ends: each section has two. A run end covered by its own gate has
@@ -1813,6 +1813,9 @@ function postLengthLabel(role,sp,label){
   const cutIn=chainLinkPostCutIn(role,sp),purchaseFt=chainLinkPurchaseFt(role,cutIn);
   return `${label} ${purchaseFt}' (${cutIn}" cut)`;
 }
+// Units of width w (panels, rail spans) needed to fill a run: each fabric section
+// between gates and run ends takes its own partial unit, so units round per section.
+function unitsPerSection(row,w){return row.sectionFt.reduce((n,f)=>n+Math.ceil(f/w-1e-6),0);}
 function concreteBagsForPosts(role,count,sp){
   if(role==='line'||count<=0)return 0;
   return count*(bagsForHole(role,sp.postDiaIn[role],sp.postEmbedIn[role])||0);
@@ -1911,7 +1914,8 @@ function calcAutoMaterials(){
       items.push({name:'Exterior Screws (pickets)',costKey:'exterior screws',qty:picketCt*9,unit:'ea'});
       items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
     } else if(mat==='vinyl'&&(style==='privacy6'||style==='privacy8')){
-      items.push({name:`Vinyl Privacy Panel ${sp.heightIn}"`,costKey:'vinyl privacy panel',qty:Math.ceil(ft/8),unit:'ea'});
+      const panelCt=unitsPerSection(runStats,8);
+      items.push({name:`Vinyl Privacy Panel ${sp.heightIn}"`,costKey:'vinyl privacy panel',qty:panelCt,unit:'ea'});
       items.push({name:`Vinyl Post ${postLen}`,costKey:'vinyl post',qty:typePostCount,unit:'ea'});
       items.push({name:'Vinyl Top Rail',costKey:'vinyl top rail',qty:Math.ceil(ft),unit:'lf'});
       items.push({name:'Vinyl Bottom Rail',costKey:'vinyl bottom rail',qty:Math.ceil(ft),unit:'lf'});
@@ -1919,17 +1923,17 @@ function calcAutoMaterials(){
       items.push({name:'Post Cap Vinyl',costKey:'post cap vinyl',qty:typePostCount,unit:'ea'});
       // v5.3 fastener respec: vinyl is a snap-together panel system — the only
       // screw is one securing each top rail. 1 screw per top rail = 1 per 8' panel.
-      items.push({name:'Stainless Screws',costKey:'stainless screws',qty:Math.ceil(ft/8),unit:'ea'});
+      items.push({name:'Stainless Screws',costKey:'stainless screws',qty:panelCt,unit:'ea'});
       items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
     } else if(mat==='vinyl'&&(style==='split2'||style==='split3')){
       const rails=style==='split2'?2:3;
-      const railSpans=Math.ceil(ft/8);
+      const railSpans=unitsPerSection(runStats,8);
       items.push({name:'Vinyl Split Rail',costKey:'vinyl split rail',qty:railSpans*rails,unit:'ea'});
       items.push({name:`Vinyl Split Rail Post ${postLen}`,costKey:'vinyl split rail post',qty:typePostCount,unit:'ea'});
       items.push({name:'Post Cap Vinyl',costKey:'post cap vinyl',qty:typePostCount,unit:'ea'});
       items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
     } else if(type==='ornamental'){
-      const panelCt=Math.ceil(ft/6);
+      const panelCt=unitsPerSection(runStats,6);
       items.push({name:`Ornamental Panel ${sp.heightIn}"`,costKey:'ornamental panel',qty:panelCt,unit:'ea'});
       items.push({name:`Ornamental Post ${postLen}`,costKey:'ornamental post',qty:typePostCount,unit:'ea'});
       items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
@@ -1940,7 +1944,7 @@ function calcAutoMaterials(){
     } else if(mat==='wood'&&(style==='split2'||style==='split3'||style==='split3fb')){
       const rails=style==='split2'?2:3;
       // Split rail: 11ft rails at 10ft post spacing (rails protrude past posts via hole inserts)
-      const railSpans=Math.ceil(ft/10);
+      const railSpans=unitsPerSection(runStats,10);
       items.push({name:`Split Rail 11ft Rail`,costKey:'split rail rail',qty:railSpans*rails,unit:'ea'});
       items.push({name:`Split Rail Post ${postLen}`,costKey:'split rail post',qty:typePostCount,unit:'ea'});
       if(style==='split3fb')items.push({name:'1x6 Face Board',costKey:'face board',qty:Math.ceil(ft),unit:'lf'});
@@ -1958,9 +1962,12 @@ function calcAutoMaterials(){
       }
       items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',termCt,sp)+concreteBagsForPosts('corner',cornerCt,sp),unit:'bag'});
     } else if(type==='temporary'){
-      items.push({name:'Temp Panel 6x12',costKey:'temp panel',qty:Math.ceil(ft/12),unit:'ea'});
-      items.push({name:'Temp Panel Coupler',costKey:'temp panel coupler',qty:Math.ceil(ft/12),unit:'ea'});
-      items.push({name:'Panel Stand / Base',costKey:'panel stand base',qty:Math.ceil(ft/12),unit:'ea'});
+      // Each fabric section is its own line of panels: a coupler joins each pair of
+      // neighbouring panels and a stand sits at every panel joint and section end.
+      const panelCt=unitsPerSection(runStats,12),sections=runStats.sectionFt.length;
+      items.push({name:'Temp Panel 6x12',costKey:'temp panel',qty:panelCt,unit:'ea'});
+      items.push({name:'Temp Panel Coupler',costKey:'temp panel coupler',qty:Math.max(0,panelCt-sections),unit:'ea'});
+      items.push({name:'Panel Stand / Base',costKey:'panel stand base',qty:panelCt+sections,unit:'ea'});
     }
 
     // Common addon materials
