@@ -89,6 +89,9 @@ test('IB3 markup stored as a string coerces on job load, saved rate card, and JS
   await cleanOpen(page);
   await openEditor(page);
   const payload = JSON.stringify({ app: 'FenceboundCAD', kind: 'prices', markup: { materialPct: '40', laborPct: '50' } });
+  // A restored session can carry borrowed prices; JSON import now requires the
+  // same deliberate company-card replacement confirmation as manual/CSV saves.
+  page.once('dialog', dialog => dialog.accept());
   await page.locator('#ce-import-file').setInputFiles({ name: 'p.fbprices.json', mimeType: 'application/json', buffer: Buffer.from(payload) });
   await expect(page.locator('#app-toast')).toContainText('Prices imported');
   expect(await state(page, `[MARKUP.materialPct,MARKUP.laborPct,JSON.parse(localStorage.getItem(COSTDB_KEY)).markup.materialPct]`)).toEqual([40, 50, 40]);

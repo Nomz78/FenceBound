@@ -845,9 +845,9 @@ function activeFenceType(){
   const run=selectedFenceRun();
   return run?run.fenceType:S.fenceType;
 }
-function activeSpecs(){
+function activeSpecs(preserveSpecs=false){
   const run=selectedFenceRun();
-  if(run){run.specs=hydrateRunSpecs(run.specs||S.specs);return run.specs;}
+  if(run){if(preserveSpecs===true)return run.specs||S.specs;run.specs=hydrateRunSpecs(run.specs||S.specs);return run.specs;}
   return S.specs;
 }
 function activePostSpacing(){
@@ -1010,8 +1010,8 @@ setInterval(saveSession,20000);
 // Push S.specs / tier / job name back into the panel controls. Fixes a
 // pre-existing desync where loading a saved job updated state but left the
 // SPECS tab showing stale values; also used after session restore and import.
-function syncSpecInputs(){
-  const sp=activeSpecs();
+function syncSpecInputs(preserveSpecs=false){
+  const sp=activeSpecs(preserveSpecs);
   const setV=(id,v)=>{const el=document.getElementById(id);if(el&&v!==undefined&&v!==null)el.value=v;};
   const setC=(id,v)=>{const el=document.getElementById(id);if(el)el.checked=!!v;};
   const hsel=document.getElementById('spec-height');
@@ -1024,7 +1024,7 @@ function syncSpecInputs(){
   const mro=document.getElementById('mid-rail-options');if(mro)mro.style.display=sp.hasMidRail?'':'none';
   setC('has-truss-rod',sp.hasTrussRod);setC('has-bottom-rail',sp.hasBottomRail);setC('has-face-board',sp.hasFaceBoard);
   // Rebuild the addon chips for the active fence type, then sync active states.
-  if(typeof updateSpecsForFenceType==='function')updateSpecsForFenceType();
+  if(typeof updateSpecsForFenceType==='function')updateSpecsForFenceType(preserveSpecs);
   document.querySelectorAll('[data-addon]').forEach(b=>b.classList.toggle('active',sp.addons.has(b.dataset.addon)));
   const bwo=document.getElementById('barbed-wire-opts');if(bwo)bwo.style.display=sp.addons.has('barbed-wire')?'':'none';
   setV('barb-strands',sp.barbStrands);setV('barb-arm',sp.barbArm);setV('spec-notes',sp.notes||'');
@@ -1605,7 +1605,7 @@ function readSavedCostDB(){
     return{status:'loaded',data};
   }catch(e){return{status:'corrupt'};}
 }
-function mergeSavedCostDB(o){
+function mergeSavedCostDB(o,refreshSpecs=true){
   o=o&&typeof o==='object'?o:{};
   const c=sanitizePricingInputs(o);
   if(o.costs)COST_DB={...COST_DB,...normalizeImportedCosts(o.costs)};
@@ -1614,7 +1614,34 @@ function mergeSavedCostDB(o){
   if(o.footing)mergeFooting(o.footing);
   if(o.postODIn)mergePostOD(o.postODIn);
   if(o.postEmbedIn)mergePostEmbed(o.postEmbedIn);
-  refreshPostDiaDefaults();
+  if(refreshSpecs)refreshPostDiaDefaults();
+}
+// Import transactions retain the exact live objects. Merges replace these
+// objects; defer spec refresh until persistence succeeds so rollback is lossless.
+function capturePricingState(){
+  return{costs:COST_DB,labor:LABOR,markup:MARKUP,footing:FOOTING,
+    postODIn:POST_OD_IN,postEmbedIn:POST_EMBED_IN,provenance:_pricingFromLoadedProject};
+}
+function restorePricingState(p){
+  COST_DB=p.costs;LABOR=p.labor;MARKUP=p.markup;FOOTING=p.footing;
+  POST_OD_IN=p.postODIn;POST_EMBED_IN=p.postEmbedIn;_pricingFromLoadedProject=p.provenance;
+}
+function importCompanyPrices(o){
+  const saved=readSavedCostDB();
+  if(saved.status==='corrupt')throw new Error('Saved rate card is corrupt — restore it before importing prices');
+  const prior=capturePricingState();
+  try{
+    COST_DB=JSON.parse(JSON.stringify(DEFAULT_COST_DB));LABOR=JSON.parse(JSON.stringify(DEFAULT_LABOR));
+    MARKUP={...DEFAULT_MARKUP};FOOTING=JSON.parse(JSON.stringify(DEFAULT_FOOTING));
+    POST_OD_IN={...DEFAULT_POST_OD_IN};POST_EMBED_IN={...DEFAULT_POST_EMBED_IN};
+    if(saved.status==='loaded')mergeSavedCostDB(saved.data,false);
+    // Normalize legacy bare prices against the company units, never job units.
+    const bad=sanitizePricingInputs(o).problems;
+    if(bad.length)throw new Error(`${bad[0]} is not a number of 0 or more`);
+    mergeSavedCostDB(o,false);
+    _pricingFromLoadedProject=false;
+    if(!saveCostDB())throw new Error('storage full or blocked');
+  }catch(err){restorePricingState(prior);throw err;}
 }
 function loadCostDB(){
   const saved=readSavedCostDB();
@@ -2460,7 +2487,7 @@ function zoomToFit(){
 }
 
 // ── PANEL ──────────────────────────────────────────────────────────────────
-function updatePanel(){
+function updatePanel(preserveSpecs=false){
   const stats=getStats();
   // Zoom
   document.getElementById('zoom-label').textContent=Math.round(S.zoom*100)+'%';
@@ -2491,7 +2518,7 @@ function updatePanel(){
   sc.innerHTML=html;
 
   // Specs summary (selected run when applicable; otherwise next-run defaults)
-  const sp=activeSpecs();
+  const sp=activeSpecs(preserveSpecs);
   const ssEl=document.getElementById('specs-summary');
   const addonsArr=Array.from(sp.addons);
   ssEl.innerHTML=[
@@ -2542,9 +2569,9 @@ function updateLegend(){
 
 // Re-renders the add-on chip row and shows/hides the whole WIRE / SECURITY
 // ADDITIONS section depending on which fence type is active.
-function updateSpecsForFenceType(){
+function updateSpecsForFenceType(preserveSpecs=false){
   const ft=activeFenceType();
-  const sp=activeSpecs();
+  const sp=activeSpecs(preserveSpecs);
 
   // ── RAILS & COMPONENTS: show only rows valid for this fence type ──
   const allowedComp=COMPONENT_MAP[ft]||[];
@@ -2559,9 +2586,9 @@ function updateSpecsForFenceType(){
       const autoRailTypes=['woodprivacy','woodshadowbox','vinylprivacy6','vinylprivacy8'];
       const isRailFlag=['top-rail','mid-rail','bottom-rail'].includes(rowId);
       if(!(isRailFlag&&autoRailTypes.includes(ft))){
-        sp[COMPONENT_FLAG[rowId]]=false;
+        if(preserveSpecs!==true)sp[COMPONENT_FLAG[rowId]]=false;
         const cb=document.getElementById('has-'+rowId);if(cb)cb.checked=false;
-        if(rowId==='mid-rail'){const mro=document.getElementById('mid-rail-options');if(mro)mro.style.display='none';sp.hasTrussRod=false;const tr=document.getElementById('has-truss-rod');if(tr)tr.checked=false;}
+        if(rowId==='mid-rail'){const mro=document.getElementById('mid-rail-options');if(mro)mro.style.display='none';if(preserveSpecs!==true)sp.hasTrussRod=false;const tr=document.getElementById('has-truss-rod');if(tr)tr.checked=false;}
       }
     }
   });
@@ -2577,7 +2604,7 @@ function updateSpecsForFenceType(){
   if(allowed.length===0){
     sec.style.display='none';
     // Clear any active wire addons that no longer apply.
-    sp.addons.forEach(a=>{if(!allowed.includes(a))sp.addons.delete(a);});
+    if(preserveSpecs!==true)sp.addons.forEach(a=>{if(!allowed.includes(a))sp.addons.delete(a);});
     if(bwo)bwo.style.display='none';
     return;
   }
@@ -2611,7 +2638,7 @@ function updateSpecsForFenceType(){
   if(bwo)bwo.style.display=sp.addons.has('barbed-wire')?'':'none';
 
   // Remove any active addons that don't belong to this fence type.
-  sp.addons.forEach(a=>{if(!allowed.includes(a))sp.addons.delete(a);});
+  if(preserveSpecs!==true)sp.addons.forEach(a=>{if(!allowed.includes(a))sp.addons.delete(a);});
 }
 
 function updateTypeBar(){
@@ -3336,22 +3363,35 @@ function init(){
   document.getElementById('btn-undo').addEventListener('click',doUndo);
   document.getElementById('btn-redo').addEventListener('click',doRedo);
 
-  // Job-file import (.fencebound.json) — schema-validated, undoable
+  // Job-file import (.fencebound.json) — transactional replacement, fresh history
   document.getElementById('job-file-input').addEventListener('change',e=>{
     const f=e.target.files&&e.target.files[0];if(!f)return;
     const rd=new FileReader();
     rd.onload=()=>{
+      const prior={state:{...S},pricing:capturePricingState(),defaults:_defaultTypeSpecs,inputs:readJobPricingInputs()};
       try{
         const st=JSON.parse(rd.result);
         if(!st||st.app!=='FenceboundCAD'||!Array.isArray(st.elements))
           throw new Error('not a Fencebound job file');
+        // Legacy files can omit specs. Never let hydration/rendering mutate the
+        // accepted defaults before the incoming job has committed successfully.
+        S.specs=cloneRunSpecs(S.specs);
         applyState(st);
         S.history=[];S.future=[];// a new job: no undo back into the previous one (audit CAD-12)
         syncSpecInputs();
         draw();updatePanel();updateMatList();updateDrawers();updateUndoButtons();
+        // Unlike background autosave, import must report a failed durable write.
+        localStorage.setItem(AUTOSAVE_KEY,JSON.stringify(snapshotState()));
         showToast(`Imported "${S.projectName}"`);
-        saveSession();
-      }catch(err){showToast('Import failed — '+err.message,true);}
+      }catch(err){
+        Object.assign(S,prior.state);restorePricingState(prior.pricing);_defaultTypeSpecs=prior.defaults;
+        applyJobPricingInputs(prior.inputs);
+        // Recovery rendering must not normalize the accepted specs or replace
+        // run objects (their per-type settings live in a WeakMap).
+        [()=>syncSpecInputs(true),draw,()=>updatePanel(true),updateMatList,updateDrawers,updateUndoButtons]
+          .forEach(refresh=>{try{refresh();}catch(_){/* Preserve state even if a view cannot render. */}});
+        showToast('Import failed — '+err.message,true);
+      }
       e.target.value='';
     };
     rd.onerror=()=>{showToast('Could not read file',true);e.target.value='';};
@@ -3728,15 +3768,32 @@ function init(){
 // estimate PDF read from computePricing() so they can never drift.
 
 // ── MONEY MATH (integer cents) ─────────────────────────────────────────────
-// Every dollar amount inside computePricing() is calculated in integer cents,
-// rounded per line (half-up). Totals are sums of rounded lines — the standard
-// accounting convention — so all totals are exact and deterministic across
-// runs, platforms, and takeoff-quantity corrections. No float money leaves
-// this section: returned dollar fields are cents/100, and the `cents` block
-// carries the canonical integers for exact test assertions.
+// Extended amounts inside computePricing() are integer cents, rounded per line
+// (half-up). Material unit rates retain their supplied decimal precision.
+// Totals sum rounded lines; returned extended dollar amounts are cents/100,
+// and the `cents` block carries the canonical integers for exact assertions.
 // Rule: never do float arithmetic on money outside these helpers.
 const toCents=v=>Math.round(Number(v)*100);
-const centsOf=(unitDollars,qty)=>Math.round(toCents(unitDollars)*Number(qty));
+// Interpret the finite Number's decimal representation exactly, including small
+// rates written with an exponent. Integer multiplication avoids both premature
+// unit rounding and binary half-cent errors (e.g. $1.005 must extend to $1.01).
+function decimalRatio(value){
+  const [mantissa,exponent='0']=String(Number(value)).toLowerCase().split('e');
+  const fraction=(mantissa.split('.')[1]||'').length;
+  const scale=fraction-Number(exponent),n=BigInt(mantissa.replace('.',''));
+  return scale>0?[n,10n**BigInt(scale)]:[n*10n**BigInt(-scale),1n];
+}
+function centsOf(unitDollars,qty,pct=0){
+  const [u,ud]=decimalRatio(unitDollars),[q,qd]=decimalRatio(qty),[p,pd]=decimalRatio(pct);
+  const n=u*q*(100n*pd+p),d=ud*qd*pd,whole=n/d,remainder=n%d;
+  // Math.round semantics also for invalid negative rates retained for diagnosis.
+  return Number(whole+(remainder>=0n?(2n*remainder>=d?1n:0n):(-2n*remainder>d?-1n:0n)));
+}
+function markedUpUnit(unit,pct){
+  const [u,ud]=decimalRatio(unit),[p,pd]=decimalRatio(pct);
+  return Number(u*(100n*pd+p))/Number(ud*100n*pd);
+}
+const formatUnitPrice=v=>Number.isInteger(v*100)?v.toFixed(2):String(v);
 const applyPctC=(cents,pct)=>Math.round(cents*(100+pct)/100);
 const dollars=c=>c/100;
 // Largest-remainder apportionment: splits integer totalC across [key,weight]
@@ -3793,10 +3850,10 @@ function computePricing(){
     const entry=costKey!==null&&Object.prototype.hasOwnProperty.call(COST_DB,costKey)?COST_DB[costKey]:null;
     const rawCost=entry&&typeof entry==='object'?entry.cost:entry;
     const unit=rawCost===null||rawCost===undefined?null:coerceNonNegNumber(rawCost);
-    // A manual line is priced per its entered unit, which must be the rate-card
-    // entry's unit: there is no unit conversion, so 1 roll is never priced as 1 lf.
+    // Every line must use the rate-card unit. Without an explicit pack/length
+    // relationship there is no conversion, so 1 roll is never priced as 1 lf.
     const rateUnit=entry&&typeof entry==='object'&&entry.unit?normUnit(entry.unit):null;
-    if(it.source==='manual'&&unit!==null&&rateUnit&&normUnit(it.unit)!==rateUnit){
+    if(unit!==null&&rateUnit&&normUnit(it.unit)!==rateUnit){
       unitMismatch.push(`“${it.name}” is entered in ${it.unit||'no unit'} but its rate-card cost is per ${entry.unit}`);
       matLines.push({name:it.name,qty:it.qty,unit:it.unit,rateUnit,source:it.source,costKey,unitCost:null,ext:0,unitCostC:null,extC:0,clientUnitCost:null,clientExt:0,clientUnitCostC:null,clientExtC:0});
       return;
@@ -3806,10 +3863,10 @@ function computePricing(){
     if(badCost)invalidInputs.push(`Cost of “${it.name}”`);
     else if(unit!==null&&badQty)invalidInputs.push(`Quantity of “${it.name}”`);
     if(unit===null||badQty){ if(!badCost&&unit===null)unknown.push(it.name); matLines.push({name:it.name,qty:it.qty,unit:it.unit,source:it.source,costKey,unitCost:null,ext:0,unitCostC:null,extC:0,clientUnitCost:null,clientExt:0,clientUnitCostC:null,clientExtC:0}); return; }
-    const unitC=toCents(unit);
+    const unitC=centsOf(unit,1);
     const extC=centsOf(unit,qty);
     matCostC+=extC;
-    matLines.push({name:it.name,qty:it.qty,unit:it.unit,rateUnit,source:it.source,costKey,unitCost:dollars(unitC),ext:dollars(extC),unitCostC:unitC,extC,sectionQty:it.sectionQty});
+    matLines.push({name:it.name,qty:it.qty,unit:it.unit,rateUnit,source:it.source,costKey,unitCost:unit,ext:dollars(extC),unitCostC:unitC,extC,sectionQty:it.sectionQty});
   });
 
   // ── 2. LABOR COST — $/LF by type (default) OR crew hours override ──
@@ -3854,9 +3911,10 @@ function computePricing(){
   // Per-line client extensions, then summed: totals are sums of rounded lines.
   matLines.forEach(line=>{
     if(line.unitCostC===null){line.clientUnitCost=null;line.clientExt=0;line.clientUnitCostC=null;line.clientExtC=0;return;}
-    const clientUnitC=applyPctC(line.unitCostC,matPct);
-    const clientExtC=Math.round(line.unitCostC*line.qty*(100+matPct)/100);
-    line.clientUnitCost=dollars(clientUnitC);line.clientExt=dollars(clientExtC);
+    const clientUnitC=centsOf(line.unitCost,1,matPct);
+    const clientExtC=centsOf(line.unitCost,line.qty,matPct);
+    // *UnitCostC fields are rounded display conveniences, never extension inputs.
+    line.clientUnitCost=markedUpUnit(line.unitCost,matPct);line.clientExt=dollars(clientExtC);
     line.clientUnitCostC=clientUnitC;line.clientExtC=clientExtC;
   });
   // Demo/haul is folded into material cost above but has no BOM line, so it is
@@ -4475,21 +4533,18 @@ function openCostEditor(){
   ov.querySelector('#ce-import-file').onchange=e=>{
     const f=e.target.files&&e.target.files[0];if(!f)return;
     const rd=new FileReader();
-    rd.onload=()=>{try{
+    rd.onload=()=>{let imported=false;try{
       const o=JSON.parse(rd.result);
       if(!o||typeof o!=='object')throw new Error('not a price file');
       // Refuse the whole file before anything is applied if any rate is invalid.
       const bad=sanitizePricingInputs(o).problems;
       if(bad.length)throw new Error(`${bad[0]} is not a number of 0 or more${bad.length>1?` (+${bad.length-1} more)`:''}`);
-      mergeSavedCostDB(o);
-      const priorPricingProvenance=_pricingFromLoadedProject;
-      _pricingFromLoadedProject=false;
-      if(!saveCostDB()){
-        _pricingFromLoadedProject=priorPricingProvenance;
-        showToast('Save failed — storage full or blocked',true);return;
-      }
-      close();openCostEditor();showToast('Prices imported');
-    }catch(err){showToast('Import failed — '+err.message,true);}e.target.value='';};
+      if(_pricingFromLoadedProject&&!confirm('These displayed prices came from the loaded project. Importing will merge the file into your saved company rate card and use that card for this project. Continue?'))return;
+      importCompanyPrices(o);
+      imported=true;
+      refreshPostDiaDefaults();refreshSiteAdderLabels();
+      close();openCostEditor();updatePricing();showToast('Prices imported');
+    }catch(err){showToast((imported?'Prices saved — display refresh failed: ':'Import failed — ')+err.message,true);}finally{e.target.value='';}};
     rd.readAsText(f);
   };
 }
@@ -4810,7 +4865,7 @@ function exportEstimatePDF(){
     addRow(
       `${line.qty} ${line.unit}`,
       line.name,
-      priced?`$${line.clientUnitCost.toFixed(2)}/${line.unit}`:'Not priced',
+      priced?`$${formatUnitPrice(line.clientUnitCost)}/${line.unit}`:'Not priced',
       priced?amount:'Not priced'
     );
   });
@@ -4926,11 +4981,11 @@ init();
    <li><b>Gate pricing by fence material.</b> LABOR.gate charges by gate type only, so a chain link walk gate and an ornamental one bill identically. Needs field data per material.</li>
    <li><b>D7</b> “6 plus 1” is not a first-class concept; the user assembles it from separate flags.</li>
    <li><b>Dual depth.</b> Real depth drives material cost; spec depth (36" to a GC) belongs on submittals. The tool holds one number.</li>
-   <li>JSON price import silently clears provenance and overwrites the rate card without confirming, unlike the manual save.</li>
    <li>A pale user-chosen accent can render branded PDF text nearly invisible.</li>
   </ul></div>
 
   <div class="fb-dev-box"><h3>Completed / Locked</h3><ul>
+   <li>2026-10-15 local repairs: all material lines check price units; JSON price import confirms borrowed pricing and merges onto the saved company card with persistence rollback; portable import restores the accepted job on failure; material extensions retain sub-cent unit precision. Market readiness remains blocked. Other September status entries below remain historical.</li>
    <li>Automated regression runner — 86 Playwright tests, including 15 automatic-post checks; 12-route persistence matrix</li>
    <li>Chain link field specification ratified into repository authority</li>
    <li>168 LF closed-loop regression passes; its disagreement with the authoritative house-terminated job remains open</li>

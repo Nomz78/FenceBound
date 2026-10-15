@@ -2,10 +2,10 @@
   "$schema": "./CURRENT_STATE.schema.json",
   "stateSchemaVersion": 1,
   "project": "FenceBound",
-  "repository": "/Users/altairus78/Developer/fencebound-c0-review",
-  "branch": "codex/counting-c0",
-  "head": "0a0f43e585f000734b8304c8cdd572900227c1b7",
-  "upstream": "origin/codex/counting-c0",
+  "repository": "/Users/altairus78/Developer/fencebound-codex",
+  "branch": "codex/market-readiness-repairs",
+  "head": "25f0cd917e1b5d3304510921d498630a3939e1a7",
+  "upstream": "origin/codex/market-readiness-repairs",
   "worktreeClean": true,
   "canonicalRuntime": "index.html",
   "applicationVersion": "5.4.0",
@@ -22,45 +22,48 @@
   "developmentIndex": "index.html#FenceboundCAD-Development-Index",
   "projectInstructions": "PROJECT-INSTRUCTIONS.md",
   "currentHandoff": "Docs/CURRENT_HANDOFF.md",
-  "lastCompletedTask": "Added a cited hardware reference and comparison of all 142 existing golden BOM rows across 14 types. No runtime or test changes. Strict C0 completion remains blocked by missing product/source evidence and owner choices.",
-  "activeTask": "Review the C0 evidence gaps and product choices. Do not treat conditional source mismatches as authorization for C0b. Assessment and repairs are separately authorized downstream branches.",
+  "lastCompletedTask": "Repaired automatic material price-unit checks, company-card JSON import isolation, portable job import rollback, and sub-cent material extension precision. Added 15 focused regressions and adapted IB3/R9 without changing price values or golden BOM counts.",
+  "activeTask": "No new implementation task is active. The three approved task branches are ready for owner review; do not open PRs yet. C0 evidence gaps, C1 packs/order quantities, and wider pilot requirements remain unfinished.",
   "nextOwnerDecision": "C0 named product/assembly choices and unresolved source evidence; footing depths past 42 in.; vinyl split-rail default height; collinear joint post (CAD-06); line-post concrete; residential post stock lengths; truss rods/sleeves/bolts; NC sales-tax treatment (CPA/NC DOR); v6.0 engine authorization; mid/bottom rail ties; under-6 ft depth editability; session:init merge handling. O-6 remains unresolved.",
-  "repositoryHeadAtGeneration": "0a0f43e585f000734b8304c8cdd572900227c1b7",
-  "testedHead": "0a0f43e585f000734b8304c8cdd572900227c1b7",
+  "repositoryHeadAtGeneration": "25f0cd917e1b5d3304510921d498630a3939e1a7",
+  "testedHead": "25f0cd917e1b5d3304510921d498630a3939e1a7",
   "closeoutConvention": "The current HEAD may be one direct documentation-only closeout child of head; see START_HERE.md.",
   "gate": {
     "status": "PASS",
-    "command": "npm test; node scripts/cad-persistence-matrix.js; git diff --check",
-    "timestamp": "2026-10-15T18:24:44+00:00",
-    "head": "0a0f43e585f000734b8304c8cdd572900227c1b7",
+    "command": "NODE_OPTIONS=--require=/tmp/fencebound-pinned-jspdf.cjs npm test; NODE_OPTIONS=--require=/tmp/fencebound-pinned-jspdf.cjs node scripts/cad-persistence-matrix.js; git diff --check",
+    "timestamp": "2026-10-15T18:51:39+00:00",
+    "head": "25f0cd917e1b5d3304510921d498630a3939e1a7",
     "results": {
-      "npm test": "172/172 passed, including PDF tests; ordinary repository configuration",
+      "npm test": "187/187 passed, including PDF tests; same repository configuration with scratch routing of verified jsPDF 2.5.1",
       "node scripts/cad-persistence-matrix.js": "12/12 passed",
       "git diff --check": "PASS"
     },
     "artifacts": {
-      "tests": "/tmp/fencebound-closeout-c0-tests.log",
-      "matrix": "/tmp/fencebound-closeout-c0-matrix.log"
-    }
+      "tests": "/tmp/fencebound-closeout-repairs-tests.log",
+      "matrix": "/tmp/fencebound-closeout-repairs-matrix.log",
+      "matrixTransport": "/tmp/fencebound-closeout-repairs-matrix-transport.log"
+    },
+    "transport": "The repository test configuration and all assertions are unchanged. A scratch-only\nNode preload routes the exact existing cdnjs jsPDF 2.5.1 URL to the same pinned\nversion's real npm UMD library after direct CDN requests timed out. The npm tarball\nSHA-512 was verified against registry version metadata. UMD bytes: 364463; SHA-256:\n`98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875`.\nNo runtime, test, dependency, or lockfile edits implement this transport workaround.\nScratch wrapper: `/tmp/fencebound-pinned-jspdf.cjs`; verification:\n`/tmp/fencebound-jspdf-evidence.json`. This gate validates actual PDF behavior with\nthe pinned library, but does not establish availability of the external CDN or\noffline product delivery. Routing can alter browser cache/timing; a pass does not\nestablish that the earlier intermittent R9 pageerror is fixed.",
+    "predecessorGateCaveat": "The predecessor assessment's initial R9 pageerror and CDN-interrupted run are\npreserved in `Docs/handoffs/2026-10-15__market-readiness-assessment-closeout.md`.\nThe current passing gate does not establish that the earlier intermittent error's\nunconfirmed trigger is fixed. No new runtime or test edits were made during this\ncloseout; their bytes match the previously reviewed repair checkpoint."
   },
   "knownDrift": [
-    "The embedded Development Index retains stale D1-D5 status metadata. September handoff field-conflict and pending auto-post claims are historical; merged PRs #8-#11 and the current tested runtime supersede them.",
+    "The embedded Development Index records the four October 15 repairs, but retains older status entries explicitly labeled historical. Other known documentation/tooling limitations below remain.",
     "System Atlas v0.1 is a working draft based on older sources; a v0.2 candidate exists only on the unresolved continuity branch.",
     "The historical v5.3.9 Git tag intentionally points to a runtime whose in-app APP_VERSION remained 5.3.8-release-validation; rationale is recorded in the 2026-08-01 remediation handoff.",
     "No repository-orientation document is authoritative on main; a candidate exists only on the unresolved continuity branch."
   ],
   "knownDefects": [
-    "Portable import is non-atomic if work after applyState throws.",
     "Persistence matrix route 10 does not verify migrated-job pricing; unknown legacy types now block FINAL-READY as unsupported (4813e49) but are not migrated.",
     "ADDON_STATE validation is currently unreachable after hydration.",
     "Pre-fix saved-job reference contamination cannot be distinguished from legitimate historical edits.",
-    "JSON price import clears borrowed-pricing provenance and overwrites the saved rate card without the confirmation used by manual save and CSV import.",
     "Very pale company accent colors can make branded PDF labels difficult to read against white.",
     "D6 deferred: margin reads 0.0% when price-first per-LF and material-multiplier selling prices are entered as cost.",
     "D7 deferred: 6 plus 1 is not represented as a first-class assembly.",
     "Deferred: the model cannot separately represent real installation hole depth and submittal specification depth.",
     "Tooling: session:init falsely rejects approved one-child documentation closeouts when governance files fall outside its closeout allowlist; the allowlist needs to accommodate the approved structure.",
     "Tooling: session:init reports PR merge commits as drift because they are not a direct allowlisted documentation child of the recorded implementation head.",
-    "Playwright 1.40.1 has npm audit advisory GHSA-7mvr-c777-76hp; upgrade deferred because newer Playwright does not support macOS Catalina."
+    "Playwright 1.40.1 has npm audit advisory GHSA-7mvr-c777-76hp; upgrade deferred because newer Playwright does not support macOS Catalina.",
+    "Persistent rendering failures during portable-import rollback can leave a stale view; accepted model state is restored.",
+    "Gate labor and demo/slope retain existing cent-rounded unit rules; the material sub-cent precision repair does not change their precision policy."
   ]
 }
