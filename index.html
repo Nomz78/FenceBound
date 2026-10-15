@@ -1864,6 +1864,7 @@ function calcAutoMaterials(){
   // Per-run calculations: each fence run owns its own specs and spacing.
   S.elements.filter(el=>el.type==='fence').forEach(run=>{
     const type=run.fenceType||'chainlink';
+    const from=items.length; // items pushed for this run belong to its section
     const runStats=stats.byRunId[run.runId];
     const ft=runStats.netFt;
     const sp=hydrateRunSpecs(run.specs||S.specs);
@@ -2016,6 +2017,7 @@ function calcAutoMaterials(){
     if(sp.addons.has('razor-ribbon'))items.push({name:'Razor Ribbon Coil',costKey:'razor ribbon coil',qty:Math.ceil(ft/50),unit:'coil'});
     if(sp.addons.has('welded-wire'))items.push({name:'Welded Wire 2x4',costKey:'welded wire',qty:Math.ceil(ft),unit:'lf'});
     if(sp.addons.has('tension-wire'))items.push({name:'Tension Wire 9ga',costKey:'tension wire',qty:Math.ceil(ft),unit:'lf'});
+    for(let i=from;i<items.length;i++)items[i].section=run.fenceType;
   });
 
   // Gates are priced from their owning run, never from project-global specs.
@@ -2028,15 +2030,20 @@ function calcAutoMaterials(){
     const gt=gate.gateType||'walk';
     const g=GATE_TYPES[gt]||{label:gt};
     const posts=stats.gatePostsByGate.get(gate)||0;
+    const from=items.length; // a gate belongs to its owning run's section
     items.push({name:`${g.label} w/ Hardware`,costKey:GATE_COST_KEYS[gt],qty:1,unit:'ea'});
-    if(!posts)return;
-    items.push({name:postLengthLabel('gate',sp,'Gate Post'),costKey:'gate post',qty:posts,unit:'ea'});
-    if(owner.fenceType==='chainlink'&&!sp.addons.has('barbed-wire'))items.push({name:'Post Cap',costKey:'post cap',qty:posts,unit:'ea'});
-    items.push({name:`Gate Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('gate',posts,sp),unit:'bag'});
+    if(posts){
+      items.push({name:postLengthLabel('gate',sp,'Gate Post'),costKey:'gate post',qty:posts,unit:'ea'});
+      if(owner.fenceType==='chainlink'&&!sp.addons.has('barbed-wire'))items.push({name:'Post Cap',costKey:'post cap',qty:posts,unit:'ea'});
+      items.push({name:`Gate Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('gate',posts,sp),unit:'bag'});
+    }
+    for(let i=from;i<items.length;i++)items[i].section=owner.fenceType;
   });
 
+  // Lines merge by name; sectionQty keeps each section's share of the quantity
+  // so customer documents can price every section from its own materials.
   const merged=new Map();
-  items.forEach(it=>{const k=it.name+'|'+it.unit;const cur=merged.get(k);if(cur)cur.qty+=it.qty;else merged.set(k,{...it});});
+  items.forEach(({section,...it})=>{const k=it.name+'|'+it.unit;let cur=merged.get(k);if(cur)cur.qty+=it.qty;else merged.set(k,cur={...it,sectionQty:{}});cur.sectionQty[section]=(cur.sectionQty[section]||0)+it.qty;});
   return [...merged.values()];
 }
 
@@ -3732,6 +3739,22 @@ const toCents=v=>Math.round(Number(v)*100);
 const centsOf=(unitDollars,qty)=>Math.round(toCents(unitDollars)*Number(qty));
 const applyPctC=(cents,pct)=>Math.round(cents*(100+pct)/100);
 const dollars=c=>c/100;
+// Largest-remainder apportionment: splits integer totalC across [key,weight]
+// pairs in proportion to weight, floors each share, then gives the leftover
+// cents to the largest fractional parts (ties: earlier key). The shares always
+// sum to totalC exactly. With no positive total weight, totalC goes to key ''.
+function apportionC(totalC,weights){
+  const out={};
+  if(!totalC)return out;
+  const W=weights.reduce((s,[,w])=>s+w,0);
+  if(!(W>0)||!Number.isFinite(W)){out['']=totalC;return out;}
+  const parts=weights.map(([k,w],i)=>{const x=totalC*w/W,b=Math.floor(x+1e-9);return{k,i,b,f:x-b};});
+  let left=totalC-parts.reduce((s,p)=>s+p.b,0);
+  const order=[...parts].sort((a,b)=>b.f-a.f||a.i-b.i);
+  for(let j=0;left>0;j++,left--)order[j%order.length].b++;
+  parts.forEach(p=>{out[p.k]=(out[p.k]||0)+p.b;});
+  return out;
+}
 
 function computePricing(){
   const stats=getStats();
@@ -3783,26 +3806,35 @@ function computePricing(){
     const unitC=toCents(unit);
     const extC=centsOf(unit,qty);
     matCostC+=extC;
-    matLines.push({name:it.name,qty:it.qty,unit:it.unit,rateUnit,source:it.source,costKey,unitCost:dollars(unitC),ext:dollars(extC),unitCostC:unitC,extC});
+    matLines.push({name:it.name,qty:it.qty,unit:it.unit,rateUnit,source:it.source,costKey,unitCost:dollars(unitC),ext:dollars(extC),unitCostC:unitC,extC,sectionQty:it.sectionQty});
   });
 
   // ── 2. LABOR COST — $/LF by type (default) OR crew hours override ──
   let laborCostC=0; const laborLines=[];
+  const laborBySecC={}; // base labor cents per section (fence type)
   if(useHours){
     const crew=rate(LABOR.crewHourlyRate,'Crew hourly rate');
     const extC=centsOf(crew,hoursOverride);
     laborCostC+=extC;
+    // Crew hours are job-level: each section carries a share by its gross LF.
+    Object.assign(laborBySecC,apportionC(extC,Object.entries(stats.fence)));
     laborLines.push({label:`Crew labor (${hoursOverride}h × $${crew}/h)`,ext:dollars(extC),extC});
   }else{
     Object.entries(stats.netFence).forEach(([type,ft])=>{
       if(LABOR.perLF[type]===undefined||LABOR.perLF[type]===null)return;
       const r=rate(LABOR.perLF[type],`Labor $/LF for ${(FENCE_TYPES[type]||{}).label||type}`); if(!r)return;
-      const extC=centsOf(r,ft); laborCostC+=extC;
+      const extC=centsOf(r,ft); laborCostC+=extC; laborBySecC[type]=(laborBySecC[type]||0)+extC;
       laborLines.push({label:`${(FENCE_TYPES[type]||{}).label||type} labor (${ft.toFixed(0)} LF × $${r})`,ext:dollars(extC),extC});
     });
+    const gateUnitC={};
     Object.entries(stats.gates||{}).forEach(([gt,cnt])=>{
-      if(!cnt)return; const r=LABOR.gate[gt]!==undefined&&LABOR.gate[gt]!==null?rate(LABOR.gate[gt],`Gate labor for ${(GATE_TYPES[gt]||{}).label||gt}`):0; const extC=toCents(r)*cnt; laborCostC+=extC;
+      if(!cnt)return; const r=LABOR.gate[gt]!==undefined&&LABOR.gate[gt]!==null?rate(LABOR.gate[gt],`Gate labor for ${(GATE_TYPES[gt]||{}).label||gt}`):0; const extC=toCents(r)*cnt; laborCostC+=extC; gateUnitC[gt]=toCents(r);
       if(extC)laborLines.push({label:`${(GATE_TYPES[gt]||{}).label||gt} install (${cnt} × $${r})`,ext:dollars(extC),extC});
+    });
+    // Gate install labor belongs to the gate's owning run (stats.gates counts only owned gates).
+    S.elements.filter(el=>el.type==='gate').forEach(gate=>{
+      const owner=gateOwnerRun(gate); if(!owner)return;
+      const c=gateUnitC[gate.gateType||'walk']||0; if(c)laborBySecC[owner.fenceType]=(laborBySecC[owner.fenceType]||0)+c;
     });
   }
 
@@ -3832,6 +3864,23 @@ function computePricing(){
   const urbanAddC=ucUrban?Math.round(clientSubtotalC*siteAdderRate('urbanPct')/100):0;   // urban premium is pure margin
   const clientTotalC=clientSubtotalC+urbanAddC;
 
+  // ── 4b. CUSTOMER SECTIONS — each fence type's own client price (cents) ──
+  // A section's price is its own auto materials (by its share of each merged
+  // line's quantity), gates, labor, demo and grade (per its gross LF), hard dig
+  // (per its labor) and markup. Every split is largest-remainder, so the
+  // sections plus manual lines sum exactly to clientSubtotalC. Urban premium
+  // stays its own customer line. Key '' holds anything with no section.
+  const addC=(m,o)=>Object.entries(o).forEach(([k,c])=>{m[k]=(m[k]||0)+c;});
+  const byFt=Object.entries(stats.fence);
+  const secLabor={...laborBySecC};
+  const baseLaborW=Object.entries(secLabor);
+  addC(secLabor,apportionC(slopeCostC,byFt));
+  addC(secLabor,apportionC(hardDigCostC,baseLaborW));
+  const sectionCents={};
+  matLines.forEach(line=>{if(line.source!=='manual'&&line.clientExtC)addC(sectionCents,apportionC(line.clientExtC,Object.entries(line.sectionQty||{})));});
+  addC(sectionCents,apportionC(applyPctC(demoCostC,matPct),byFt));
+  addC(sectionCents,apportionC(laborPriceC,Object.entries(secLabor)));
+
   // ── 5. MARGIN — the number that matters ──
   const internalCostC=matCostC+laborCostC;        // demo/slope/harddig already folded in
   const profitC=clientTotalC-internalCostC;
@@ -3846,13 +3895,35 @@ function computePricing(){
     matPrice:dollars(matPriceC),laborPrice:dollars(laborPriceC),clientSubtotal:dollars(clientSubtotalC),
     urbanAdd:dollars(urbanAddC),clientTotal:dollars(clientTotalC),
     profit:dollars(profitC),marginPct,cents,
-    matLines,laborLines,unknown,invalidInputs,unitMismatch,unsupportedTypes,
+    matLines,laborLines,unknown,invalidInputs,unitMismatch,unsupportedTypes,sectionCents,
     zeroCostLines:matLines.filter(m=>m.unitCost===0).map(m=>m.name),
     isFinalReady:unknown.length===0 && invalidInputs.length===0 && unitMismatch.length===0 && unsupportedTypes.length===0 && matLines.every(m=>m.unitCost!==0) && !stats.unownedGates
       && Object.values(cents).every(Number.isFinite),
     hasData: bom.length>0 || laborCostC>0,
     flags:{ucDemo,ucSlope,ucUrban,ucHardDig,useHours,hoursOverride}
   };
+}
+
+// ── CUSTOMER DOCUMENT LINES — the single source for the panel client view and
+// the estimate PDF, so they cannot disagree. One row per fence section at its own
+// price (computePricing().sectionCents), then hand-added materials and the urban
+// premium as their own lines, as the estimate already listed them. Amounts are
+// shown in exact cents, so the displayed lines sum to the displayed total.
+const customerMoney=c=>`${c<0?'-':''}$${(Math.abs(c)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+function customerDocumentLines(P,stats){
+  const sec={...(P.sectionCents||{})},rows=[];
+  Object.entries(stats.fence||{}).forEach(([type,ft])=>{
+    const amountC=sec[type]||0; delete sec[type];
+    if(!(ft>0)&&!amountC)return;
+    const fdef=Object.prototype.hasOwnProperty.call(FENCE_TYPES,type)?FENCE_TYPES[type]:null;
+    rows.push({kind:'section',type,label:fdef?fdef.label:String(type),color:fdef?fdef.color:null,ft:ft>0?ft:0,amountC});
+  });
+  const otherC=Object.values(sec).reduce((s,c)=>s+c,0);
+  if(otherC)rows.push({kind:'other',label:'Other installation charges',amountC:otherC});
+  (P.matLines||[]).filter(l=>l.source==='manual').forEach(line=>rows.push({kind:'manual',label:line.name,line,amountC:line.clientExtC||0}));
+  if((P.flags&&P.flags.ucUrban)||P.cents.urbanAdd)rows.push({kind:'urban',label:'Urban/City Market Premium',amountC:P.cents.urbanAdd});
+  rows.forEach(r=>{r.amount=customerMoney(r.amountC);});
+  return{rows,totalC:P.cents.clientTotal,total:customerMoney(P.cents.clientTotal)};
 }
 
 function updatePricing(){
@@ -3879,12 +3950,13 @@ function updatePricing(){
       P.laborLines.forEach(l=>{breakdownHtml+=`<div class="stat-row"><span style="font-size:10px;color:var(--text2)">${esc(l.label)}</span><span class="stat-val">$${l.ext.toFixed(2)}</span></div>`;});
       breakdownHtml+=`<div class="stat-row" style="border-top:1px solid var(--border);padding-top:3px;margin-top:2px"><span style="font-size:10px;color:var(--text2)">Labor cost</span><span class="stat-val">$${P.laborCost.toFixed(2)}</span></div>`;
     }else{
-      // Client view — clean, by category, summarized
+      // Client view — the same customer lines as the estimate PDF (urban is in the totals)
       const stats=getStats();
-      Object.entries(stats.fence).forEach(([type,ft])=>{
-        const fdef=FENCE_TYPES[type]; if(!fdef||!ft)return;
-        const lfPrice=P.clientTotal* (ft / (stats.totalFt||1)); // proportional display only
-        breakdownHtml+=`<div class="stat-row"><span style="color:${fdef.color};font-size:10px">${fdef.label}<br><span style="color:var(--text3);font-size:10px">${ft.toFixed(1)} ft</span></span><span class="stat-val">$${lfPrice.toFixed(0)}</span></div>`;
+      customerDocumentLines(P,stats).rows.forEach(r=>{
+        if(r.kind==='urban')return;
+        const sub=r.kind==='section'?`${r.ft.toFixed(1)} ft`:r.kind==='manual'?`${r.line.qty} ${r.line.unit}`:'';
+        const amount=r.kind==='manual'&&r.line.clientUnitCost===null?'Not priced':r.amount;
+        breakdownHtml+=`<div class="stat-row"><span style="color:${r.color||'var(--text2)'};font-size:10px">${esc(r.label)}${sub?`<br><span style="color:var(--text3);font-size:10px">${esc(sub)}</span>`:''}</span><span class="stat-val">${amount}</span></div>`;
       });
       if(stats.gateTotal)breakdownHtml+=`<div class="stat-row"><span style="color:#F5A623;font-size:10px">Gates<span style="color:var(--text3)"> · ${stats.gateTotal}</span></span></div>`;
     }
@@ -3906,10 +3978,10 @@ function updatePricing(){
       tHtml+=`<div class="stat-row"><span style="color:var(--text3);font-size:10px">↳ labor</span><span style="color:var(--text3);font-size:10px">${mc(P.laborCost)}</span></div>`;
       tHtml+=`<div class="stat-row"><span style="color:var(--text2)">Profit</span><span class="stat-val" style="color:#5FBF7F">${mc(P.profit)}</span></div>`;
     }
-    if(P.urbanAdd>0)tHtml+=`<div class="stat-row"><span style="color:var(--text3);font-size:10px">Urban premium (+${siteAdderRate('urbanPct')}%)</span><span style="color:var(--text3);font-size:10px">+${mc(P.urbanAdd)}</span></div>`;
+    if(P.urbanAdd>0)tHtml+=`<div class="stat-row"><span style="color:var(--text3);font-size:10px">Urban premium (+${siteAdderRate('urbanPct')}%)</span><span style="color:var(--text3);font-size:10px">+${customerMoney(P.cents.urbanAdd)}</span></div>`;
     tHtml+=`<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:5px">
       <div style="color:var(--text2);font-weight:700;font-size:10px;letter-spacing:.08em">${showCost?'CLIENT PRICE':'ESTIMATE'}</div>
-      <div class="stat-val" style="color:var(--accent);font-weight:800;font-size:30px;line-height:1.1;margin-top:2px">${mc(P.clientTotal)}</div>
+      <div class="stat-val" style="color:var(--accent);font-weight:800;font-size:30px;line-height:1.1;margin-top:2px">${customerMoney(P.cents.clientTotal)}</div>
     </div>`;
     // LIVE MARGIN — always visible, color-graded
     const mCol = P.marginPct>=40?'#5FBF7F':P.marginPct>=25?'#E8C03D':'#E8703D';
@@ -4640,11 +4712,8 @@ function exportEstimatePDF(){
   const ucSlope=document.getElementById('uc-slope')?.checked;
   const ucUrban=document.getElementById('uc-urban')?.checked;
   const ucHardDig=document.getElementById('uc-harddig')?.checked;
-  // Client-facing LF price: installation subtotal excluding separately listed
-  // manual materials, distributed across runs by length.
-  const manualMatLines=P.matLines.filter(line=>line.source==='manual');
-  const manualClientTotal=manualMatLines.reduce((sum,line)=>sum+line.clientExt,0);
-  const clientPerLF = (stats.totalFt>0)? (P.clientSubtotal-manualClientTotal)/stats.totalFt : 0;
+  // Customer lines (shared with the panel): each section at its own price.
+  const docLines=customerDocumentLines(P,stats);
 
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'letter'});
   const PW=216,PH=279;
@@ -4714,36 +4783,34 @@ function exportEstimatePDF(){
     y+=rowH;
   };
 
-  // Fence line items — client price distributed by length (LF-summarized)
-  Object.entries(stats.fence).forEach(([type,ft])=>{
-    const fdef=FENCE_TYPES[type];
-    if(!fdef||!ft)return;
+  // Fence line items — each section at its own price (materials, gates, labor,
+  // demo/grade/hard dig, markup); $/LF is that section's amount over its LF.
+  docLines.rows.filter(r=>r.kind==='section').forEach(({type,label,ft,amountC,amount})=>{
     let notes='';
     if(ucDemo)notes+=' + Demo';
     if(ucSlope)notes+=' + Grade';
-    const lineTotal=clientPerLF*ft;
     addRow(
       `${ft.toFixed(1)} LF`,
-      `${fdef.label} Installation${notes}${(()=>{const hs=[...new Set(S.elements.filter(r=>r.type==='fence'&&r.fenceType===type).map(r=>hydrateRunSpecs(r.specs).heightIn))];return hs.length===1?` (${hs[0]}\" H)`:hs.length>1?` (Mixed heights: ${hs.join(', ')}\")`:'';})()}`,
-      `$${clientPerLF.toFixed(2)}/LF`,
-      `$${lineTotal.toFixed(0)}`
+      `${label} Installation${notes}${(()=>{const hs=[...new Set(S.elements.filter(r=>r.type==='fence'&&r.fenceType===type).map(r=>hydrateRunSpecs(r.specs).heightIn))];return hs.length===1?` (${hs[0]}\" H)`:hs.length>1?` (Mixed heights: ${hs.join(', ')}\")`:'';})()}`,
+      ft>0?`${customerMoney(Math.round(amountC/ft))}/LF`:'',
+      amount
     );
   });
+  docLines.rows.filter(r=>r.kind==='other').forEach(r=>addRow('1',r.label,'',r.amount));
 
   // Hand-added materials are priced in the same material loop and listed
   // separately so every cost included in the total is visible to the recipient.
-  manualMatLines.forEach(line=>{
+  docLines.rows.filter(r=>r.kind==='manual').forEach(({line,amount})=>{
     const priced=line.clientUnitCost!==null;
     addRow(
       `${line.qty} ${line.unit}`,
       line.name,
       priced?`$${line.clientUnitCost.toFixed(2)}/${line.unit}`:'Not priced',
-      priced?`$${line.clientExt.toFixed(2)}`:'Not priced'
+      priced?amount:'Not priced'
     );
   });
 
-  // Gates — per type, at marked-up client cost (rolled into clientSubtotal already;
-  // shown here as descriptive line, priced into the per-LF distribution above)
+  // Gates — descriptive line; each gate is priced in its owning run's section above
   if(stats.gateTotal){
     const walks=stats.gates.walk||0,dbl=stats.gates.doubledrive||0,cant=stats.gates.cantilever||0;
     let gateDesc=[];
@@ -4754,7 +4821,7 @@ function exportEstimatePDF(){
   }
 
   // Upcharges
-  if(ucUrban)addRow('1','Urban/City Market Premium',`${siteAdderRate('urbanPct')}%`,`+$${P.urbanAdd.toFixed(0)}`);
+  docLines.rows.filter(r=>r.kind==='urban').forEach(r=>addRow('1',r.label,`${siteAdderRate('urbanPct')}%`,`+${r.amount}`));
   if(ucHardDig)addRow('1','Hard Dig / Equipment Required','Est.','Included');
 
   // ── TOTALS ──
@@ -4765,7 +4832,7 @@ function exportEstimatePDF(){
   doc.setFillColor(28,28,28);doc.rect(ML,y,tableW,9,'F');
   doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(...ACC);
   doc.text('ESTIMATE TOTAL',ML+4,y+6);
-  doc.text(P.pricingUnavailable?'NOT CALCULATED':`$${P.clientTotal.toFixed(0)}`,PW-MR-2,y+6,{align:'right'});
+  doc.text(P.pricingUnavailable?'NOT CALCULATED':docLines.total,PW-MR-2,y+6,{align:'right'});
   y+=14;
 
   // Deposit line
