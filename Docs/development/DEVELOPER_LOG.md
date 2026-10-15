@@ -631,3 +631,30 @@ Append one entry for every development session. Preserve prior entries.
   baseline and forecast. Its C0 evidence is in the predecessor task's worktree;
   the later repair results and revised forecast belong to the repair checkpoint.
   No new runtime test run is claimed.
+
+## 2026-10-15 — Market readiness assessment: approved closeout
+
+- Owner approved the three-branch commit/validate/push sequence; no PRs are authorized.
+- Task implementation commit: `089957fce8fcdc0dcfa594c70c2ff85c0f353eb7` on `codex/market-readiness-assessment`. This entry is in its
+  direct documentation-closeout child. Only the task's own files/log addition were
+  introduced; predecessor work is inherited through the ordered branch stack.
+- Fresh gate: `npm test` 172/172, persistence matrix 12/12,
+  `git diff --check` PASS. Timestamp: `2026-10-15T18:44:20+00:00`.
+- Test command: `NODE_OPTIONS=--require=/tmp/fencebound-pinned-jspdf.cjs npm test`. Matrix command: `node scripts/cad-persistence-matrix.js`.
+  Scratch-only verified jsPDF 2.5.1 transport; configuration/assertions unchanged. See handoff for artifact hash and CDN limitation.
+- Validation qualification: The first full run on this same commit passed 171/172; R9's null-start
+export test captured `Cannot read properties of null (reading 'x')`. The unchanged
+case then passed three isolated repeats, and the final full-suite rerun passed
+172/172 with the transport setup described above. An intervening ordinary run was
+stopped after CDN-related page-load timeouts: 84 passed, 2 failed, 1 interrupted,
+85 not run. Direct CDN requests also timed out while the local server returned 200.
+No runtime or test edits were made between attempts. The original R9 failure was
+intermittent in these runs; its trigger was not established or repaired in this
+documentation task. Logs: `/tmp/fencebound-closeout-assessment-tests-first.log`
+and `/tmp/fencebound-closeout-assessment-r9-recheck.log`; interrupted run:
+`/tmp/fencebound-closeout-assessment-tests-cdn-interrupted.log`.
+- Task-specific files, historical red/green evidence where applicable, limitations,
+  and validation artifacts are recorded in `Docs/handoffs/2026-10-15__market-readiness-assessment-closeout.md`.
+- Independent task/boundary review found no unresolved blocking finding. State and
+  current/archive handoffs now describe this tested branch. Push and initialization
+  are verified live after this metadata commit; earlier pending/local status is historical.

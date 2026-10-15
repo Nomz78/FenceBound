@@ -2,10 +2,10 @@
   "$schema": "./CURRENT_STATE.schema.json",
   "stateSchemaVersion": 1,
   "project": "FenceBound",
-  "repository": "/Users/altairus78/Developer/fencebound-c0-review",
-  "branch": "codex/counting-c0",
-  "head": "0a0f43e585f000734b8304c8cdd572900227c1b7",
-  "upstream": "origin/codex/counting-c0",
+  "repository": "/Users/altairus78/Developer/fencebound-readiness-review",
+  "branch": "codex/market-readiness-assessment",
+  "head": "089957fce8fcdc0dcfa594c70c2ff85c0f353eb7",
+  "upstream": "origin/codex/market-readiness-assessment",
   "worktreeClean": true,
   "canonicalRuntime": "index.html",
   "applicationVersion": "5.4.0",
@@ -22,25 +22,35 @@
   "developmentIndex": "index.html#FenceboundCAD-Development-Index",
   "projectInstructions": "PROJECT-INSTRUCTIONS.md",
   "currentHandoff": "Docs/CURRENT_HANDOFF.md",
-  "lastCompletedTask": "Added a cited hardware reference and comparison of all 142 existing golden BOM rows across 14 types. No runtime or test changes. Strict C0 completion remains blocked by missing product/source evidence and owner choices.",
-  "activeTask": "Review the C0 evidence gaps and product choices. Do not treat conditional source mismatches as authorization for C0b. Assessment and repairs are separately authorized downstream branches.",
+  "lastCompletedTask": "Added the market-readiness assessment, proposed acceptance gates, capability rubric, and original effort estimate. This records the pre-repair baseline; it does not approve a release or amend field doctrine.",
+  "activeTask": "The separately authorized four-defect repair package continues on codex/market-readiness-repairs. C0b counts and C1 packs/order quantities are not implemented.",
   "nextOwnerDecision": "C0 named product/assembly choices and unresolved source evidence; footing depths past 42 in.; vinyl split-rail default height; collinear joint post (CAD-06); line-post concrete; residential post stock lengths; truss rods/sleeves/bolts; NC sales-tax treatment (CPA/NC DOR); v6.0 engine authorization; mid/bottom rail ties; under-6 ft depth editability; session:init merge handling. O-6 remains unresolved.",
-  "repositoryHeadAtGeneration": "0a0f43e585f000734b8304c8cdd572900227c1b7",
-  "testedHead": "0a0f43e585f000734b8304c8cdd572900227c1b7",
+  "repositoryHeadAtGeneration": "089957fce8fcdc0dcfa594c70c2ff85c0f353eb7",
+  "testedHead": "089957fce8fcdc0dcfa594c70c2ff85c0f353eb7",
   "closeoutConvention": "The current HEAD may be one direct documentation-only closeout child of head; see START_HERE.md.",
   "gate": {
     "status": "PASS",
-    "command": "npm test; node scripts/cad-persistence-matrix.js; git diff --check",
-    "timestamp": "2026-10-15T18:24:44+00:00",
-    "head": "0a0f43e585f000734b8304c8cdd572900227c1b7",
+    "command": "NODE_OPTIONS=--require=/tmp/fencebound-pinned-jspdf.cjs npm test; node scripts/cad-persistence-matrix.js; git diff --check",
+    "timestamp": "2026-10-15T18:44:20+00:00",
+    "head": "089957fce8fcdc0dcfa594c70c2ff85c0f353eb7",
     "results": {
-      "npm test": "172/172 passed, including PDF tests; ordinary repository configuration",
+      "npm test": "172/172 passed, including PDF tests; same repository configuration with scratch routing of verified jsPDF 2.5.1",
       "node scripts/cad-persistence-matrix.js": "12/12 passed",
       "git diff --check": "PASS"
     },
     "artifacts": {
-      "tests": "/tmp/fencebound-closeout-c0-tests.log",
-      "matrix": "/tmp/fencebound-closeout-c0-matrix.log"
+      "tests": "/tmp/fencebound-closeout-assessment-tests.log",
+      "matrix": "/tmp/fencebound-closeout-assessment-matrix.log"
+    },
+    "transport": "The repository test configuration and all assertions are unchanged. A scratch-only\nNode preload routes the exact existing cdnjs jsPDF 2.5.1 URL to the same pinned\nversion's real npm UMD library after direct CDN requests timed out. The npm tarball\nSHA-512 was verified against registry version metadata. UMD bytes: 364463; SHA-256:\n`98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875`.\nNo runtime, test, dependency, or lockfile edits implement this transport workaround.\nScratch wrapper: `/tmp/fencebound-pinned-jspdf.cjs`; verification:\n`/tmp/fencebound-jspdf-evidence.json`. This gate validates actual PDF behavior with\nthe pinned library, but does not establish availability of the external CDN or\noffline product delivery. Routing can alter browser cache/timing; a pass does not\nestablish that the earlier intermittent R9 pageerror is fixed.",
+    "priorAttempts": {
+      "initialFullRun": "171/172; R9 null-start export captured a null x pageerror",
+      "unchangedIsolatedRepeat": "3/3 passed",
+      "initialLog": "/tmp/fencebound-closeout-assessment-tests-first.log",
+      "repeatLog": "/tmp/fencebound-closeout-assessment-r9-recheck.log",
+      "interruptedOrdinaryRun": "84 passed, 2 navigation timeouts, 1 interrupted, 85 not run; CDN requests stalled",
+      "interruptedLog": "/tmp/fencebound-closeout-assessment-tests-cdn-interrupted.log",
+      "limitation": "Intermittent failure observed; no root-cause fix claimed in this documentation task."
     }
   },
   "knownDrift": [
