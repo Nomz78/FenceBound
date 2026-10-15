@@ -544,3 +544,6 @@ Append one entry for every development session. Preserve prior entries.
   drawing. R9 was red 3/3 and is green 3/3; no expectation changed. **Full suite with jsPDF
   routed: 172/172.** Matrix 12/12; R15 stays 28692. The earlier entry's note that these 3
   failures were older than this session was wrong: they were regressions from this session.
+- **Session closeout:** Step 1 complete; full suite 172/172 including PDF tests (cdnjs routed to
+  npm jspdf@2.5.1 in a scratch wrapper), matrix 12/12. CURRENT_HANDOFF and CURRENT_STATE updated;
+  prior handoff preserved in `Docs/handoffs/2026-10-15__field-hole-depths-closeout.md`.

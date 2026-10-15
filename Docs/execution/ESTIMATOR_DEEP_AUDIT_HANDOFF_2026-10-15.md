@@ -41,3 +41,9 @@ Start from `claude/focused-bell-rirwad`. Read `Docs/research/2026-10-15_estimato
 in full, then report 01 §2 F1–F2 and report 02 §3 F-1/F-2. After the owner approves a new R15,
 begin Step 1.1 (exact-key pricing) with a red-before test. Repro scripts in that folder must be
 copied outside the working tree before running.
+
+## Addendum — Step 1 repairs completed
+
+The owner approved the new R15, editable add-ons and the fixes the same day. All six Step 1
+repairs landed on this branch; final gate 172/172 (PDF tests via scratch jsPDF routing) and
+matrix 12/12 at `ea67c4ed9d2b47380032fe7875a724a2084bb6e1`. Current state lives in `Docs/CURRENT_HANDOFF.md`.

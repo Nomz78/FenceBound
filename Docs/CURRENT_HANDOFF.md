@@ -1,88 +1,64 @@
 # FenceBound current handoff
 
 <!-- SESSION_METADATA
-generatedAt: 2026-10-03T19:06:08Z
+generatedAt: 2026-10-15
 repositoryRoot: ~/Desktop/FenceBound
-branch: fix/field-hole-depths
-testedHead: cdbb36656ab9e59d07f3fe7ffe98b79bc7f0c908
-repositoryHeadAtGeneration: cdbb36656ab9e59d07f3fe7ffe98b79bc7f0c908
-upstream: origin/fix/field-hole-depths
+branch: claude/focused-bell-rirwad
+testedHead: ea67c4ed9d2b47380032fe7875a724a2084bb6e1
+repositoryHeadAtGeneration: ea67c4ed9d2b47380032fe7875a724a2084bb6e1
+upstream: origin/claude/focused-bell-rirwad
 worktreeClean: true
 canonicalRuntime: index.html
 applicationVersion: 5.4.0
 schemaVersion: 3
 gateStatus: PASS
-gateHead: cdbb36656ab9e59d07f3fe7ffe98b79bc7f0c908
+gateHead: ea67c4ed9d2b47380032fe7875a724a2084bb6e1
 -->
 
-Verified 2026-10-03 in `/Users/altairus78/Developer/fencebound-codex` on
-`fix/field-hole-depths`. Canonical repository identity remains `~/Desktop/FenceBound`;
-`index.html` is the canonical runtime. This is one documentation-only closeout child of
-the tested implementation above, under the two-commit convention in `START_HERE.md`.
+Verified 2026-10-15 in a Claude cloud container on `claude/focused-bell-rirwad`
+(started from main `82a148f`). Not yet merged to main; no PR opened. The previous
+handoff is preserved verbatim in `Docs/handoffs/2026-10-15__field-hole-depths-closeout.md`.
 
-## Verified implementation and merged work
+## Completed this session
 
-- **#6 — integer-cents pricing:** demo cost restored; “Add a material” remains staged until Save.
-- **#8 — 168 LF fixture:** uses the authoritative house-terminated geometry and per-end
-  hardware. Unchecked Top Rail stops ordering rail and sleeves.
-- **#9 — owner defaults:** 4 ft chain link with top rail and bottom wire, 2-1/2" terminals
-  and 1-5/8" line posts. Per fabric end: height in feet minus 1 tension bands;
-  1 brace band + 1 cup per rail; 1 brace band per tension wire or barbed strand.
-- **#10 — auto-post repair:** merged; the September pending-repair claim is superseded.
-- **#11 — fastening and rulings:** 5 ties per bay per rail; 5 hog rings per bay per tension
-  wire or razor ribbon; height in feet minus 1 ties per line post. The truss-rod connector
-  is bought separately. FenceBound doesn't set prices; contractors supply their prices.
-- **This branch — hole depths:** under 6 ft, line posts 18", terminal/corner/gate posts 24";
-  6 ft and taller, line posts 24", terminal/corner/gate posts 30". Per-run depth overrides
-  remain available. **R15 = 31122 cents ($311.22).**
+1. **Deep audit** — `Docs/research/2026-10-15_estimator-audit/` (`00-SUMMARY.md` first):
+   pricing, takeoff and CAD audits (~55 confirmed bugs) and research on commercial fence
+   estimators, contractor pricing/NC tax, and estimating-engine architecture. Not canonical.
+2. **Step 1 defect repairs** (owner: "approve new R15, make add-ons editable, start the fixes"),
+   each with a red-before/green-after test:
+   - exact-key pricing `efd2b5b`, `144d0a9` — concrete priced as concrete; split shared keys
+     keep customised prices; **R15 = 28692 cents** (was 31122, owner-approved);
+   - editable site upcharges `5f4241a` — demo, slope, hard dig, urban are rate-card values;
+   - input boundary validation `f41b5f0`; gate/run ownership `ee08eae`, `90527a0`;
+   - job-state isolation `ef58957`, `3977725`;
+   - takeoff counts `d481612`…`4813e49`, golden BOMs for all 14 types `d5a025f`,
+     face-board migration `402742d`;
+   - customer section prices from own costs, panel = PDF `37cdd86`;
+   - R9 hostile-input regression (from `f41b5f0`/`ee08eae`) restored `5b9e99e`.
+   Every moved BOM quantity is listed in its commit body and the developer log.
 
 ## Verification
 
-At `cdbb36656ab9e59d07f3fe7ffe98b79bc7f0c908`, completed `2026-10-03T19:06:08Z`:
+- `npm test`: **172/172**, including PDF tests. The cloud proxy blocks cdnjs, so jsPDF 2.5.1
+  was served from an npm copy through a scratch-only Playwright wrapper (no repo change);
+  re-run on the owner machine to confirm with the real CDN.
+- `node scripts/cad-persistence-matrix.js`: **12/12**. `git diff --check` clean.
 
-- `npm test`: **96/96 passed**, full suite including PDF tests.
-- `node scripts/cad-persistence-matrix.js`: **12/12 passed**.
-- The 168 LF fixture reported no asserted quantity deltas; R15 reported 31122 cents.
-- Test output is under ignored `test-results/`; persistence results were emitted to the console.
-- `git diff --check` is the final documentation check before commit/push.
+## Open owner decisions
 
-## Known defects and drift
+Gate posts/concrete/kits for non-chain-link types (currently chain-link parts); footing depths
+past 42" (extrapolated); vinyl split-rail default height; CAD-06 collinear joint; line-post
+concrete; residential stock lengths; truss rods, sleeves, bolts; NC sales tax (CPA/NC DOR);
+authorize v6.0 engine (Step 2) and CAD parity (Step 3); earlier open items (rail ties,
+under-6 ft depth editability, session:init merge handling, O-6).
 
-The auto-post and “168 LF versus fixture” entries are removed from `CURRENT_STATE.json`.
-All other carried defects remain there, including the separate installation/submittal depth
-model, D6/D7, persistence/import limitations and pale PDF accents.
+## Known limits carried
 
-`session:init` reports PR merge commits as drift because its closeout check accepts only a
-direct allowlisted documentation child. The existing governance-file allowlist limitation
-also remains recorded. `scripts/session-init.js` was not edited.
-
-Playwright 1.40.1 has npm audit advisory **GHSA-7mvr-c777-76hp**. Upgrade is deferred because
-newer Playwright does not support macOS Catalina; dependencies remain unchanged.
-
-Authority contradictions remain visible: the embedded Development Index is stale;
-`CLAUDE.md` and `SOURCE_OF_TRUTH.md` retain older authority ordering and supplement listings
-than `START_HERE.md`. This closeout follows the current Tier 1 workflow and owner task;
-it does not revise those authority documents. System Atlas and O-6 drift remain indexed.
-
-## Open questions and next task
-
-1. **Next task: residential post purchase lengths.** Establish the available residential
-   stock lengths and owner-approved selection rules. Schedule 40 is commercial; full sticks
-   are cut to length. The runtime still uses 10.5 ft terminal and 9 ft line purchase lengths
-   at every height. Obtain the stock-length ruling before implementation.
-2. Should mid/bottom rails get ties? Currently yes, under the per-rail rule.
-3. Should the under-6 ft hole-depth defaults be editable? Per-run overrides currently work;
-   the cost-editor rate-card depth fields apply to the 6 ft+ tier.
-4. Should `session:init` be fixed to recognize PR merge commits? Deferred; no script change.
-
-The September 18 handoff is preserved verbatim as history in
-`Docs/handoffs/2026-10-03__takeoff-field-rules.md`. Its pending work and prior test counts
-are historical evidence, not current task instructions. Retail-reference research and
-EIN-free software comparison remain historical proposals outside this closeout's scope.
+Undo of Clear restores only the drawing. A gate across a joint between two collinear runs is
+an orphan. Saved jobs with a post inside a gate opening are corrected on the next edit of that
+run. CSV comma-decimal prices are rejected, not guessed. See `CURRENT_STATE.json`.
 
 ## Restart
-
-Run `initiate repo` from this checkout, then the FenceBound initialization check:
 
 ```bash
 npm run session:init
@@ -91,16 +67,16 @@ npm run session:init
 <!-- BOOTSTRAP_START -->
 FENCEBOUND FRESH SESSION BOOTSTRAP
 
-Repository: ~/Desktop/FenceBound (verification checkout: /Users/altairus78/Developer/fencebound-codex)
-Branch: fix/field-hole-depths
-Verified HEAD: cdbb36656ab9e59d07f3fe7ffe98b79bc7f0c908 (implementation; one docs-only closeout child permitted)
+Repository: ~/Desktop/FenceBound (this work: branch claude/focused-bell-rirwad, not yet on main)
+Branch: claude/focused-bell-rirwad
+Verified HEAD: ea67c4ed9d2b47380032fe7875a724a2084bb6e1 (docs-only closeout child permitted)
 Canonical runtime: index.html (5.4.0)
 Schema: 3
 Authority: tested source/runtime → frozen Engineering Bible + supplements → System Atlas → Development Index → current handoff/state → history
-Last completed: Verified merged #6/#8/#9/#10/#11 rules and this branch's height-based hole depths; R15 = 31122 cents. Full suite 96/96 and persistence matrix 12/12 passed.
-Active next task: Residential post purchase lengths; confirm owner stock lengths and schedule-40 commercial selection before implementation.
-Owner decisions required: Residential stock lengths; mid/bottom rail ties (currently yes); under-6 ft depth editability; session:init merge handling. O-6 remains unresolved.
-Known defects or drift: See CURRENT_STATE.json; session:init reports PR merge commits as drift; Playwright advisory GHSA-7mvr-c777-76hp upgrade deferred for Catalina compatibility.
-Required reading: AGENTS.md, START_HERE.md, Docs/CURRENT_HANDOFF.md, CURRENT_STATE.json, PROJECT-INSTRUCTIONS.md, then task-relevant authority.
+Last completed: 2026-10-15 audit + Step 1 defect repairs (exact-key pricing, editable upcharges, input validation, gate ownership, job isolation, takeoff counts, section prices). R15 = 28692. Full suite 172/172, matrix 12/12.
+Active next task: Owner rulings on open takeoff questions; then v6.0 engine authorization per Docs/research/2026-10-15_estimator-audit/00-SUMMARY.md.
+Owner decisions required: see "Open owner decisions" above.
+Known defects or drift: See CURRENT_STATE.json; branch not merged to main.
+Required reading: AGENTS.md, START_HERE.md, Docs/CURRENT_HANDOFF.md, CURRENT_STATE.json, PROJECT-INSTRUCTIONS.md, Docs/research/2026-10-15_estimator-audit/00-SUMMARY.md.
 Required gate: npm run session:init; npm test (including PDF tests); node scripts/cad-persistence-matrix.js; git diff --check.
 <!-- BOOTSTRAP_END -->
