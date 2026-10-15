@@ -516,3 +516,20 @@ Append one entry for every development session. Preserve prior entries.
   `migrateRunOwnership`) a Split + Face Board run without a user-set flag gets its face board
   back; a user-unchecked flag stays off. T9: red on `00ecaab` (272520 for 288396 cents), green.
   Gate 141 passed / 29 jsPDF-only excluded; matrix 12/12; R15 stays 28692.
+- **Customer documents (audit F7/F16, directive step 1.6), `37cdd86`:** each section's amount on
+  the panel client view and the estimate PDF now comes from its own costs. Merged BOM lines keep
+  `sectionQty` per fence type, and gates go to their owning run. `computePricing().sectionCents`
+  holds each section's materials, gate and $/LF labor, demo and grade (by its gross LF), hard dig
+  (by its labor) and markup. Each split uses largest-remainder integer cents (`apportionC`).
+  Crew-hours labor is job-level and is shared by gross LF. Urban premium and manual materials stay
+  their own lines, as the PDF already listed them. `customerDocumentLines(P,stats)` feeds both
+  documents. Amounts are shown in exact cents: R16 already required cents on manual lines, and with
+  cents the lines sum to the total without any re-rounding. Repro: ornamental was shown at the
+  blended $1,644.78 and now shows its own $2,493.47. CDS1–2 were red on `6381d74` and are green
+  now. No pricing value changed, R15 stays 28692, and no existing expectation moved.
+  **First full run including jsPDF:** a scratch-only wrapper (one `*.wrap.js` per spec, adding a
+  `context.route` for the cdnjs jsPDF 2.5.1 URL to an npm `jspdf@2.5.1` UMD file, then
+  `require` of the repo spec) ran 172 tests: 169 passed and 3 failed. All 3 are pre-existing
+  failures of R9 (`persistence-integrity` ×3: null start throws in `validateProject`; the
+  constructor/toString types no longer produce `PRICING_RUNTIME`). They fail the same way on
+  `6381d74`. Not repaired here. Matrix 12/12; `git diff --check` clean.
