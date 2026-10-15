@@ -467,4 +467,12 @@ Append one entry for every development session. Preserve prior entries.
   Not done: Undo of Clear restores the drawing but not the loaded pricing/upcharges (it cannot
   overwrite another job: `jobId` is cleared); Clear still keeps job name/customer and manual
   materials; the grade selector still auto-checks the slope box (F6 item 3); legacy saved jobs
-  without `id` re-save as "Name (2)".
+  without `id` re-save as "Name (2)". (Both job-identity items repaired in the follow-up below.)
+- **Job identity follow-up (`3977725`):** `ensureSavedJobIds()` gives each saved job without an `id`
+  (every record saved before `ef58957`) a stable unique id and persists it, at startup and before a
+  job loads, so load → Save updates it in place. Clear now also resets the job name, customer,
+  address, notes and manual materials (`S.materials`, a pricing leak otherwise); the existing
+  confirm is kept. Undo of Clear restores the drawing only; `jobId` stays cleared, so Save makes a
+  new record and cannot overwrite the old job (test 8 checks the stored record is byte-identical).
+  Tests 7–8: 2/2 red on `c7d21f8`, 2/2 green. Suite 118 passed / 29 jsPDF-only (baseline set);
+  matrix 12/12; `git diff --check` clean; R15 stays 28692.
