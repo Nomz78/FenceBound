@@ -706,3 +706,24 @@ and `/tmp/fencebound-closeout-assessment-r9-recheck.log`; interrupted run:
 - **Separation verification:** Exact task file sets, isolated log additions, byte
   preservation, and patch/whitespace checks passed across the three worktrees.
   Independent read-only review found no blocking issue after path/status clarifications.
+
+## 2026-10-15 — Market-readiness software repairs: approved closeout
+
+- Owner approved the three-branch commit/validate/push sequence; no PRs are authorized.
+- Task implementation commit: `25f0cd917e1b5d3304510921d498630a3939e1a7` on `codex/market-readiness-repairs`. This entry is in its
+  direct documentation-closeout child. Only the task's own files/log addition were
+  introduced; predecessor work is inherited through the ordered branch stack.
+- Fresh gate: `npm test` 187/187, persistence matrix 12/12,
+  `git diff --check` PASS. Timestamp: `2026-10-15T18:51:39+00:00`.
+- Test command: `NODE_OPTIONS=--require=/tmp/fencebound-pinned-jspdf.cjs npm test`. Matrix command: `NODE_OPTIONS=--require=/tmp/fencebound-pinned-jspdf.cjs node scripts/cad-persistence-matrix.js`.
+  Scratch-only verified jsPDF 2.5.1 transport; configuration/assertions unchanged. See handoff for artifact hash and CDN limitation.
+- Validation qualification: The predecessor assessment's initial R9 pageerror and CDN-interrupted run are
+preserved in `Docs/handoffs/2026-10-15__market-readiness-assessment-closeout.md`.
+The current passing gate does not establish that the earlier intermittent error's
+unconfirmed trigger is fixed. No new runtime or test edits were made during this
+closeout; their bytes match the previously reviewed repair checkpoint.
+- Task-specific files, historical red/green evidence where applicable, limitations,
+  and validation artifacts are recorded in `Docs/handoffs/2026-10-15__market-readiness-repairs-closeout.md`.
+- Independent task/boundary review found no unresolved blocking finding. State and
+  current/archive handoffs now describe this tested branch. Push and initialization
+  are verified live after this metadata commit; earlier pending/local status is historical.
