@@ -597,3 +597,37 @@ Append one entry for every development session. Preserve prior entries.
 - Independent task/boundary review found no unresolved blocking finding. State and
   current/archive handoffs now describe this tested branch. Push and initialization
   are verified live after this metadata commit; earlier pending/local status is historical.
+
+## 2026-10-15 — Market readiness experiment and completion estimate
+
+- **Owner direction:** Assess the path to a market-ready program, including pricing,
+  inventory/takeoff, autofill and parameters, assuming no further owner field knowledge
+  beyond the repository and public sources. First milestone is a contractor pilot with
+  manual onboarding; the wider applicable repository scope remains the later goal.
+  Owner explicitly confirmed no in-product AI/API pulls: AI is a development tool only.
+- **Deliverable:** `Docs/research/2026-10-15_market-readiness.md`, a research assessment
+  with a weighted capability rubric, current counterexamples, source/field limitations,
+  proposed acceptance gates and cumulative effort ranges. Scope and percentages are
+  planning judgments, not release approval or amendments to field doctrine.
+- **Observed:** Four HTTP browser counterexamples: automatic LF quantities accept a
+  roll price without a mismatch warning; JSON price import can overwrite company prices
+  with loaded-job prices; failed portable import partially changes the active job;
+  sub-cent hardware prices are rounded before extension. Parameter probes also expose
+  panel/bay incompatibility and inherited vinyl ranch height.
+- **Validation:** Unchanged runtime at `424750b`: `npm test` 172/172 (6.7 minutes,
+  ordinary HTTP/PDF configuration); persistence matrix 12/12; additional 140-case
+  consistency experiment 700/700 checks. These passes do not negate the counterexamples
+  or independently establish manufacturer assembly correctness. Scratch probes/logs
+  remain under `/tmp/fencebound-readiness-*` and `/tmp/fencebound-market-readiness-*`.
+- **Review:** Independent review checked scope, evidence qualifications, score and
+  calendar arithmetic. Repaired its schedule finding by making the five-day experiment
+  a ranked timebox rather than a guaranteed complete batch. Estimates remain judgment.
+- **Preservation at assessment completion:** Existing C0 reference and prior developer-log entry preserved.
+  No runtime, test, price, dependency, doctrine or release-state changes; no commit,
+  push, PR or deployment. Existing session-init metadata drift remains explicit.
+- **Task separation on continuation:** The assessment and this log addition are now
+  isolated in `/Users/altairus78/Developer/fencebound-readiness-review` on
+  `codex/market-readiness-assessment`. The report preserves its original pre-repair
+  baseline and forecast. Its C0 evidence is in the predecessor task's worktree;
+  the later repair results and revised forecast belong to the repair checkpoint.
+  No new runtime test run is claimed.
