@@ -786,13 +786,37 @@ function runGateLayout(run){
   if(L-cur>GATE_ON_RUN_TOL)sections.push([cur,L]);
   return{L,spans,sections,openingPx};
 }
-// Re-bind a gate after it is drawn, moved or pasted: it belongs to the run it
-// now lies on, or to none. Returns the previous and current owning runs.
-function rebindGate(gate){
+// Seating: a coarse snap lands gate edges up to snapFt*0.71 ft off a diagonal run.
+// A gate aimed at a run (both edges within reach of its line, within 45 degrees of
+// it, and inside its span once projected) is projected onto the line, so the
+// stored gate passes the strict GATE_ON_RUN_TOL test whatever the snap later is.
+function gateSeatReach(snapFt){return Math.max(GATE_ON_RUN_TOL,(snapFt||1)*GRID_FT*Math.SQRT1_2);}
+function seatGateOnRun(gate,run,reach){
+  const ax=run?.start&&run?.end?runAxis(run):null;
+  if(!ax||!gate?.start||!gate?.end||ax.off(gate.start)>reach||ax.off(gate.end)>reach)return null;
+  const a=ax.along(gate.start),b=ax.along(gate.end),w=dist(gate.start,gate.end);
+  if(!(w>0)||Math.abs(b-a)<w*Math.SQRT1_2)return null;
+  const at=sv=>({x:run.start.x+ax.ux*sv,y:run.start.y+ax.uy*sv});
+  const seated={start:at(a),end:at(b),off:Math.max(ax.off(gate.start),ax.off(gate.end))};
+  return gateSpanOnRun(seated,run)?seated:null;
+}
+// Re-bind a gate after it is drawn, moved, pasted or loaded: it belongs to the
+// run it lies on, or is seated onto the nearest run it was aimed at, or to none.
+// Returns the previous and current owning runs.
+function rebindGate(gate,reach=gateSeatReach(S.snapFt),keepId=false){
   const prev=fenceRunById(gate.runId);
-  if(prev&&gateSpanOnRun(gate,prev))return{prev,next:prev};
-  const next=runUnderGate(gate);
-  if(next)attachGateToRun(gate,next);else delete gate.runId;
+  let next=prev&&gateSpanOnRun(gate,prev)?prev:runUnderGate(gate);
+  if(next){const seated=seatGateOnRun(gate,next,reach);if(seated){gate.start=seated.start;gate.end=seated.end;}}
+  else{
+    let best=null;
+    S.elements.forEach(run=>{
+      if(run.type!=='fence'||!run.runId||fenceRunById(run.runId)!==run)return;
+      const seated=seatGateOnRun(gate,run,reach);
+      if(seated&&(!best||seated.off<best.seated.off))best={run,seated};
+    });
+    if(best){gate.start=best.seated.start;gate.end=best.seated.end;next=best.run;}
+  }
+  if(next&&next!==prev)attachGateToRun(gate,next);else if(!next&&!keepId)delete gate.runId;
   return{prev,next};
 }
 // Moving a run carries the gates it owns: a body move translates them; an endpoint
@@ -864,8 +888,13 @@ function migrateRunOwnership(){
       if(!Number.isFinite(el.postSpacing))el.postSpacing=el.autoPostSpacing||S.postSpacing||10;
     }
     if(el.type==='gate'){
+      // Jobs saved before strict ownership may hold gates slightly off their run.
+      // Seat them onto their bound run (or, unbound, the nearest run) when within
+      // the largest snap's reach; anything farther stays an ORPHAN_GATE.
+      const reach=gateSeatReach(Math.max(...SNAP_OPTIONS));
       let owner=fenceRunById(el.runId);
-      if(!owner)owner=runUnderGate(el);
+      if(owner&&!gateSpanOnRun(el,owner)){const seated=seatGateOnRun(el,owner,reach);if(seated){el.start=seated.start;el.end=seated.end;}}
+      if(!owner)owner=rebindGate(el,reach,true).next;
       if(owner)attachGateToRun(el,owner);
       else if(el.specs)el.specs=hydrateSavedRunSpecs(el.specs);
     }

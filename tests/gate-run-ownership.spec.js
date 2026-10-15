@@ -201,3 +201,43 @@ test('4 line posts are laid out per fabric section and never inside a gate openi
   })()`);
   expect(back).toEqual([37, 47]);
 });
+
+// Follow-up: a gate the user aims at a run is accepted at every snap setting. On a
+// diagonal run, coarse snaps land gate edges up to snapFt*0.71 ft off the line.
+test('5 a gate drawn on a diagonal run is owned at every snap setting', async ({ page }) => {
+  const snaps = await (async () => { await open(page); return state(page, 'SNAP_OPTIONS'); })();
+  const results = [];
+  for (const snap of snaps) {
+    await open(page);
+    await state(page, 'S.zoom=0.25;S.pan={x:80,y:80};S.autoPost=false;draw()');
+    await drawEl(page, 'fence', 0, 0, 30, 40);
+    await page.locator('#snap-row .chip', { hasText: new RegExp(`^${String(snap).replace('.', '\\.')}'$`) }).click();
+    await page.locator('[data-tool="gate"]').click();
+    // Aim along the run from 15 ft to 27 ft.
+    await drag(page, [9, 12], [16.2, 21.6]);
+    const r = await take(page);
+    const onLine = await state(page, `(()=>{const g=S.elements.find(e=>e.type==='gate'),run=S.elements.find(e=>e.type==='fence'),ax=runAxis(run);
+      return !!g&&ax.off(g.start)<1e-6&&ax.off(g.end)<1e-6;})()`);
+    results.push({ snap, gates: r.gates, orphan: r.errors.includes('ORPHAN_GATE'), final: r.final, onLine });
+  }
+  expect(results).toEqual(snaps.map(snap => ({ snap, gates: 1, orphan: false, final: true, onLine: true })));
+});
+
+test('6 saved jobs with slightly off-line gates load owned; far gates stay orphan', async ({ page }) => {
+  await open(page);
+  const r = await state(page, `(()=>{
+    const run={type:'fence',start:{x:0,y:0},end:{x:30*GRID_FT,y:40*GRID_FT},fenceType:'chainlink',runId:'legacy-run',
+      specs:cloneRunSpecs(S.specs),postSpacing:10,autoPostSpacing:null};
+    const gate=(start,end,runId)=>({type:'gate',start:{x:start[0]*GRID_FT,y:start[1]*GRID_FT},end:{x:end[0]*GRID_FT,y:end[1]*GRID_FT},
+      gateType:'walk',hinge:'start',swingDir:1,fenceType:'chainlink',specs:cloneRunSpecs(S.specs),...(runId?{runId}:{})});
+    S.elements=[run,gate([10,10],[20,20],'legacy-run'),gate([12,18],[16,22]),gate([40,10],[44,10],'legacy-run')];
+    const saved=JSON.parse(JSON.stringify(snapshotState()));
+    applyState(saved);
+    const v=validateProject({requireClient:false,includePricing:false});
+    const ax=runAxis(S.elements[0]);
+    return {owned:S.elements.filter(e=>e.type==='gate').map(g=>!!gateOwnerRun(g)),
+      onLine:S.elements.filter(e=>e.type==='gate').slice(0,2).every(g=>ax.off(g.start)<1e-6&&ax.off(g.end)<1e-6),
+      orphans:v.errors.filter(e=>e.code==='ORPHAN_GATE').length};
+  })()`);
+  expect(r).toEqual({ owned: [true, true, false], onLine: true, orphans: 1 });
+});
