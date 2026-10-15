@@ -439,3 +439,11 @@ Append one entry for every development session. Preserve prior entries.
   Not done: gate seating/presets onto the line (v6.0 CAD); a gate spanning a collinear joint is
   unowned (it lies on neither run); per-section panel counts (Step 1.5); posts already stored
   inside an opening in saved jobs are not rewritten on load (rebuilt on the next edit).
+- **Gate seating at every snap (follow-up, `90527a0`):** coarse snaps (6/8/10 ft) put gate edges up
+  to snapFt×0.71 ft off a diagonal run, so drawn gates were false `ORPHAN_GATE`s. Placement,
+  move and paste now project a gate aimed at a run (edges within max(0.71 ft, snapFt×0.71 ft) of
+  its line, ≤45°, inside its span) onto the line; validation keeps the strict tolerance. On load,
+  pre-`ee08eae` gates slightly off their bound run (or unbound, nearest run) are projected when
+  within 7.07 ft (largest snap reach); farther gates stay orphan. No expectation moved; R15 28692.
+  Tests 5–6 in `gate-run-ownership.spec.js`: 2/2 red, 2/2 green. Suite 110 passed / 29
+  jsPDF-only; matrix 12/12; `git diff --check` clean.
