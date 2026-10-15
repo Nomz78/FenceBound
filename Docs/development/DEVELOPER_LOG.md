@@ -345,3 +345,14 @@ Append one entry for every development session. Preserve prior entries.
   yes); under-6 ft depth editability; session:init handling of PR merge commits.
 - **Authority drift:** older CLAUDE/SOURCE_OF_TRUTH ordering and supplement listings differ
   from START_HERE; embedded Development Index remains stale. Recorded, not revised.
+
+## 2026-10-15 — Estimator, inventory and CAD deep audit (cloud session)
+
+- **Branch:** `claude/focused-bell-rirwad` from `82a148f`. Docs/evidence only; no runtime or test change.
+- **Method:** seven parallel agents — pricing, takeoff and CAD audits run against a scratch copy of
+  `index.html` in headless Chromium; test baseline; three web-research reports (fence software,
+  contractor methodology/NC tax, estimating-engine architecture).
+- **Result:** `Docs/research/2026-10-15_estimator-audit/` (summary, six reports, test baseline,
+  repro scripts). Concrete-as-post mispricing in `lookupCost` hand-verified; R15 embeds it.
+- **Gate:** `npm test` 67/96 (29 jsPDF-only failures, cdnjs blocked by proxy); matrix 12/12.
+- **Next:** owner Step 0 rulings, then exact-key pricing as the first defect repair.
