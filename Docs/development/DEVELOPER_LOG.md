@@ -447,3 +447,24 @@ Append one entry for every development session. Preserve prior entries.
   within 7.07 ft (largest snap reach); farther gates stay orphan. No expectation moved; R15 28692.
   Tests 5–6 in `gate-run-ownership.spec.js`: 2/2 red, 2/2 green. Suite 110 passed / 29
   jsPDF-only; matrix 12/12; `git diff --check` clean.
+- **Job-state isolation (owner directive 2026-10-15 "start the fixes", audit Step 1.4; pricing
+  F5/F6, CAD-01, CAD-12, CAD-13, inventory F-6), `ef58957`:** the four site-upcharge checkboxes
+  and the labor-hours override are saved with the job (`siteUpcharges`, `laborHours` in
+  `snapshotState`) and restored by `applyState`; older jobs and Clear reset them to off/auto.
+  Clear now starts the next quote: `restoreCompanyRateCard()` leaves loaded-project pricing by
+  reloading the saved company rate card (else shipped defaults) and never writes it. Restore was
+  chosen because nothing in source or docs records an owner choice to keep loaded prices; the only
+  trace was the cost-editor `confirm()` (audit F5). Loading a saved job or importing a job file
+  clears undo/redo (history holds drawings only). Saved jobs carry `jobId`; Save updates only the
+  open job's record and saves a different job under a taken name as "Name (n)" (no prior app
+  pattern; " (2)" per directive). Move keeps a `structuredClone`, so Escape restores
+  `specs.addons` as a Set; carried gates are restored too. `selectFenceType` remembers specs per
+  type per owner (run, or drawing defaults; reset on job load), so a type round trip restores
+  stripped components, add-ons and height. Undo-label invariant untouched. No pricing value
+  changed; R15 stays 28692; no expectation moved. New `tests/job-state-isolation.spec.js` (6
+  tests): 6/6 red on `895760b`, 6/6 green. Suite 116 passed / 29 jsPDF-only (baseline set);
+  matrix 12/12; `git diff --check` clean.
+  Not done: Undo of Clear restores the drawing but not the loaded pricing/upcharges (it cannot
+  overwrite another job: `jobId` is cleared); Clear still keeps job name/customer and manual
+  materials; the grade selector still auto-checks the slope box (F6 item 3); legacy saved jobs
+  without `id` re-save as "Name (2)".
