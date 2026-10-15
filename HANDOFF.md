@@ -32,8 +32,8 @@ about counts.
 
 - **One task per branch, one PR per task**, branched from the previous task's branch. Stop
   after opening the PR; do not start the next task in the same run unless told to.
-- **Reality beats opinion.** A count is correct when it matches the owner's real job (task C0)
-  or an owner ruling — not when another model says so. Do not re-audit; do not re-research.
+- **Sources beat opinion.** A count is correct when it matches a cited distributor/manufacturer
+  spec (task C0) or an owner ruling — not when another model says so. Do not re-audit; do not re-research.
 - **Owner-ruling items are walls.** If a task needs one of the open rulings below, stop and
   write the question into the PR. Never guess a field rule.
 - **Two strikes.** If the same test still fails after two fix attempts, stop, commit nothing
@@ -45,12 +45,30 @@ about counts.
 
 ## Tasks, in order
 
-### C0 — Real-job acceptance fixtures (needs owner input; do first)
-Ask the owner for 2–3 jobs they actually built: the layout (lengths, corners, gates, height,
-type) and the supplier order/invoice quantities. Draw each in the app, compare line by line,
-and commit each as an acceptance test plus a short table of differences.
-**Done when:** each real job is a test, and every difference is labeled *bug*, *owner rule
-needed*, or *intentional* (owner decides).
+### C0 — Hardware spec reference from distributor and manufacturer literature (do first)
+Owner ruling 2026-10-15: *"On hardware, use specs from the other software and brochures from
+Merchants Metals (formerly Hudson Fence Supply), Capital Fence Supply and others used around
+Albemarle, Charlotte and Greensboro, NC."* The owner has no personal distributor pricing and
+does not vouch for distributors beyond those named; prices stay contractor-entered.
+
+Build `Docs/reference/HARDWARE_SPEC_REFERENCE.md`: per fence type (chain link residential and
+commercial, wood, vinyl, aluminum/ornamental, split rail, farm/wire), the parts list rules —
+post sizes by height, gate posts and gate hardware by gate type and width, fittings per
+terminal/corner/gate post, fastener spacing, concrete per hole. **Every rule cites its source**
+(catalog/brochure/installation-guide name, page or URL, date). Sources in order of preference:
+Merchants Metals, Capital Fence Supply, then other regional distributors and manufacturers'
+installation guides (Master Halco, Stephens Pipe & Steel, vinyl/aluminum manufacturers),
+then the commercial software's published specs. Where sources disagree, list both; the
+owner picks. If a site blocks downloads, ask the owner to drop the PDF in
+`~/Developer/_inbox` and verify it by SHA-256 and byte count before using it (CLAUDE.md).
+Then compare the app's current BOM for each type against the reference.
+**Done when:** the reference exists with citations, and a diff table labels every app count
+*matches*, *bug (source says X)*, or *owner choice (sources disagree)*. No code changes in C0.
+
+### C0b — Apply the reference
+One PR per fence type: change counts only where C0 labeled *bug* or the owner chose.
+Gate parts for non-chain-link types come from here (this replaces open ruling 1).
+**Done when:** each changed count has a red-before test citing the reference line.
 
 ### C1 — Order quantities in purchasable units
 Every BOM item gets a contractor-editable **pack size** (fabric roll 50 ft, top rail 21 ft
@@ -79,7 +97,7 @@ uses the owner-ruled wall hardware (ask if unknown) and no post or concrete.
 
 ## Open owner rulings (walls — ask, don't guess)
 
-1. Gate posts/concrete/kit per non-chain-link fence type (currently chain-link parts for all).
+1. ~~Gate parts per non-chain-link type~~ — ruled 2026-10-15: from distributor specs (C0).
 2. Footing depths past 42" (currently extrapolated); vinyl split-rail default height.
 3. Collinear joint between two runs: line post or end post (CAD-06).
 4. Line-post concrete; residential post stock lengths; truss rods, sleeves, carriage bolts;

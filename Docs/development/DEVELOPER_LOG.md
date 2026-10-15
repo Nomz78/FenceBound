@@ -551,3 +551,7 @@ Append one entry for every development session. Preserve prior entries.
   purchasable counts, modeled on commercial tools. v6.0 pricing-engine items (tax, overhead,
   margin, labor model, snapshot) deprioritized. Codex handoff `HANDOFF.md` (C0-C4) with
   loop-breaker rules; C0 asks the owner for real past jobs as acceptance fixtures.
+- **Owner ruling (2026-10-15):** hardware rules come from distributor/manufacturer literature
+  (Merchants Metals, formerly Hudson Fence Supply; Capital Fence Supply; others serving
+  Albemarle/Charlotte/Greensboro NC) and commercial-software specs. Owner has no own
+  distributor pricing. HANDOFF.md C0 is now a cited hardware spec reference; C0b applies it.
