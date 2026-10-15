@@ -382,3 +382,7 @@ Append one entry for every development session. Preserve prior entries.
   and band sizes fall back to seed values (per instruction; no migration of user prices). Barb-arm
   orientations still share `barb arm`. CSV import still keys rows by normalized name, so
   "2x4 Top Rail" in a supplier CSV lands on chain-link `top rail` (audit F15 area, not changed).
+- **Follow-up (fix commit after `efd2b5b`):** both items above repaired. Pre-split saved cards,
+  price files and job files seed the split keys from the saved shared-key price each line was
+  charged; CSV rows named as BOM lines land on that line's cost key. E6–E8 red then green;
+  suite 75 passed / 29 jsPDF-only; matrix 12/12.
