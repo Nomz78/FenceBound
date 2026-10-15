@@ -658,3 +658,51 @@ and `/tmp/fencebound-closeout-assessment-r9-recheck.log`; interrupted run:
 - Independent task/boundary review found no unresolved blocking finding. State and
   current/archive handoffs now describe this tested branch. Push and initialization
   are verified live after this metadata commit; earlier pending/local status is historical.
+
+## 2026-10-15 — Market-readiness money and import repairs
+
+- **Authorization:** Owner continued the fresh session from the market-readiness
+  assessment's ranked repair experiment. Scope: its four reproduced software defects;
+  no new assembly, field ruling, price value, dependency, or release authorization.
+- **Implementation:** All material lines enforce price-unit compatibility. JSON prices
+  merge onto the persisted company card with borrowed-price confirmation and persistence
+  rollback. Portable imports restore original job/pricing/history references on failure,
+  including failed autosave storage. Material rates extend at supplied decimal precision
+  before half-up cent rounding; customer unit-rate output preserves that precision.
+- **Evidence:** Added 15 focused tests. Initial 11 failed on the original runtime;
+  expanded original-runtime run failed 13 cases with one passing success control.
+  The review follow-up failed before its repair. All 15 then passed. Updated IB3 to
+  accept the new JSON confirmation. R9 now verifies rollback before directly loading
+  malformed legacy state; all original export-warning assertions remain. Its three
+  rollback cases failed against the original runtime; all four updated IB3/R9 cases
+  pass after repair. No numerical baseline or golden BOM changed.
+- **Review:** Independent read-only review found no blocking issue. Repaired its
+  supported finding: a display error after JSON prices commit now reports that prices
+  saved, rather than falsely reporting import failure. Reviewer checked the fix and
+  confirmed that updated existing tests retain their pricing/export safety assertions.
+- **Gate:** Final `npm test` 187/187 (11.0 minutes, ordinary PDF configuration);
+  persistence matrix 12/12; `git diff --check` PASS. The first completed full run
+  had 183 passes and four test-contract failures described above. `session:init`
+  still reports the pre-existing metadata drift, now on the repair branch.
+- **Checkpoint:** `Docs/execution/2026-10-15_market-repairs-checkpoint.md` records the
+  acceptance cases, validation, measured window, forecast, and remaining limitations.
+  Gate labor and demo/slope precision remain outside this material fix. Persistent
+  display errors can leave stale views after model rollback. Market readiness is blocked.
+- **Measurement:** Instrumented preparation-to-validation window: 17:19:51–17:49:27
+  UTC, 29m36s, excluding untimed startup/initial inspection. Four defects repaired;
+  this is a lower bound on effort, not a general engineering velocity. Retiring the
+  completed 3–5-day package leaves a provisional 17–30 engineering days / 102–180
+  focused hours for the pilot, with all other package estimates unchanged.
+- **Repository at repair completion:** Local work on `codex/market-readiness-repairs`, based on `424750b`.
+  Preserved the inherited C0 reference, assessment, and log entries. Canonical handoff
+  metadata remains stale pending approved two-commit closeout. No commit, push or PR.
+- **Task separation on continuation:** This branch now contains only the four repairs,
+  their tests, this log entry, and the repair checkpoint. C0 and the assessment, with
+  their own log additions, are preserved in separate review worktrees named in the
+  checkpoint. Runtime/tests are byte-identical to the prior validated working tree.
+  The unit guard relates to C1 but implements no pack sizes or order quantities;
+  this is not C0b and changes no source-backed BOM counts. Branch stacking and
+  two-commit closeout remain pending; no new runtime validation run is claimed.
+- **Separation verification:** Exact task file sets, isolated log additions, byte
+  preservation, and patch/whitespace checks passed across the three worktrees.
+  Independent read-only review found no blocking issue after path/status clarifications.

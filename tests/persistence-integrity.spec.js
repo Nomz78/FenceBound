@@ -61,8 +61,9 @@ async function exportEstimateAndRead(page, label) {
   };
 }
 
-async function importMalformedProject(page, mutate) {
+async function rejectImportThenLoadMalformedLegacyState(page, mutate) {
   const portable=await state(page,'JSON.parse(JSON.stringify(snapshotState()))');
+  const before={...portable};delete before.savedAt;
   portable.projectName='Pricing Runtime Export Test';
   portable.jobCustomer='Pricing Runtime Customer';
   portable.jobAddress='100 Runtime Test Lane';
@@ -77,7 +78,14 @@ async function importMalformedProject(page, mutate) {
     mimeType:'application/json',
     buffer:Buffer.from(JSON.stringify(portable))
   });
-  await expect.poll(()=>state(page,'S.projectName')).toBe('Pricing Runtime Export Test');
+  // Atomic import repair (2026-10-15): malformed imports no longer leave a
+  // partly replaced live job behind. Verify rejection and preserve R9's export
+  // backstop for malformed records already present in older saved sessions.
+  await expect(page.locator('#app-toast')).toContainText('Import failed');
+  const after=await state(page,'JSON.parse(JSON.stringify(snapshotState()))');delete after.savedAt;
+  expect(after).toEqual(before);
+  await state(page,`applyState(${JSON.stringify(portable)})`);
+  expect(await state(page,'S.projectName')).toBe('Pricing Runtime Export Test');
   expect(await state(page,"validateProject().errors.map(item=>item.code)")).toContain('PRICING_RUNTIME');
 }
 
@@ -608,10 +616,10 @@ for(const malformed of [
   {name:'constructor fence type',mutate:run=>{run.fenceType='constructor';}},
   {name:'toString fence type',mutate:run=>{run.fenceType='toString';}},
 ]){
-  test(`R9 all exports survive imported ${malformed.name}`,async({page})=>{
+  test(`R9 ${malformed.name} import rolls back and legacy-state exports survive`,async({page})=>{
     await cleanOpen(page);
     await page.waitForFunction(()=>!!window.jspdf,null,{timeout:20_000});
-    await importMalformedProject(page,malformed.mutate);
+    await rejectImportThenLoadMalformedLegacyState(page,malformed.mutate);
 
     const estimate=await exportEstimateAndRead(page,`r9-${malformed.name.replace(/\s+/g,'-')}`);
     expect(estimate.pageErrors).toEqual([]);
