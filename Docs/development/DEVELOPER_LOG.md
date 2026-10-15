@@ -356,3 +356,29 @@ Append one entry for every development session. Preserve prior entries.
   repro scripts). Concrete-as-post mispricing in `lookupCost` hand-verified; R15 embeds it.
 - **Gate:** `npm test` 67/96 (29 jsPDF-only failures, cdnjs blocked by proxy); matrix 12/12.
 - **Next:** owner Step 0 rulings, then exact-key pricing as the first defect repair.
+
+## 2026-10-15 — Exact-key pricing repair (audit F1/F2, inventory F-1/F-2)
+
+- **Branch:** `claude/focused-bell-rirwad`. Implementation commit `efd2b5b`
+  (`index.html`, new `tests/exact-key-pricing.spec.js`, R15/R16 updates).
+- **Defect:** `lookupCost` priced BOM lines by fuzzy display-name matching. Concrete priced as
+  wood `post` / `gate post`; wood and chain-link rails shared keys; both brace-band sizes shared
+  `brace band`; unrelated manual names borrowed prices; results depended on rate-card key order.
+- **Repair:** every auto BOM line carries an explicit `costKey` (69 line names enumerated across
+  all fence types, gate types, add-ons and barb arms); concrete → `post concrete bag`. New keys
+  seeded at the price each line resolved to before: `wood top rail` 1.85, `wood mid rail` 1.85,
+  `wood bottom rail` 4.20, `terminal size brace band` 0.80, `line size brace band` 0.80;
+  `bottom rail` is now chain-link only; `brace band` removed. Fuzzy fallbacks removed; manual rows
+  price only from their exact normalized name. Unmatched lines raise `MISSING_COST`. No seed
+  price value changed.
+- **Owner ruling (2026-10-15, "approve new R15"):** R15 31122 → **28692** cents (concrete
+  4 bags at $6.50 instead of $11: 4 × 450 × 1.35 = 2430). R16 (jsPDF) now adds a
+  `post cap special` entry at the `post cap` price, since the manual row no longer borrows it.
+- **Red/green:** E1–E5 5/5 failed on the unmodified runtime, 5/5 passed after.
+- **Gate:** Playwright 72 passed / 29 failed (all 29 the known jsPDF/cdnjs baseline);
+  `node scripts/cad-persistence-matrix.js` 12/12; `git diff --check` clean.
+- **Not done / follow-ups:** saved rate cards that customised the old shared `top rail`,
+  `mid rail`, `bottom rail` or `brace band` keep that price only for the chain-link line; wood rails
+  and band sizes fall back to seed values (per instruction; no migration of user prices). Barb-arm
+  orientations still share `barb arm`. CSV import still keys rows by normalized name, so
+  "2x4 Top Rail" in a supplier CSV lands on chain-link `top rail` (audit F15 area, not changed).
