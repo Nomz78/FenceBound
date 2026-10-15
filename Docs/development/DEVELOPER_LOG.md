@@ -476,3 +476,37 @@ Append one entry for every development session. Preserve prior entries.
   new record and cannot overwrite the old job (test 8 checks the stored record is byte-identical).
   Tests 7–8: 2/2 red on `c7d21f8`, 2/2 green. Suite 118 passed / 29 jsPDF-only (baseline set);
   matrix 12/12; `git diff --check` clean; R15 stays 28692.
+- **Remaining Tier 2 counts (owner directive 2026-10-15 "start the fixes", audit Step 1.5;
+  inventory F-3, F-4, F-8, F-9, F-10, F-11, F-12, F-14):** each its own commit and red→green test
+  in new `tests/takeoff-counts.spec.js`. Re-verified against current code first; all eight were
+  still present (F-11 partly: `FENCE_TYPE` already errored, but `isFinalReady` stayed true).
+  - `d481612` (T1) panels, rail spans, temporary stands/couplers round per fabric section
+    (`getStats` row `sectionFt`, `unitsPerSection`). Gated audit case: vinyl 11→12, ornamental
+    14→15, temporary 8→9 (couplers = panels − sections, stands = panels + sections).
+  - `f5b1f23` (T2) vinyl split rails = bays at the run's post spacing × rails (100 LF: 26→20).
+  - `df859dc` (T3) off-table hole depth: no ratified bag-yield model exists, so next deeper table
+    depth (beyond 42" the 42" entry scaled up, rounded up) plus `CONCRETE_DEPTH_OFF_TABLE`
+    warning. Legacy 28": 0→3 bags per terminal/gate post.
+  - `b36301d` (T4) field cattle + Barbed Wire add-on: no second strand set, no barb arms.
+  - `fbddeb6` (T5) Post-tool posts count as line posts of the run section they stand on (not
+    again on an end, corner, gate or existing post); `POST_NOT_ON_FENCE` and `NO_LINE_POSTS`
+    warnings.
+  - `b1e6a09` (T6) manual material priced only when its unit (via `UNIT_ALIASES`) matches the
+    rate-card unit; otherwise unpriced, not FINAL-READY, `UNIT_MISMATCH` error. Cost view shows
+    `/unit`.
+  - `5f1116d` (T7) Face Board checkbox controls the face-board line; choosing the type turns it on.
+  - `4813e49` (T8) legacy/unknown fence type → `unsupportedTypes`, never FINAL-READY; no BOM
+    invented.
+  - `d5a025f` golden BOM per fence type (14), 100 LF + 4 ft walk + 12 ft double drive; 6 fail on
+    `a6e20d0`, 8 characterize unchanged output.
+  No pricing value changed; R15 stays 28692; no existing expectation moved. Gate: 140 passed
+  (all non-jsPDF) / 29 jsPDF-only excluded (cdnjs blocked); matrix 12/12; `git diff --check` clean.
+  Not changed (owner rulings pending): line-post concrete, post stock lengths, truss rods on
+  non-corner ends, sleeves/carriage bolts, CAD-06 joint post, per-run fabric rounding.
+  **Owner questions:** (1) gates on every non-chain-link type get chain-link pipe gate posts
+  ("Gate Post 10.5'/11'"), chain-link gate concrete (temporary panels included) and one flat kit
+  per gate type; what should wood, vinyl, ornamental, split-rail, cattle and temporary gates get?
+  (2) woodsplit3fb runs saved before `5f1116d` carry `hasFaceBoard:false` and reopen without the
+  face board line until the box is checked; migrate them to on? (3) depths beyond 42" are
+  extrapolated; ratify or extend the footing table. (4) Vinyl split rail has no default height and
+  still inherits the previous type's height (audit, not repaired here).
