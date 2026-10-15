@@ -3752,12 +3752,21 @@ function computePricing(){
   const useHours=Number.isFinite(hoursOverride)&&hoursOverride>0;
 
   // ── 1. MATERIAL COST — price every BOM line at buy cost (integer cents) ──
-  let matCostC=0; const matLines=[]; const unknown=[];
+  let matCostC=0; const matLines=[]; const unknown=[]; const unitMismatch=[];
+  const normUnit=u=>{const s=String(u??'').trim().toLowerCase().replace(/[.]/g,'');return UNIT_ALIASES[s]||s;};
   bom.forEach(it=>{
     const costKey=costKeyFor(it);
     const entry=costKey!==null&&Object.prototype.hasOwnProperty.call(COST_DB,costKey)?COST_DB[costKey]:null;
     const rawCost=entry&&typeof entry==='object'?entry.cost:entry;
     const unit=rawCost===null||rawCost===undefined?null:coerceNonNegNumber(rawCost);
+    // A manual line is priced per its entered unit, which must be the rate-card
+    // entry's unit: there is no unit conversion, so 1 roll is never priced as 1 lf.
+    const rateUnit=entry&&typeof entry==='object'&&entry.unit?normUnit(entry.unit):null;
+    if(it.source==='manual'&&unit!==null&&rateUnit&&normUnit(it.unit)!==rateUnit){
+      unitMismatch.push(`“${it.name}” is entered in ${it.unit||'no unit'} but its rate-card cost is per ${entry.unit}`);
+      matLines.push({name:it.name,qty:it.qty,unit:it.unit,rateUnit,source:it.source,costKey,unitCost:null,ext:0,unitCostC:null,extC:0,clientUnitCost:null,clientExt:0,clientUnitCostC:null,clientExtC:0});
+      return;
+    }
     const badCost=unit===null&&rawCost!==null&&rawCost!==undefined;
     const qty=coerceNonNegNumber(it.qty),badQty=qty===null; // manual qty is already coerced above
     if(badCost)invalidInputs.push(`Cost of “${it.name}”`);
@@ -3766,7 +3775,7 @@ function computePricing(){
     const unitC=toCents(unit);
     const extC=centsOf(unit,qty);
     matCostC+=extC;
-    matLines.push({name:it.name,qty:it.qty,unit:it.unit,source:it.source,costKey,unitCost:dollars(unitC),ext:dollars(extC),unitCostC:unitC,extC});
+    matLines.push({name:it.name,qty:it.qty,unit:it.unit,rateUnit,source:it.source,costKey,unitCost:dollars(unitC),ext:dollars(extC),unitCostC:unitC,extC});
   });
 
   // ── 2. LABOR COST — $/LF by type (default) OR crew hours override ──
@@ -3829,9 +3838,9 @@ function computePricing(){
     matPrice:dollars(matPriceC),laborPrice:dollars(laborPriceC),clientSubtotal:dollars(clientSubtotalC),
     urbanAdd:dollars(urbanAddC),clientTotal:dollars(clientTotalC),
     profit:dollars(profitC),marginPct,cents,
-    matLines,laborLines,unknown,invalidInputs,
+    matLines,laborLines,unknown,invalidInputs,unitMismatch,
     zeroCostLines:matLines.filter(m=>m.unitCost===0).map(m=>m.name),
-    isFinalReady:unknown.length===0 && invalidInputs.length===0 && matLines.every(m=>m.unitCost!==0) && !stats.unownedGates
+    isFinalReady:unknown.length===0 && invalidInputs.length===0 && unitMismatch.length===0 && matLines.every(m=>m.unitCost!==0) && !stats.unownedGates
       && Object.values(cents).every(Number.isFinite),
     hasData: bom.length>0 || laborCostC>0,
     flags:{ucDemo,ucSlope,ucUrban,ucHardDig,useHours,hoursOverride}
@@ -3855,7 +3864,7 @@ function updatePricing(){
         const c=m.unitCost===null
           ?`<span style="color:#E8A33D;font-size:10px">no cost set</span>`
           :`<span class="stat-val">$${m.ext.toFixed(2)}</span>`;
-        breakdownHtml+=`<div class="stat-row"><span style="font-size:10px;color:var(--text2)">${esc(m.name)}<span style="color:var(--text3)"> ·${m.qty}${m.unit}${m.unitCost!==null?` ×$${m.unitCost}`:''}</span></span>${c}</div>`;
+        breakdownHtml+=`<div class="stat-row"><span style="font-size:10px;color:var(--text2)">${esc(m.name)}<span style="color:var(--text3)"> ·${m.qty}${m.unit}${m.unitCost!==null?` ×$${m.unitCost}${m.rateUnit?'/'+m.rateUnit:''}`:''}</span></span>${c}</div>`;
       });
       breakdownHtml+=`<div class="stat-row" style="border-top:1px solid var(--border);padding-top:3px;margin-top:2px"><span style="font-size:10px;color:var(--text2)">Material cost</span><span class="stat-val">$${P.matCost.toFixed(2)}</span></div>`;
       breakdownHtml+='<div style="font-size:10px;color:var(--text2);font-weight:700;letter-spacing:0.035em;margin:5px 0 3px">LABOR @ COST</div>';
@@ -4503,6 +4512,7 @@ function validateProject(options={}){
     if(P){
       if(!P.hasData)err('NO_BOM','The job produced no bill of materials or labor.');
       [...new Set(P.unknown||[])].forEach(name=>err('MISSING_COST',`No cost is set for “${name}”.`));
+      (P.unitMismatch||[]).forEach(what=>err('UNIT_MISMATCH',`${what}; it was not priced. Enter it in the rate-card unit.`));
       [...new Set(P.zeroCostLines||[])].forEach(name=>err('ZERO_COST',`“${name}” has a zero-dollar cost.`));
       [...new Set(P.invalidInputs||[])].forEach(what=>err('INVALID_PRICING_INPUT',`${what} is not a valid number of 0 or more; it was not priced.`));
       if(!Number.isFinite(P.clientTotal)||P.clientTotal<=0)err('TOTAL_INVALID','The client total is zero or invalid.');

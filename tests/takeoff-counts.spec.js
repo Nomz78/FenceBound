@@ -8,6 +8,7 @@ const { test, expect } = require('@playwright/test');
 //  - T3: concrete is never silently 0 for a hole depth off the footing table (F-9).
 //  - T4: field cattle fence with the Barbed Wire add-on does not double strands (F-8).
 //  - T5: Post-tool posts are counted and priced; a run with no line posts warns (F-14).
+//  - T6: a manual material is priced per its entered unit or not at all (F-10).
 
 async function cleanOpen(page) {
   await page.goto('/index.html');
@@ -135,4 +136,23 @@ test('T5 Post-tool posts count as line posts and a run without line posts warns'
   await state(page, seedRunSource('chainlink', false));
   await state(page, `(()=>{S.elements.push({type:'post',pos:{x:10*GRID_FT,y:0},fenceType:'chainlink'});return null;})()`);
   expect(await state(page, `getStats().linePosts`)).toBe(9);
+});
+
+test('T6 a manual material in a unit other than its rate-card unit is a validation error, not a wrong price', async ({ page }) => {
+  await cleanOpen(page);
+  await state(page, seedRunSource('chainlink', false));
+  const manual = rows => state(page, `(()=>{S.materials=${JSON.stringify(rows)};const P=computePricing();
+    const l=P.matLines.find(x=>x.source==='manual');
+    return {unitCost:l.unitCost,extC:l.extC,rateUnit:l.rateUnit,final:P.isFinalReady,
+      errors:validateProject({requireClient:false}).errors.map(e=>e.code)};})()`);
+  // 1 roll of chain link fabric (rate card: per lf) was priced as 1 lf at $3.20.
+  const roll = await manual([{ name: 'Chain Link Fabric', qty: 1, unit: 'roll', id: 1 }]);
+  expect(roll).toMatchObject({ unitCost: null, extC: 0, rateUnit: 'lf', final: false });
+  expect(roll.errors).toContain('UNIT_MISMATCH');
+  // The same item in its own unit (or an alias of it) prices as before.
+  const ft = await manual([{ name: 'Chain Link Fabric', qty: 50, unit: 'ft', id: 2 }]);
+  expect(ft).toMatchObject({ unitCost: 3.2, extC: 16000, rateUnit: 'lf', final: true });
+  expect(ft.errors).not.toContain('UNIT_MISMATCH');
+  const coil = await manual([{ name: 'Razor Ribbon Coil', qty: 1, unit: 'roll', id: 3 }]);
+  expect(coil).toMatchObject({ unitCost: 38, final: true });
 });
