@@ -11,6 +11,8 @@ const { test, expect } = require('@playwright/test');
 //  - T6: a manual material is priced per its entered unit or not at all (F-10).
 //  - T7: the Face Board checkbox controls the face board line (F-12).
 //  - T8: a legacy or unknown fence type blocks FINAL-READY (F-11).
+//  - G-<type>: golden BOM for every fence type, 100 LF with a 4 ft walk gate and
+//    a 12 ft double drive. The first BOM coverage for any non-chain-link type.
 
 async function cleanOpen(page) {
   await page.goto('/index.html');
@@ -190,3 +192,34 @@ test('T8 a legacy or unknown fence type is a validation error and never FINAL-RE
   await state(page, seedRunSource('chainlink', false));
   expect(await state(page, `computePricing().isFinalReady`)).toBe(true);
 });
+
+// Golden BOMs at seed prices and default specs. Every non-chain-link type still
+// gets chain-link pipe gate posts, gate concrete and one flat kit per gate type
+// (audit F-5): recorded as an owner question, deliberately locked here so any
+// change to it is visible.
+const GOLDEN = {
+  chainlink: { matCost: 135209, clientTotal: 310872, bom: { "Chain Link Fabric (48\")": 84, "Top Rail 1-5/8\"": 84, "Line Post 9' (63\" cut)": 6, "Terminal/Corner Post 10.5' (74\" cut)": 2, "Tension Bar": 6, "Tension Band": 18, "Top Rail Sleeve": 9, "Post Cap": 12, "Terminal-size Brace Band": 12, "Rail End (Loop Cap)": 6, "Wire Ties 9ga": 63, "Hog Rings": 45, "3/8\" Carriage Bolt+Nut": 48, "Post Concrete (60lb bag)": 4, "Bottom Tension Wire 9ga": 84, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
+  woodprivacy: { matCost: 271435, clientTotal: 520818, bom: { "Dog-Ear Picket 1x4x6'": 288, "Post 4x4x9'": 11, "2x4 Top Rail": 84, "2x4 Bottom Rail": 84, "2x4 Mid Rail": 84, "Post Cap / Finial": 11, "Exterior Screws (rails)": 66, "Exterior Screws (pickets)": 2592, "Post Concrete (60lb bag)": 33, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (104\" cut)": 4, "Gate Post Concrete (60lb bag)": 12, "Dbl Drive w/ Hardware": 1 } },
+  woodshadowbox: { matCost: 267145, clientTotal: 528047, bom: { "Dog-Ear Picket 1x6x6'": 275, "Post 4x4x9'": 11, "2x4 Top Rail": 84, "2x4 Bottom Rail": 84, "2x4 Mid Rail": 84, "Post Cap / Finial": 11, "Exterior Screws (rails)": 66, "Exterior Screws (pickets)": 2475, "Post Concrete (60lb bag)": 33, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (104\" cut)": 4, "Gate Post Concrete (60lb bag)": 12, "Dbl Drive w/ Hardware": 1 } },
+  woodsplit2: { matCost: 98700, clientTotal: 235545, bom: { "Split Rail 11ft Rail": 18, "Split Rail Post 6'": 8, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
+  woodsplit3: { matCost: 106800, clientTotal: 259500, bom: { "Split Rail 11ft Rail": 27, "Split Rail Post 6'": 8, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
+  woodsplit3fb: { matCost: 118560, clientTotal: 288396, bom: { "Split Rail 11ft Rail": 27, "Split Rail Post 6'": 8, "1x6 Face Board": 84, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
+  vinylprivacy6: { matCost: 338244, clientTotal: 624030, bom: { "Vinyl Privacy Panel 72\"": 12, "Vinyl Post 9'": 11, "Vinyl Top Rail": 84, "Vinyl Bottom Rail": 84, "Vinyl Mid Rail": 84, "Post Cap Vinyl": 11, "Stainless Screws": 12, "Post Concrete (60lb bag)": 33, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (104\" cut)": 4, "Gate Post Concrete (60lb bag)": 12, "Dbl Drive w/ Hardware": 1 } },
+  vinylprivacy8: { matCost: 338244, clientTotal: 650070, bom: { "Vinyl Privacy Panel 96\"": 12, "Vinyl Post 11'": 11, "Vinyl Top Rail": 84, "Vinyl Bottom Rail": 84, "Vinyl Mid Rail": 84, "Post Cap Vinyl": 11, "Stainless Screws": 12, "Post Concrete (60lb bag)": 33, "Walk Gate w/ Hardware": 1, "Gate Post 11' (128\" cut)": 4, "Gate Post Concrete (60lb bag)": 12, "Dbl Drive w/ Hardware": 1 } },
+  vinylsplit2: { matCost: 129700, clientTotal: 290415, bom: { "Vinyl Split Rail": 18, "Vinyl Split Rail Post 6'": 8, "Post Cap Vinyl": 8, "Post Concrete (60lb bag)": 16, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
+  vinylsplit3: { matCost: 142300, clientTotal: 320445, bom: { "Vinyl Split Rail": 27, "Vinyl Split Rail Post 6'": 8, "Post Cap Vinyl": 8, "Post Concrete (60lb bag)": 16, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
+  ornamental: { matCost: 233850, clientTotal: 496118, bom: { "Ornamental Panel 60\"": 15, "Ornamental Post 7'": 14, "Post Concrete (60lb bag)": 28, "Panel Bracket Kit": 15, "Self-Tapping Screws": 60, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (86\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
+  cattlefield: { matCost: 86264, clientTotal: 205736, bom: { "T-Post 6ft": 6, "Wood Corner/Brace Post 6'": 2, "Brace Wire": 4, "T-Post Clips": 51, "Barbed Wire Strand 1": 84, "Barbed Wire Strand 2": 84, "Barbed Wire Strand 3": 84, "Post Concrete (60lb bag)": 4, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
+  cattlehog: { matCost: 113648, clientTotal: 255725, bom: { "T-Post 6ft": 6, "Wood Corner/Brace Post 6'": 2, "Brace Wire": 4, "T-Post Clips": 51, "Hog Wire Welded Panel (red-top)": 84, "Post Concrete (60lb bag)": 4, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
+  temporary: { matCost: 172400, clientTotal: 309000, bom: { "Temp Panel 6x12": 9, "Temp Panel Coupler": 6, "Panel Stand / Base": 12, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
+};
+
+for (const [type, golden] of Object.entries(GOLDEN)) {
+  test(`G-${type} golden BOM: 100 LF, 4 ft walk gate, 12 ft double drive`, async ({ page }) => {
+    await cleanOpen(page);
+    expect(await bomFor(page, type, true)).toEqual(golden.bom);
+    const P = await state(page, `(()=>{const P=computePricing();return {final:P.isFinalReady,matCost:P.cents.matCost,clientTotal:P.cents.clientTotal};})()`);
+    expect(P).toEqual({ final: true, matCost: golden.matCost, clientTotal: golden.clientTotal });
+    expect(await state(page, `validateProject({requireClient:false}).errors.map(e=>e.code)`)).toEqual([]);
+  });
+}
