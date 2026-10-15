@@ -10,6 +10,7 @@ const { test, expect } = require('@playwright/test');
 //  - T5: Post-tool posts are counted and priced; a run with no line posts warns (F-14).
 //  - T6: a manual material is priced per its entered unit or not at all (F-10).
 //  - T7: the Face Board checkbox controls the face board line (F-12).
+//  - T8: a legacy or unknown fence type blocks FINAL-READY (F-11).
 
 async function cleanOpen(page) {
   await page.goto('/index.html');
@@ -172,4 +173,20 @@ test('T7 the Face Board checkbox adds and removes the split-rail face board line
     rebuildRunAutoPosts(S.elements[0]);return ${bomSource};})()`);
   expect(off['1x6 Face Board']).toBeUndefined();
   expect(off['Split Rail 11ft Rail']).toBe(30);
+});
+
+test('T8 a legacy or unknown fence type is a validation error and never FINAL-READY', async ({ page }) => {
+  await cleanOpen(page);
+  for (const legacy of ['barbedwire', 'privacy']) {
+    await state(page, seedRunSource('chainlink', false));
+    const r = await state(page, `(()=>{S.elements.forEach(el=>{if(el.type==='fence'||el.type==='post')el.fenceType=${JSON.stringify(legacy)};});
+      const P=computePricing();return {final:P.isFinalReady,unsupported:P.unsupportedTypes,
+      errors:validateProject({requireClient:false}).errors.map(e=>e.code)};})()`);
+    expect(r.final).toBe(false);
+    expect(r.unsupported).toEqual([legacy]);
+    expect(r.errors).toContain('FENCE_TYPE');
+  }
+  // A supported type stays FINAL-READY.
+  await state(page, seedRunSource('chainlink', false));
+  expect(await state(page, `computePricing().isFinalReady`)).toBe(true);
 });

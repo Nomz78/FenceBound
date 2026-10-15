@@ -3746,6 +3746,9 @@ function computePricing(){
     return{name:item.name,qty:parsedQty!==null&&parsedQty>0?parsedQty:0,unit:item.unit,source:'manual'};
   });
   const bom=[...calcAutoMaterials(),...manualBom]; // entry origin does not alter pricing
+  // A legacy or unknown fence type has no BOM branch, so its quote is incomplete:
+  // it can never be FINAL-READY (validateProject reports FENCE_TYPE).
+  const unsupportedTypes=[...new Set(S.elements.filter(el=>el.type==='fence'&&!Object.prototype.hasOwnProperty.call(FENCE_TYPES,el.fenceType)).map(el=>String(el.fenceType)))];
   const ucDemo=document.getElementById('uc-demo')?.checked;
   const ucSlope=document.getElementById('uc-slope')?.checked;
   const ucUrban=document.getElementById('uc-urban')?.checked;
@@ -3840,9 +3843,9 @@ function computePricing(){
     matPrice:dollars(matPriceC),laborPrice:dollars(laborPriceC),clientSubtotal:dollars(clientSubtotalC),
     urbanAdd:dollars(urbanAddC),clientTotal:dollars(clientTotalC),
     profit:dollars(profitC),marginPct,cents,
-    matLines,laborLines,unknown,invalidInputs,unitMismatch,
+    matLines,laborLines,unknown,invalidInputs,unitMismatch,unsupportedTypes,
     zeroCostLines:matLines.filter(m=>m.unitCost===0).map(m=>m.name),
-    isFinalReady:unknown.length===0 && invalidInputs.length===0 && unitMismatch.length===0 && matLines.every(m=>m.unitCost!==0) && !stats.unownedGates
+    isFinalReady:unknown.length===0 && invalidInputs.length===0 && unitMismatch.length===0 && unsupportedTypes.length===0 && matLines.every(m=>m.unitCost!==0) && !stats.unownedGates
       && Object.values(cents).every(Number.isFinite),
     hasData: bom.length>0 || laborCostC>0,
     flags:{ucDemo,ucSlope,ucUrban,ucHardDig,useHours,hoursOverride}
