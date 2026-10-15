@@ -9,6 +9,7 @@ const { test, expect } = require('@playwright/test');
 //  - T4: field cattle fence with the Barbed Wire add-on does not double strands (F-8).
 //  - T5: Post-tool posts are counted and priced; a run with no line posts warns (F-14).
 //  - T6: a manual material is priced per its entered unit or not at all (F-10).
+//  - T7: the Face Board checkbox controls the face board line (F-12).
 
 async function cleanOpen(page) {
   await page.goto('/index.html');
@@ -155,4 +156,20 @@ test('T6 a manual material in a unit other than its rate-card unit is a validati
   expect(ft.errors).not.toContain('UNIT_MISMATCH');
   const coil = await manual([{ name: 'Razor Ribbon Coil', qty: 1, unit: 'roll', id: 3 }]);
   expect(coil).toMatchObject({ unitCost: 38, final: true });
+});
+
+test('T7 the Face Board checkbox adds and removes the split-rail face board line', async ({ page }) => {
+  await cleanOpen(page);
+  // Selecting Split + Face Board starts with the face board on and the box checked.
+  await state(page, `(()=>{S.elements=[];S.selected=null;selectFenceType('woodsplit3fb');return null;})()`);
+  await expect(page.locator('#has-face-board')).toBeChecked();
+  expect((await bomFor(page, 'woodsplit3fb', false))['1x6 Face Board']).toBe(100);
+  // Unchecking the box (its change handler writes the active spec) removes the line.
+  await state(page, `(()=>{S.elements=[];S.selected=null;selectFenceType('woodsplit3fb');
+    const cb=document.getElementById('has-face-board');cb.checked=false;cb.dispatchEvent(new Event('change'));return null;})()`);
+  const off = await state(page, `(()=>{const specs=cloneRunSpecs(S.specs);
+    S.elements=[{type:'fence',start:{x:0,y:0},end:{x:100*GRID_FT,y:0},fenceType:'woodsplit3fb',runId:'run_fb',specs,postSpacing:10,autoPostSpacing:10}];
+    rebuildRunAutoPosts(S.elements[0]);return ${bomSource};})()`);
+  expect(off['1x6 Face Board']).toBeUndefined();
+  expect(off['Split Rail 11ft Rail']).toBe(30);
 });

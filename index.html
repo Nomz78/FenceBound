@@ -1978,7 +1978,7 @@ function calcAutoMaterials(){
       const railSpans=unitsPerSection(runStats,10);
       items.push({name:`Split Rail 11ft Rail`,costKey:'split rail rail',qty:railSpans*rails,unit:'ea'});
       items.push({name:`Split Rail Post ${postLen}`,costKey:'split rail post',qty:typePostCount,unit:'ea'});
-      if(style==='split3fb')items.push({name:'1x6 Face Board',costKey:'face board',qty:Math.ceil(ft),unit:'lf'});
+      if(style==='split3fb'&&sp.hasFaceBoard)items.push({name:'1x6 Face Board',costKey:'face board',qty:Math.ceil(ft),unit:'lf'});
     } else if(mat==='cattle'){
       // T-posts on line, wood corner/brace posts at terminals.
       items.push({name:'T-Post 6ft',costKey:'t post',qty:lineCt,unit:'ea'});
@@ -2695,6 +2695,8 @@ function selectFenceType(key){
     sp.heightIn=fdef.defaultHeightIn;
     applyHeightDrivenSpecs({specs:sp});
   }
+  // Split + Face Board starts with its face board on; the Face Board checkbox removes it.
+  if(prevType!==key&&!remembered&&COMPONENT_MAP[key]?.includes('face-board'))sp.hasFaceBoard=true;
   syncSpecInputs();updateTypeBar();updateHint();updateSpecsForFenceType();
   if(run)rebuildRunAutoPosts(run);
   draw();updatePanel();updatePricing();scheduleAutosave();
