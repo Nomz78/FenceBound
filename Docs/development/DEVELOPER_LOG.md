@@ -510,3 +510,9 @@ Append one entry for every development session. Preserve prior entries.
   face board line until the box is checked; migrate them to on? (3) depths beyond 42" are
   extrapolated; ratify or extend the footing table. (4) Vinyl split rail has no default height and
   still inherits the previous type's height (audit, not repaired here).
+- **Face board regression follow-up:** owner question 2 above was a regression from `5f1116d`, not
+  an owner choice. Saved specs always carried `hasFaceBoard:false` explicitly (whole-spec
+  serialization), so the checkbox now records `faceBoardChosen`, and on load (`applyState` →
+  `migrateRunOwnership`) a Split + Face Board run without a user-set flag gets its face board
+  back; a user-unchecked flag stays off. T9: red on `00ecaab` (272520 for 288396 cents), green.
+  Gate 141 passed / 29 jsPDF-only excluded; matrix 12/12; R15 stays 28692.
