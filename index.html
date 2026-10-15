@@ -604,10 +604,10 @@ label{font-size:10px;color:var(--text2);letter-spacing:0.02em;display:block;marg
               <input type="checkbox" id="uc-slope" style="width:auto;accent-color:var(--accent)"/> Grade / Slope
             </label>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:10px;color:var(--text2)">
-              <input type="checkbox" id="uc-urban" style="width:auto;accent-color:var(--accent)"/> Urban / City Premium (+15%)
+              <input type="checkbox" id="uc-urban" style="width:auto;accent-color:var(--accent)"/> Urban / City Premium (<span id="uc-urban-lbl">+15%</span>)
             </label>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:10px;color:var(--text2)">
-              <input type="checkbox" id="uc-harddig" style="width:auto;accent-color:var(--accent)"/> Hard Dig / Rocky (+30% labor)
+              <input type="checkbox" id="uc-harddig" style="width:auto;accent-color:var(--accent)"/> Hard Dig / Rocky (<span id="uc-harddig-lbl">+30% labor</span>)
             </label>
           </div>
         </div>
@@ -733,21 +733,105 @@ function selectedFenceRun(){
   if(el.type==='gate')return fenceRunById(el.runId);
   return null;
 }
-function nearestFenceRunForGate(start,end){
-  const runs=S.elements.filter(el=>el.type==='fence');
-  if(!runs.length)return null;
-  const mid={x:(start.x+end.x)/2,y:(start.y+end.y)/2};
-  let best=null,bestScore=Infinity;
-  runs.forEach(run=>{
-    const score=Math.min(
-      ptSegDist(mid,run.start,run.end),
-      ptSegDist(start,run.start,run.end),
-      ptSegDist(end,run.start,run.end),
-      dist(start,run.start),dist(start,run.end),dist(end,run.start),dist(end,run.end)
-    );
-    if(score<bestScore){bestScore=score;best=run;}
+// A gate belongs to a run only when it lies on that run: both gate edges within
+// GATE_ON_RUN_TOL of the run's line and inside its span (±GATE_ON_RUN_TOL). The
+// tolerance is half the diagonal of the default 1 ft snap cell (0.71 ft): the
+// farthest a grid-snapped point aimed at a run line can land from it. Requiring
+// both edges on the line also bounds the angle (a 4 ft gate at most ~0.34 rad, a
+// 12 ft gate ~0.12 rad). Gate edges within the same distance of a run end or of
+// another gate edge are one post.
+const GATE_ON_RUN_TOL=GRID_FT*Math.SQRT1_2;
+function runAxis(run){
+  const L=dist(run.start,run.end);
+  if(!(L>0))return null;
+  const ux=(run.end.x-run.start.x)/L,uy=(run.end.y-run.start.y)/L;
+  return{L,ux,uy,along:p=>(p.x-run.start.x)*ux+(p.y-run.start.y)*uy,off:p=>Math.abs((p.y-run.start.y)*ux-(p.x-run.start.x)*uy)};
+}
+// Gate interval along the run in world px, or null when the gate is not on it.
+// lo/hi snap to the run ends within tolerance (post identity); rawLo/rawHi are the
+// opening actually removed from the fence.
+function gateSpanOnRun(gate,run){
+  if(!gate?.start||!gate?.end||!run?.start||!run?.end)return null;
+  const ax=runAxis(run),T=GATE_ON_RUN_TOL;
+  if(!ax||ax.off(gate.start)>T||ax.off(gate.end)>T)return null;
+  const a=ax.along(gate.start),b=ax.along(gate.end),lo=Math.min(a,b),hi=Math.max(a,b);
+  if(lo<-T||hi>ax.L+T)return null;
+  const end=v=>v<T?0:v>ax.L-T?ax.L:v;
+  return{lo:end(lo),hi:end(hi),rawLo:Math.max(0,lo),rawHi:Math.min(ax.L,hi),L:ax.L};
+}
+function gateOwnerRun(gate){
+  const run=fenceRunById(gate?.runId);
+  return run&&gateSpanOnRun(gate,run)?run:null;
+}
+function runUnderGate(gate){
+  return S.elements.find(el=>el.type==='fence'&&el.runId&&fenceRunById(el.runId)===el&&gateSpanOnRun(gate,el))||null;
+}
+function pointOnRun(run,s,L){
+  if(s<=0)return{x:run.start.x,y:run.start.y};
+  if(s>=L)return{x:run.end.x,y:run.end.y};
+  return{x:run.start.x+(run.end.x-run.start.x)*s/L,y:run.start.y+(run.end.y-run.start.y)*s/L};
+}
+// Owned gates of a run, in order along it, and the fabric sections between them.
+function runGateLayout(run){
+  const L=dist(run.start,run.end);
+  const spans=S.elements.filter(el=>el.type==='gate'&&gateOwnerRun(el)===run)
+    .map(gate=>({gate,...gateSpanOnRun(gate,run)})).sort((a,b)=>a.lo-b.lo||a.hi-b.hi);
+  if(!spans.length)return{L,spans,sections:[[0,L]],openingPx:0};
+  const sections=[];let cur=0,openingPx=0,rawCur=0;
+  spans.forEach(g=>{
+    if(g.lo-cur>GATE_ON_RUN_TOL)sections.push([cur,g.lo]);
+    cur=Math.max(cur,g.hi);
+    openingPx+=Math.max(0,g.rawHi-Math.max(rawCur,g.rawLo));rawCur=Math.max(rawCur,g.rawHi);
   });
-  return best;
+  if(L-cur>GATE_ON_RUN_TOL)sections.push([cur,L]);
+  return{L,spans,sections,openingPx};
+}
+// Seating: a coarse snap lands gate edges up to snapFt*0.71 ft off a diagonal run.
+// A gate aimed at a run (both edges within reach of its line, within 45 degrees of
+// it, and inside its span once projected) is projected onto the line, so the
+// stored gate passes the strict GATE_ON_RUN_TOL test whatever the snap later is.
+function gateSeatReach(snapFt){return Math.max(GATE_ON_RUN_TOL,(snapFt||1)*GRID_FT*Math.SQRT1_2);}
+function seatGateOnRun(gate,run,reach){
+  const ax=run?.start&&run?.end?runAxis(run):null;
+  if(!ax||!gate?.start||!gate?.end||ax.off(gate.start)>reach||ax.off(gate.end)>reach)return null;
+  const a=ax.along(gate.start),b=ax.along(gate.end),w=dist(gate.start,gate.end);
+  if(!(w>0)||Math.abs(b-a)<w*Math.SQRT1_2)return null;
+  const at=sv=>({x:run.start.x+ax.ux*sv,y:run.start.y+ax.uy*sv});
+  const seated={start:at(a),end:at(b),off:Math.max(ax.off(gate.start),ax.off(gate.end))};
+  return gateSpanOnRun(seated,run)?seated:null;
+}
+// Re-bind a gate after it is drawn, moved, pasted or loaded: it belongs to the
+// run it lies on, or is seated onto the nearest run it was aimed at, or to none.
+// Returns the previous and current owning runs.
+function rebindGate(gate,reach=gateSeatReach(S.snapFt),keepId=false){
+  const prev=fenceRunById(gate.runId);
+  let next=prev&&gateSpanOnRun(gate,prev)?prev:runUnderGate(gate);
+  if(next){const seated=seatGateOnRun(gate,next,reach);if(seated){gate.start=seated.start;gate.end=seated.end;}}
+  else{
+    let best=null;
+    S.elements.forEach(run=>{
+      if(run.type!=='fence'||!run.runId||fenceRunById(run.runId)!==run)return;
+      const seated=seatGateOnRun(gate,run,reach);
+      if(seated&&(!best||seated.off<best.seated.off))best={run,seated};
+    });
+    if(best){gate.start=best.seated.start;gate.end=best.seated.end;next=best.run;}
+  }
+  if(next&&next!==prev)attachGateToRun(gate,next);else if(!next&&!keepId)delete gate.runId;
+  return{prev,next};
+}
+// Moving a run carries the gates it owns: a body move translates them; an endpoint
+// stretch keeps each gate's distance from the fixed end along the new direction.
+function carryRunGates(run,orig,carried,moving){
+  if(!carried||!carried.length)return;
+  const fixed=moving.type==='endpoint'&&moving.endpoint==='start'?'end':'start';
+  const a0=orig[fixed],a1=run[fixed],ax0=runAxis(orig),ax1=runAxis(run)||ax0;
+  if(!ax0)return;
+  const map=p=>{
+    if(moving.type!=='endpoint')return{x:p.x+a1.x-a0.x,y:p.y+a1.y-a0.y};
+    const dx=p.x-a0.x,dy=p.y-a0.y,s=dx*ax0.ux+dy*ax0.uy,d=dy*ax0.ux-dx*ax0.uy;
+    return{x:a1.x+s*ax1.ux-d*ax1.uy,y:a1.y+s*ax1.uy+d*ax1.ux};
+  };
+  carried.forEach(c=>{c.gate.start=map(c.start);c.gate.end=map(c.end);});
 }
 function attachGateToRun(gate,run){
   if(!gate||!run)return gate;
@@ -796,15 +880,24 @@ function syncSelectedRunToPanel(){
   syncSpecInputs();updateTypeBar();updateHint();
 }
 function migrateRunOwnership(){
+  S.elements.forEach(el=>{if(el.type==='fence'&&!el.runId)el.runId=makeRunId();});
   S.elements.forEach(el=>{
     if(el.type==='fence'){
       if(!el.runId)el.runId=makeRunId();
       el.specs=hydrateSavedRunSpecs(el.specs||S.specs);
+      // Before the Face Board checkbox worked, every Split + Face Board run had its
+      // face board whatever the saved flag; only a flag the user set keeps it off.
+      if(el.fenceType==='woodsplit3fb'&&!el.specs.faceBoardChosen)el.specs.hasFaceBoard=true;
       if(!Number.isFinite(el.postSpacing))el.postSpacing=el.autoPostSpacing||S.postSpacing||10;
     }
     if(el.type==='gate'){
+      // Jobs saved before strict ownership may hold gates slightly off their run.
+      // Seat them onto their bound run (or, unbound, the nearest run) when within
+      // the largest snap's reach; anything farther stays an ORPHAN_GATE.
+      const reach=gateSeatReach(Math.max(...SNAP_OPTIONS));
       let owner=fenceRunById(el.runId);
-      if(!owner)owner=nearestFenceRunForGate(el.start,el.end);
+      if(owner&&!gateSpanOnRun(el,owner)){const seated=seatGateOnRun(el,owner,reach);if(seated){el.start=seated.start;el.end=seated.end;}}
+      if(!owner)owner=rebindGate(el,reach,true).next;
       if(owner)attachGateToRun(el,owner);
       else if(el.specs)el.specs=hydrateSavedRunSpecs(el.specs);
     }
@@ -812,8 +905,38 @@ function migrateRunOwnership(){
   });
 }
 
+// Per-job pricing inputs (estimator audit 2026-10-15, F6): the site-upcharge
+// on/off boxes and the labor-hours override are part of the quote, so they ride
+// with the job record. The rates themselves stay on the company rate card.
+const JOB_UPCHARGE_INPUTS={demo:'uc-demo',slope:'uc-slope',urban:'uc-urban',hardDig:'uc-harddig'};
+function readJobPricingInputs(){
+  const siteUpcharges={};
+  Object.entries(JOB_UPCHARGE_INPUTS).forEach(([k,id])=>{siteUpcharges[k]=!!document.getElementById(id)?.checked;});
+  return{siteUpcharges,laborHours:document.getElementById('labor-hours')?.value||''};
+}
+// Missing fields (older job files, Clear) mean the defaults: all off, hours auto.
+function applyJobPricingInputs(st){
+  const uc=st&&st.siteUpcharges&&typeof st.siteUpcharges==='object'?st.siteUpcharges:{};
+  Object.entries(JOB_UPCHARGE_INPUTS).forEach(([k,id])=>{const el=document.getElementById(id);if(el)el.checked=uc[k]===true;});
+  const h=document.getElementById('labor-hours');
+  if(h)h.value=st&&(typeof st.laborHours==='string'||Number.isFinite(st.laborHours))?String(st.laborHours):'';
+}
+// Jobs saved before ef58957 have no `id`. Give each a stable one and persist
+// it, so load → Save updates that record instead of saving "Name (2)".
+function ensureSavedJobIds(){
+  if(!Array.isArray(S.savedJobs))return;
+  let next=Date.now(),changed=false;
+  const used=new Set(S.savedJobs.map(j=>j&&j.id).filter(id=>id!=null));
+  S.savedJobs.forEach(j=>{
+    if(!j||typeof j!=='object'||j.id!=null)return;
+    while(used.has(next))next++;
+    j.id=next;used.add(next);changed=true;
+  });
+  if(changed)try{localStorage.setItem(STORAGE_KEY,JSON.stringify(S.savedJobs));}catch(e){}
+}
 function snapshotState(){
   return{app:'FenceboundCAD',schemaVersion:3,appVersion:APP_VERSION,savedAt:new Date().toISOString(),
+    jobId:S.jobId??null,...readJobPricingInputs(),
     projectName:S.projectName,jobCustomer:S.jobCustomer,jobAddress:S.jobAddress,jobNotes:S.jobNotes||'',
     elements:S.elements.map(el=>({...el,specs:el.specs?serializeRunSpecs(el.specs):undefined,runSpecs:el.runSpecs?serializeRunSpecs(el.runSpecs):undefined})),labels:S.labels,materials:S.materials,
     specs:{...S.specs,addons:[...S.specs.addons]},
@@ -824,8 +947,17 @@ function snapshotState(){
 function applyState(st){
   S.elements=Array.isArray(st.elements)?st.elements:[];
   S.labels=Array.isArray(st.labels)?st.labels:[];
-  S.materials=Array.isArray(st.materials)?st.materials:[];
+  // Manual quantities: older saves stored the raw input string; plain decimals
+  // load as numbers, anything else stays as saved and is flagged by pricing.
+  S.materials=Array.isArray(st.materials)?st.materials.map(m=>{
+    if(!m||typeof m!=='object')return m;const q=coerceNonNegNumber(m.qty);return q===null?m:{...m,qty:q};
+  }):[];
   S.projectName=st.projectName||'Untitled Job';
+  // Saved-job identity: Save updates this record in place and never another
+  // job that happens to share the name. Older records carry only `id`.
+  S.jobId=st.jobId!=null?st.jobId:(st.id!=null?st.id:null);
+  applyJobPricingInputs(st);
+  _defaultTypeSpecs={};
   S.jobCustomer=st.jobCustomer||'';S.jobAddress=st.jobAddress||'';S.jobNotes=st.jobNotes||'';
   if(st.footing)mergeFooting(st.footing);
   if(st.postODIn)mergePostOD(st.postODIn);
@@ -852,9 +984,13 @@ function applyState(st){
   if(typeof st.showCostView==='boolean')S.showCostView=st.showCostView;
   // Prices ride along inside the job file → a reopened quote shows the costs it
   // was built on. Merge over current so partial/old files don't wipe categories.
-  if(st.costs)COST_DB={...COST_DB,...st.costs};
-  if(st.labor)LABOR={...LABOR,...st.labor,perLF:{...LABOR.perLF,...(st.labor.perLF||{})},gate:{...LABOR.gate,...(st.labor.gate||{})}};
-  if(st.markup)MARKUP={...MARKUP,...st.markup};
+  // Boundary coercion: legacy bare-number costs become {cost,unit} and plain
+  // decimal strings become numbers; anything invalid stays and is reported by
+  // computePricing/validateProject rather than priced silently.
+  const pin=sanitizePricingInputs(st);
+  if(pin.costs)COST_DB={...COST_DB,...pin.costs};
+  if(pin.labor)LABOR={...LABOR,...pin.labor,perLF:{...LABOR.perLF,...(pin.labor.perLF||{})},gate:{...LABOR.gate,...(pin.labor.gate||{})}};
+  if(pin.markup)MARKUP={...MARKUP,...pin.markup};
   _pricingFromLoadedProject=!!(st.costs||st.labor||st.markup);
   if(st.pan&&Number.isFinite(st.pan.x)&&Number.isFinite(st.pan.y))S.pan={x:st.pan.x,y:st.pan.y};
   if(Number.isFinite(st.zoom))S.zoom=Math.max(0.05,Math.min(4,st.zoom));
@@ -1088,6 +1224,7 @@ const S={
   elements:[], labels:[],
   drawing:null, selected:null, editingGate:null,
   moving:null, moveStart:null, moveOrigEl:null,
+  jobId:null,
   pan:{x:80,y:80}, zoom:1, snapFt:1,
   autoPost:true, postSpacing:10,
   isPanning:false, panStart:null,
@@ -1147,7 +1284,22 @@ function bagsForHole(postRole,postDiaIn,depthIn){
   const dia=Number(postDiaIn??(role?POST_OD_IN[role]:NaN));
   const depth=Number(depthIn);
   if(!role||!Number.isFinite(dia)||dia<=0||!Number.isFinite(depth))return undefined;
-  return FOOTING.bagsByDepthIn[depth];
+  return footingBagsForDepth(depth);
+}
+// A depth off the ratified schedule (a legacy 28" job, a per-run override) is never
+// silently 0 bags. There is no ratified volume model, so it takes the next deeper
+// table depth (conservative round-up); beyond the deepest entry, that entry scaled
+// by depth and rounded up. validateProject warns whenever this is used.
+function footingDepthOnTable(depth){return Object.prototype.hasOwnProperty.call(FOOTING.bagsByDepthIn,Number(depth));}
+function footingBagsForDepth(depth){
+  const table=FOOTING.bagsByDepthIn;
+  if(footingDepthOnTable(depth))return table[depth];
+  const depths=Object.keys(table).map(Number).filter(d=>d>0&&Number.isFinite(+table[d])).sort((a,b)=>a-b);
+  if(!depths.length||!(depth>0))return undefined;
+  const next=depths.find(d=>d>=depth);
+  if(next!==undefined)return table[next];
+  const deepest=depths[depths.length-1];
+  return Math.ceil(table[deepest]*depth/deepest);
 }
 // midRailForHeight: off <6', on at 6' (commercial-leaning default, overridable),
 // mandatory 8'+. Returns true if mid rail should be on by default for this height.
@@ -1213,7 +1365,9 @@ function normalizeMatKey(name){
 
 // DEFAULT_COST_DB — seed buy costs (USD). cost = your purchase price per unit.
 // These are reasonable 2025 NC starting points; override them in-app to YOUR numbers.
-// Keyed by normalized material name. unit is informational (matched item carries qty).
+// Keyed by cost key. Every auto BOM line names its key explicitly (costKey in
+// calcAutoMaterials); manual lines use the exact normalized name. unit is
+// informational (matched item carries qty).
 const DEFAULT_COST_DB={
   // chain link
   'chain link fabric':        {cost:3.20, unit:'lf'},
@@ -1225,7 +1379,8 @@ const DEFAULT_COST_DB={
   'tension band':             {cost:0.75, unit:'ea'},
   'top rail sleeve':          {cost:0.60, unit:'ea'},
   'post cap':                 {cost:0.85, unit:'ea'},
-  'brace band':               {cost:0.80, unit:'ea'},
+  'terminal size brace band': {cost:0.80, unit:'ea'}, // distinct SKUs (v5.4.0 authority); both seeded at the former shared 'brace band' price
+  'line size brace band':     {cost:0.80, unit:'ea'},
   'rail end loop cap':        {cost:1.10, unit:'ea'},
   'wire ties':                {cost:0.05, unit:'ea'},
   'hog rings':                {cost:0.04, unit:'ea'}, // placeholder seed; contractors set their own costs
@@ -1236,7 +1391,10 @@ const DEFAULT_COST_DB={
   // privacy wood
   'dog ear picket':           {cost:2.40, unit:'ea'},
   'post':                     {cost:11.00,unit:'ea'},
-  'bottom rail':              {cost:4.20, unit:'lf'},
+  'bottom rail':              {cost:4.20, unit:'lf'}, // chain-link 1-5/8" bottom rail; seed is the price it resolved to before exact-key pricing
+  'wood top rail':            {cost:1.85, unit:'lf'}, // 2x4 rails: own keys, seeded at the price each resolved to before exact-key pricing
+  'wood mid rail':            {cost:1.85, unit:'lf'},
+  'wood bottom rail':         {cost:4.20, unit:'lf'},
   'post cap finial':          {cost:1.75, unit:'ea'},
   'galv nails approx':        {cost:0.03, unit:'ea'},
   'post concrete bag':        {cost:6.50, unit:'bag'},
@@ -1286,6 +1444,42 @@ const DEFAULT_COST_DB={
   'cantilever w hardware':    {cost:980.00,unit:'ea'},
   'gate post':                {cost:24.00, unit:'ea'},
 };
+// Gate kit line → cost key. An unknown gate type has no key and surfaces as MISSING_COST.
+const GATE_COST_KEYS={walk:'walk gate w hardware',doubledrive:'dbl drive w hardware',cantilever:'cantilever w hardware'};
+// Emitted BOM line names whose cost key is not their normalized name (the
+// calcAutoMaterials costKey for that line). Used to map a supplier CSV row that
+// carries a BOM line name onto the same key that line is priced from.
+const BOM_NAME_COST_KEYS=[
+  [/^2x4 top rail$/i,'wood top rail'],
+  [/^2x4 mid rail$/i,'wood mid rail'],
+  [/^2x4 bottom rail$/i,'wood bottom rail'],
+  [/^(gate )?post concrete \(\d+(\.\d+)?lb bag\)$/i,'post concrete bag'],
+  [/^truss rod$/i,'truss rod w tightener'],
+  [/^rail end \(loop cap\)$/i,'rail end loop cap'],
+  [/^barb arm (vertical|outward|inward|yarm)$/i,'barb arm'],
+];
+function costKeyForName(name){
+  const n=String(name||'').trim().replace(/\s+/g,' ');
+  const hit=BOM_NAME_COST_KEYS.find(([re])=>re.test(n));
+  return hit?hit[1]:normalizeMatKey(n);
+}
+// Rate cards saved before the shared keys were split carry none of the split
+// keys. Each split key inherits the saved price of the shared key its line was
+// charged from, so an upgraded card keeps every customised line price.
+const LEGACY_SPLIT_COST_KEYS={'wood top rail':'top rail','wood mid rail':'mid rail','wood bottom rail':'bottom rail',
+  'terminal size brace band':'brace band','line size brace band':'brace band'};
+function migrateLegacyCostKeys(costs){
+  if(!costs||typeof costs!=='object'||Array.isArray(costs))return costs;
+  const has=k=>Object.prototype.hasOwnProperty.call(costs,k);
+  if(Object.keys(LEGACY_SPLIT_COST_KEYS).some(has))return costs;
+  const out={...costs};
+  Object.entries(LEGACY_SPLIT_COST_KEYS).forEach(([splitKey,sharedKey])=>{
+    if(!has(sharedKey))return;
+    const v=costs[sharedKey];
+    out[splitKey]=v&&typeof v==='object'?{...v}:v;
+  });
+  return out;
+}
 
 // DEFAULT_LABOR — internal labor cost as $/LF by fence type (the "Both" model:
 // this flat rate is the default; an optional crew-hours override can replace it
@@ -1296,12 +1490,30 @@ const DEFAULT_LABOR={
           vinylprivacy6:10, vinylprivacy8:12, vinylsplit2:6, vinylsplit3:7,
           cattlefield:4, cattlehog:5, temporary:3, barbedwire:5 },
   gate:{ walk:60, doubledrive:180, cantilever:350 },
-  crewHourlyRate:55   // used when hours-override is enabled
+  crewHourlyRate:55,  // used when hours-override is enabled
+  // Site upcharges (owner ruling 2026-10-15: contractor-editable, seeded with the
+  // former hardcoded rates). demo/slope are $/LF of total run length; hardDig is
+  // a % of labor cost. The urban premium % lives on MARKUP.
+  demoPerLF:3, slopePerLF:0.5, hardDigPct:30
 };
 
 // DEFAULT_MARKUP — client price built from internal cost. Separate levers for
 // materials vs. labor (your chosen model). Live margin % is derived, not entered.
-const DEFAULT_MARKUP={ materialPct:35, laborPct:55 };
+const DEFAULT_MARKUP={ materialPct:35, laborPct:55, urbanPct:15 };
+// siteAdderRate: the live rate-card value for a site upcharge, or its seed when the
+// stored value is not a finite non-negative number (old/corrupt/imported cards),
+// so NaN or strings never reach the pricing arithmetic.
+const SITE_ADDER_SOURCES={demoPerLF:'labor',slopePerLF:'labor',hardDigPct:'labor',urbanPct:'markup'};
+function siteAdderRate(key){
+  const live=SITE_ADDER_SOURCES[key]==='markup'?MARKUP:LABOR;
+  const seed=SITE_ADDER_SOURCES[key]==='markup'?DEFAULT_MARKUP:DEFAULT_LABOR;
+  const v=live&&live[key];
+  return typeof v==='number'&&Number.isFinite(v)&&v>=0?v:seed[key];
+}
+function refreshSiteAdderLabels(){
+  const u=document.getElementById('uc-urban-lbl');if(u)u.textContent=`+${siteAdderRate('urbanPct')}%`;
+  const h=document.getElementById('uc-harddig-lbl');if(h)h.textContent=`+${siteAdderRate('hardDigPct')}% labor`;
+}
 
 // Live working copies (seeded from defaults, overwritten by localStorage / job file).
 let COST_DB = JSON.parse(JSON.stringify(DEFAULT_COST_DB));
@@ -1333,13 +1545,55 @@ function refreshPostDiaDefaults(){
     POST_ROLES.forEach(role=>{if(!sp.postEmbedDirty[role])sp.postEmbedIn[role]=embedDefaultFor(role,sp);});
   });
 }
+// ── INPUT BOUNDARY COERCION (estimator audit 2026-10-15, Step 1.2) ──
+// One rule for money, percent and quantity values at every load/import/edit
+// boundary: a finite number >= 0 passes; a string that is a plain decimal
+// ("12", "12.5", ".5") coerces to that number; anything else (NaN, Infinity,
+// negatives, "1e2", "12,50", "35%", blank, null) is rejected as null.
+const PLAIN_DECIMAL_RE=/^(?:\d+(?:\.\d*)?|\.\d+)$/;
+function coerceNonNegNumber(v){
+  if(typeof v==='number')return Number.isFinite(v)&&v>=0?v:null;
+  if(typeof v==='string'){const s=v.trim();return PLAIN_DECIMAL_RE.test(s)?Number(s):null;}
+  return null;
+}
+// sanitizePricingInputs: coerce the costs/labor/markup of a job file, saved rate
+// card, price import or backup. Legacy bare-number costs become {cost,unit}.
+// A value that cannot be coerced is kept as-is and listed in `problems`, so an
+// import can refuse the file and a loaded job reports it through validation
+// (computePricing flags it) instead of pricing it silently. Site-upcharge keys
+// are left to siteAdderRate(), which already falls back to its seed.
+function sanitizePricingInputs(src){
+  src=src&&typeof src==='object'?src:{};
+  const problems=[],out={};
+  const fix=(v,label)=>{const n=coerceNonNegNumber(v);if(n===null){problems.push(`${label} (${typeof v==='string'?`"${v}"`:String(v)})`);return v;}return n;};
+  if(src.costs&&typeof src.costs==='object'){
+    out.costs={};
+    Object.entries(migrateLegacyCostKeys(src.costs)||{}).forEach(([k,v])=>{
+      const isObj=!!v&&typeof v==='object';
+      const unit=(isObj&&v.unit)||(COST_DB[k]&&COST_DB[k].unit)||'ea';
+      out.costs[k]={...(isObj?v:{}),cost:fix(isObj?v.cost:v,`Cost of “${k}”`),unit};
+    });
+  }
+  if(src.labor&&typeof src.labor==='object'){
+    const l={...src.labor};
+    if('crewHourlyRate' in l)l.crewHourlyRate=fix(l.crewHourlyRate,'Crew hourly rate');
+    ['perLF','gate'].forEach(grp=>{
+      if(l[grp]&&typeof l[grp]==='object'){l[grp]={...l[grp]};Object.keys(l[grp]).forEach(k=>{l[grp][k]=fix(l[grp][k],grp==='gate'?`Gate labor for ${k}`:`Labor $/LF for ${k}`);});}
+    });
+    out.labor=l;
+  }
+  if(src.markup&&typeof src.markup==='object'){
+    const m={...src.markup};
+    if('materialPct' in m)m.materialPct=fix(m.materialPct,'Material markup %');
+    if('laborPct' in m)m.laborPct=fix(m.laborPct,'Labor markup %');
+    out.markup=m;
+  }
+  return{...out,problems};
+}
 // Accept both legacy Rate Card bare-number costs and canonical CAD {cost,unit} costs.
 function normalizeImportedCosts(src){
   const out={};
-  Object.entries(src||{}).forEach(([k,v])=>{
-    if(typeof v==='number') out[k]={cost:v,unit:(COST_DB[k]&&COST_DB[k].unit)||'ea'};
-    else if(v&&typeof v.cost==='number') out[k]={cost:v.cost,unit:v.unit||((COST_DB[k]&&COST_DB[k].unit)||'ea')};
-  });
+  Object.entries(sanitizePricingInputs({costs:src}).costs||{}).forEach(([k,v])=>{out[k]={cost:v.cost,unit:v.unit};});
   return out;
 }
 function readSavedCostDB(){
@@ -1353,9 +1607,10 @@ function readSavedCostDB(){
 }
 function mergeSavedCostDB(o){
   o=o&&typeof o==='object'?o:{};
+  const c=sanitizePricingInputs(o);
   if(o.costs)COST_DB={...COST_DB,...normalizeImportedCosts(o.costs)};
-  if(o.labor)LABOR={...LABOR,...o.labor,perLF:{...LABOR.perLF,...(o.labor.perLF||{})},gate:{...LABOR.gate,...(o.labor.gate||{})}};
-  if(o.markup)MARKUP={...MARKUP,...o.markup};
+  if(c.labor)LABOR={...LABOR,...c.labor,perLF:{...LABOR.perLF,...(c.labor.perLF||{})},gate:{...LABOR.gate,...(c.labor.gate||{})}};
+  if(c.markup)MARKUP={...MARKUP,...c.markup};
   if(o.footing)mergeFooting(o.footing);
   if(o.postODIn)mergePostOD(o.postODIn);
   if(o.postEmbedIn)mergePostEmbed(o.postEmbedIn);
@@ -1381,25 +1636,40 @@ function reloadSavedCostDB(){
   _pricingFromLoadedProject=false;
   return'loaded';
 }
+// Leave loaded-project pricing (estimator audit F5): a new quote is priced from
+// the company rate card — the saved one, else the shipped defaults, exactly as
+// at boot. Reads the rate card only; never writes it.
+function restoreCompanyRateCard(){
+  if(!_pricingFromLoadedProject)return;
+  if(reloadSavedCostDB()!=='loaded'){
+    COST_DB=JSON.parse(JSON.stringify(DEFAULT_COST_DB));
+    LABOR=JSON.parse(JSON.stringify(DEFAULT_LABOR));
+    MARKUP=JSON.parse(JSON.stringify(DEFAULT_MARKUP));
+    FOOTING=JSON.parse(JSON.stringify(DEFAULT_FOOTING));
+    POST_OD_IN={...DEFAULT_POST_OD_IN};
+    POST_EMBED_IN={...DEFAULT_POST_EMBED_IN};
+    refreshPostDiaDefaults();
+    _pricingFromLoadedProject=false;
+  }
+  refreshSiteAdderLabels();
+  const crl=document.getElementById('crew-rate-lbl');if(crl)crl.textContent=LABOR.crewHourlyRate;
+}
 function saveCostDB(){
   if(_pricingFromLoadedProject)return false;
   try{localStorage.setItem(COSTDB_KEY,JSON.stringify({costs:COST_DB,labor:LABOR,markup:MARKUP,footing:FOOTING,postODIn:POST_OD_IN,postEmbedIn:POST_EMBED_IN}));return true;}
   catch(e){return false;}
 }
-// lookupCost: normalized match against COST_DB; returns unit cost or null if unknown.
+// costKeyFor: the one rate-card key a BOM line is priced from. Auto lines carry
+// an explicit costKey; manual lines use their exact normalized name. There is
+// no fuzzy fallback: a line whose key is absent prices as unknown (MISSING_COST),
+// never as another item, and the result does not depend on COST_DB key order.
+function costKeyFor(it){
+  return it&&it.source==='manual'?normalizeMatKey(it.name):(it&&typeof it.costKey==='string'?it.costKey:null);
+}
+// lookupCost: exact rate-card match for a material name; returns unit cost or null if unknown.
 function lookupCost(name){
   const k=normalizeMatKey(name);
-  if(COST_DB[k])return COST_DB[k].cost;
-  if((k==='terminal size brace band'||k==='line size brace band')&&COST_DB['brace band'])return COST_DB['brace band'].cost;
-  // soft fallback A: trim trailing words off the BOM name
-  const parts=k.split(' ');
-  for(let n=Math.min(5,parts.length);n>=2;n--){
-    const sub=parts.slice(0,n).join(' ');
-    if(COST_DB[sub])return COST_DB[sub].cost;
-  }
-  // soft fallback B: a DB key that starts with the BOM key (e.g. "post concrete" → "post concrete bag")
-  for(const dbk in COST_DB){ if(dbk.startsWith(k+' ')||k.startsWith(dbk+' '))return COST_DB[dbk].cost; }
-  return null;
+  return Object.prototype.hasOwnProperty.call(COST_DB,k)&&COST_DB[k]?COST_DB[k].cost:null;
 }
 
 // ── HELPERS ────────────────────────────────────────────────────────────────
@@ -1448,10 +1718,11 @@ function rebuildRunAutoPosts(run){
     return;
   }
   const selected=S.elements[S.selected],gateEditor=S.editingGate&&S.elements[S.editingGate.index];
-  const gates=S.elements.filter(el=>el.type==='gate'&&el.runId===run.runId);
-  const posts=autoPostsForRun(run.start,run.end,run.autoPostSpacing,run.fenceType,run.runId,run.specs)
-    .filter(post=>!gates.some(gate=>ptSegDist(post.pos,gate.start,gate.end)<1e-6));
-  // The gate segment includes both endpoints: gate posts replace line posts there too.
+  // Gates split the run into fabric sections; each section is spaced from its own
+  // start, so no line post lands in a gate opening or on a gate post.
+  const lay=runGateLayout(run);
+  const posts=lay.sections.flatMap(([a,b])=>autoPostsForRun(pointOnRun(run,a,lay.L),pointOnRun(run,b,lay.L),
+    run.autoPostSpacing,run.fenceType,run.runId,run.specs));
   S.elements=S.elements.filter(el=>!(el.type==='post'&&el.auto&&el.runId===run.runId));
   S.elements.push(...posts);
   if(selected){const index=S.elements.indexOf(selected);S.selected=index<0?null:index;}
@@ -1463,6 +1734,10 @@ function deleteSelectedElement(){
   pushHistory();
   const [removed]=S.elements.splice(S.selected,1);
   S.selected=null;S.editingGate=null;
+  // A deleted run takes its gates and automatic posts with it (unless its ID is
+  // ambiguous, in which case ownership cannot be told apart).
+  if(removed?.type==='fence'&&removed.runId&&!fenceRunById(removed.runId))
+    S.elements=S.elements.filter(el=>!((el.type==='gate'||(el.type==='post'&&el.auto))&&el.runId===removed.runId));
   if(removed?.type==='gate')rebuildRunAutoPosts(fenceRunById(removed.runId));
   syncSpecInputs();draw();updatePanel();updateGateEditor();scheduleAutosave();
 }
@@ -1480,41 +1755,76 @@ function pasteClipboardElement(){
   if(clone.type==='fence')clone.runId=makeRunId();
   S.elements.push(clone);S.selected=S.elements.length-1;
   if(clone.type==='fence')rebuildRunAutoPosts(clone);
-  if(clone.type==='gate')rebuildRunAutoPosts(fenceRunById(clone.runId));
+  if(clone.type==='gate'){const {next}=rebindGate(clone);rebuildRunAutoPosts(next);}
   draw();updatePanel();scheduleAutosave();
 }
 
 function getStats(){
   const cs=buildCornerSet(S.elements);
   const acc={fence:{},totalFt:0,cornerPosts:new Set(),terminalPosts:new Set(),
-    gates:{walk:0,doubledrive:0,cantilever:0,other:0},gateTotal:0,gatePosts:0,
-    netFence:{},netTotalFt:0,terminationEnds:0,byRunId:{}};
-  const claimed=new Set();
-  S.elements.filter(el=>el.type==='fence').forEach(run=>{
-    const grossFt=dist(run.start,run.end)/GRID_FT;
-    const row=acc.byRunId[run.runId]={runId:run.runId,grossFt,gateOpeningFt:0,netFt:grossFt,
-      lineCt:0,termCt:0,cornerCt:0,gatePostCt:0,terminalEndCt:0,cornerEndCt:0,terminationEnds:0};
+    gates:{walk:0,doubledrive:0,cantilever:0,other:0},gateTotal:0,gatePosts:0,unownedGates:0,
+    gatePostsByGate:new Map(),netFence:{},netTotalFt:0,terminationEnds:0,byRunId:{}};
+  const claimed=new Set(),runs=S.elements.filter(el=>el.type==='fence');
+  // Gate posts: one per distinct gate edge. Adjacent gates, and a gate edge at a
+  // run end or corner, share one post; the first gate in drawing order buys it.
+  const layouts=new Map(),gatePostPts=[];
+  const isGatePost=p=>gatePostPts.some(q=>dist(p,q)<=GATE_ON_RUN_TOL);
+  runs.forEach(run=>{
+    const lay=runGateLayout(run);layouts.set(run,lay);
+    lay.spans.forEach(g=>[g.lo,g.hi].forEach(sv=>{
+      const p=pointOnRun(run,sv,lay.L);
+      if(isGatePost(p))return;
+      gatePostPts.push(p);acc.gatePostsByGate.set(g.gate,(acc.gatePostsByGate.get(g.gate)||0)+1);
+    }));
+  });
+  acc.gatePosts=gatePostPts.length;
+  runs.forEach(run=>{
+    const lay=layouts.get(run),grossFt=dist(run.start,run.end)/GRID_FT;
+    const row=acc.byRunId[run.runId]={runId:run.runId,grossFt,gateOpeningFt:lay.openingPx/GRID_FT,netFt:grossFt,
+      lineCt:0,termCt:0,cornerCt:0,sections:lay.sections.length,sectionFt:lay.sections.map(([a,b])=>(b-a)/GRID_FT),gateEndCt:0,terminalEndCt:0,cornerEndCt:0,terminationEnds:0};
     acc.fence[run.fenceType]=(acc.fence[run.fenceType]||0)+grossFt;
     acc.totalFt+=grossFt;
-    [run.start,run.end].forEach(pt=>{
-      const k=ptKey(pt),isCorner=cs.has(k);
-      if(isCorner){acc.cornerPosts.add(k);row.cornerEndCt++;}
-      else{acc.terminalPosts.add(k);row.terminalEndCt++;}
+    // Fabric ends: each section has two. A run end covered by its own gate has
+    // none; a section edge on a gate post ends on that gate post.
+    const first=lay.sections[0],last=lay.sections[lay.sections.length-1];
+    lay.sections.forEach(([a,b])=>{if(a>0)row.gateEndCt++;if(b<lay.L)row.gateEndCt++;});
+    [[run.start,!!first&&first[0]===0],[run.end,!!last&&last[1]===lay.L]].forEach(([pt,fabric])=>{
+      const k=ptKey(pt),isCorner=cs.has(k),gatePost=isGatePost(pt);
+      if(fabric){if(gatePost)row.gateEndCt++;else if(isCorner)row.cornerEndCt++;else row.terminalEndCt++;}
+      if(gatePost)return;// bought once, as a gate post
+      if(isCorner)acc.cornerPosts.add(k);else acc.terminalPosts.add(k);
       if(!claimed.has(k)){claimed.add(k);if(isCorner)row.cornerCt++;else row.termCt++;}
     });
   });
   S.elements.filter(el=>el.type==='post'&&el.auto).forEach(post=>{
     const row=acc.byRunId[post.runId];if(row)row.lineCt++;
   });
-  S.elements.filter(el=>el.type==='gate').forEach(gate=>{
-    const gt=gate.gateType||'walk',row=acc.byRunId[gate.runId];
-    acc.gates[gt]=(acc.gates[gt]||0)+1;acc.gateTotal++;acc.gatePosts+=2;
-    if(row){row.gateOpeningFt+=dist(gate.start,gate.end)/GRID_FT;row.gatePostCt+=2;}
+  // A post placed with the Post tool is a line post of the run it stands on, inside
+  // a fabric section. On a run end, corner, gate post or another post it is that
+  // post, not a second one. Off every run (or in a gate opening) it is not priced;
+  // validateProject reports it.
+  acc.unpricedPosts=[];
+  const placed=S.elements.filter(el=>el.type==='post'&&el.auto&&el.pos).map(el=>el.pos);
+  S.elements.filter(el=>el.type==='post'&&!el.auto).forEach(post=>{
+    const p=post.pos,near=q=>dist(p,q)<=GATE_ON_RUN_TOL;
+    const run=p&&runs.find(r=>runAxis(r)&&ptSegDist(p,r.start,r.end)<=GATE_ON_RUN_TOL);
+    if(!run){acc.unpricedPosts.push(post);return;}
+    if(near(run.start)||near(run.end)||isGatePost(p)||placed.some(near))return;
+    const sv=runAxis(run).along(p);
+    if(!layouts.get(run).sections.some(([a,b])=>sv>a&&sv<b)){acc.unpricedPosts.push(post);return;}
+    placed.push(p);acc.byRunId[run.runId].lineCt++;
   });
-  S.elements.filter(el=>el.type==='fence').forEach(run=>{
+  // A gate that does not lie on its run is neither deducted nor priced;
+  // validateProject reports it.
+  S.elements.filter(el=>el.type==='gate').forEach(gate=>{
+    if(!gateOwnerRun(gate)){acc.unownedGates++;return;}
+    const gt=gate.gateType||'walk';
+    acc.gates[gt]=(acc.gates[gt]||0)+1;acc.gateTotal++;
+  });
+  runs.forEach(run=>{
     const row=acc.byRunId[run.runId];
     row.netFt=Math.max(0,row.grossFt-row.gateOpeningFt);
-    row.terminationEnds=row.terminalEndCt+row.cornerEndCt+row.gatePostCt;
+    row.terminationEnds=row.terminalEndCt+row.cornerEndCt+row.gateEndCt;
     acc.terminationEnds+=row.terminationEnds;
     acc.netFence[run.fenceType]=(acc.netFence[run.fenceType]||0)+row.netFt;
     acc.netTotalFt+=row.netFt;
@@ -1536,6 +1846,9 @@ function postLengthLabel(role,sp,label){
   const cutIn=chainLinkPostCutIn(role,sp),purchaseFt=chainLinkPurchaseFt(role,cutIn);
   return `${label} ${purchaseFt}' (${cutIn}" cut)`;
 }
+// Units of width w (panels, rail spans) needed to fill a run: each fabric section
+// between gates and run ends takes its own partial unit, so units round per section.
+function unitsPerSection(row,w){return row.sectionFt.reduce((n,f)=>n+Math.ceil(f/w-1e-6),0);}
 function concreteBagsForPosts(role,count,sp){
   if(role==='line'||count<=0)return 0;
   return count*(bagsForHole(role,sp.postDiaIn[role],sp.postEmbedIn[role])||0);
@@ -1551,6 +1864,7 @@ function calcAutoMaterials(){
   // Per-run calculations: each fence run owns its own specs and spacing.
   S.elements.filter(el=>el.type==='fence').forEach(run=>{
     const type=run.fenceType||'chainlink';
+    const from=items.length; // items pushed for this run belong to its section
     const runStats=stats.byRunId[run.runId];
     const ft=runStats.netFt;
     const sp=hydrateRunSpecs(run.specs||S.specs);
@@ -1566,16 +1880,16 @@ function calcAutoMaterials(){
 
     if(type==='chainlink'){
       const ends=runStats.terminationEnds;
-      const trussAssemblies=sp.hasMidRail&&sp.hasTrussRod?runStats.cornerEndCt+runStats.gatePostCt:0;
+      const trussAssemblies=sp.hasMidRail&&sp.hasTrussRod?runStats.cornerEndCt+runStats.gateEndCt:0;
       const hasBarbed=sp.addons.has('barbed-wire');
-      items.push({name:`Chain Link Fabric (${sp.heightIn}")`,qty:Math.ceil(ft),unit:'lf'});
-      if(sp.hasTopRail)items.push({name:`Top Rail 1-5/8"`,qty:Math.ceil(ft),unit:'lf'});
-      items.push({name:postLengthLabel('line',sp,'Line Post'),qty:lineCt,unit:'ea'});
-      items.push({name:postLengthLabel('terminal',sp,'Terminal/Corner Post'),qty:termCt,unit:'ea'});
-      items.push({name:postLengthLabel('corner',sp,'Terminal/Corner Post'),qty:cornerCt,unit:'ea'});
-      items.push({name:'Tension Bar',qty:ends,unit:'ea'});
-      items.push({name:'Tension Band',qty:ends*Math.max(Math.ceil(sp.heightIn/12)-1,0),unit:'ea'});
-      if(sp.hasTopRail)items.push({name:'Top Rail Sleeve',qty:Math.ceil(ft/10),unit:'ea'});
+      items.push({name:`Chain Link Fabric (${sp.heightIn}")`,costKey:'chain link fabric',qty:Math.ceil(ft),unit:'lf'});
+      if(sp.hasTopRail)items.push({name:`Top Rail 1-5/8"`,costKey:'top rail',qty:Math.ceil(ft),unit:'lf'});
+      items.push({name:postLengthLabel('line',sp,'Line Post'),costKey:'line post',qty:lineCt,unit:'ea'});
+      items.push({name:postLengthLabel('terminal',sp,'Terminal/Corner Post'),costKey:'terminal corner post',qty:termCt,unit:'ea'});
+      items.push({name:postLengthLabel('corner',sp,'Terminal/Corner Post'),costKey:'terminal corner post',qty:cornerCt,unit:'ea'});
+      items.push({name:'Tension Bar',costKey:'tension bar',qty:ends,unit:'ea'});
+      items.push({name:'Tension Band',costKey:'tension band',qty:ends*Math.max(Math.ceil(sp.heightIn/12)-1,0),unit:'ea'});
+      if(sp.hasTopRail)items.push({name:'Top Rail Sleeve',costKey:'top rail sleeve',qty:Math.ceil(ft/10),unit:'ea'});
       // Termination hardware is per fabric end (owner field specification, v5.4.0
       // supplement and 2026-10-02 rules): each rail (top, mid, bottom) takes one
       // terminal brace band + one rail-end cup; each tension wire (bottom, top) and
@@ -1583,135 +1897,153 @@ function calcAutoMaterials(){
       // the first line post with a line-size band + cup. Barb arms replace post caps.
       const rails=(sp.hasTopRail?1:0)+(sp.hasMidRail?1:0)+(sp.hasBottomRail?1:0);
       const wires=(sp.addons.has('bottom-wire')?1:0)+(sp.addons.has('top-wire')?1:0)+(hasBarbed?sp.barbStrands:0);
-      items.push({name:'Post Cap',qty:hasBarbed?0:totalPosts,unit:'ea'});
-      items.push({name:'Terminal-size Brace Band',qty:ends*(rails+wires),unit:'ea'});
-      if(sp.hasMidRail)items.push({name:'Line-size Brace Band',qty:ends,unit:'ea'});
-      items.push({name:'Rail End (Loop Cap)',qty:ends*(rails+(sp.hasMidRail?1:0)),unit:'ea'});
+      items.push({name:'Post Cap',costKey:'post cap',qty:hasBarbed?0:totalPosts,unit:'ea'});
+      items.push({name:'Terminal-size Brace Band',costKey:'terminal size brace band',qty:ends*(rails+wires),unit:'ea'});
+      if(sp.hasMidRail)items.push({name:'Line-size Brace Band',costKey:'line size brace band',qty:ends,unit:'ea'});
+      items.push({name:'Rail End (Loop Cap)',costKey:'rail end loop cap',qty:ends*(rails+(sp.hasMidRail?1:0)),unit:'ea'});
       // Fastening (owner rules 2026-10-03): 5 per bay on every horizontal element,
       // whatever the bay length — wire ties on rails, hog rings on tension wires and
       // razor ribbon. Line posts take (height ft - 1) ties, like tension bands.
       // Bays = line posts + fabric sections (each gate splits the run).
-      const bays=lineCt+runStats.gatePostCt/2+1;
+      const bays=lineCt+runStats.sections;
       const fastenedWires=['bottom-wire','top-wire','tension-wire','razor-ribbon'].filter(a=>sp.addons.has(a)).length;
       const tiesPerLinePost=Math.max(Math.ceil(sp.heightIn/12)-1,0);
-      items.push({name:'Wire Ties 9ga',qty:5*bays*rails+lineCt*tiesPerLinePost,unit:'ea'});
-      if(fastenedWires)items.push({name:'Hog Rings',qty:5*bays*fastenedWires,unit:'ea'});
+      items.push({name:'Wire Ties 9ga',costKey:'wire ties',qty:5*bays*rails+lineCt*tiesPerLinePost,unit:'ea'});
+      if(fastenedWires)items.push({name:'Hog Rings',costKey:'hog rings',qty:5*bays*fastenedWires,unit:'ea'});
       const boltsPer=Math.ceil(sp.heightIn/12)*2;
-      items.push({name:'3/8" Carriage Bolt+Nut',qty:ends*boltsPer,unit:'ea'});
-      if(sp.hasMidRail){items.push({name:'Mid Rail 1-5/8"',qty:Math.ceil(ft),unit:'lf'});}
-      if(sp.hasBottomRail){items.push({name:'Bottom Rail 1-5/8"',qty:Math.ceil(ft),unit:'lf'});}
+      items.push({name:'3/8" Carriage Bolt+Nut',costKey:'carriage bolt nut',qty:ends*boltsPer,unit:'ea'});
+      if(sp.hasMidRail){items.push({name:'Mid Rail 1-5/8"',costKey:'mid rail',qty:Math.ceil(ft),unit:'lf'});}
+      if(sp.hasBottomRail){items.push({name:'Bottom Rail 1-5/8"',costKey:'bottom rail',qty:Math.ceil(ft),unit:'lf'});}
       if(trussAssemblies){
-        items.push({name:'Truss Rod',qty:trussAssemblies,unit:'ea'});
-        items.push({name:'Truss Rod Connector (turnbuckle-style, threaded)',qty:trussAssemblies,unit:'ea'});
+        items.push({name:'Truss Rod',costKey:'truss rod w tightener',qty:trussAssemblies,unit:'ea'});
+        items.push({name:'Truss Rod Connector (turnbuckle-style, threaded)',costKey:'truss rod connector',qty:trussAssemblies,unit:'ea'});
       }
       const concrete=concreteBagsForPosts('terminal',termCt,sp)+concreteBagsForPosts('corner',cornerCt,sp);
-      if(concrete)items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,qty:concrete,unit:'bag'});
+      if(concrete)items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concrete,unit:'bag'});
     } else if(mat==='wood'&&style==='privacy'){
       const picketCt=Math.ceil(ft/(3.5/12));
       const railCt=2+(sp.hasMidRail?1:0);
-      items.push({name:`Dog-Ear Picket 1x4x${sp.heightIn/12}'`,qty:picketCt,unit:'ea'});
-      items.push({name:`Post 4x4x${postLen}`,qty:typePostCount,unit:'ea'});
-      items.push({name:'2x4 Top Rail',qty:Math.ceil(ft),unit:'lf'});
-      items.push({name:'2x4 Bottom Rail',qty:Math.ceil(ft),unit:'lf'});
-      if(sp.hasMidRail)items.push({name:'2x4 Mid Rail',qty:Math.ceil(ft),unit:'lf'});
-      items.push({name:'Post Cap / Finial',qty:typePostCount,unit:'ea'});
+      items.push({name:`Dog-Ear Picket 1x4x${sp.heightIn/12}'`,costKey:'dog ear picket',qty:picketCt,unit:'ea'});
+      items.push({name:`Post 4x4x${postLen}`,costKey:'post',qty:typePostCount,unit:'ea'});
+      items.push({name:'2x4 Top Rail',costKey:'wood top rail',qty:Math.ceil(ft),unit:'lf'});
+      items.push({name:'2x4 Bottom Rail',costKey:'wood bottom rail',qty:Math.ceil(ft),unit:'lf'});
+      if(sp.hasMidRail)items.push({name:'2x4 Mid Rail',costKey:'wood mid rail',qty:Math.ceil(ft),unit:'lf'});
+      items.push({name:'Post Cap / Finial',costKey:'post cap finial',qty:typePostCount,unit:'ea'});
       // v5.3 fastener respec: 2 screws per frame board per post + 9 per picket.
-      items.push({name:'Exterior Screws (rails)',qty:railCt*typePostCount*2,unit:'ea'});
-      items.push({name:'Exterior Screws (pickets)',qty:picketCt*9,unit:'ea'});
-      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
+      items.push({name:'Exterior Screws (rails)',costKey:'exterior screws',qty:railCt*typePostCount*2,unit:'ea'});
+      items.push({name:'Exterior Screws (pickets)',costKey:'exterior screws',qty:picketCt*9,unit:'ea'});
+      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
     } else if(mat==='wood'&&style==='shadowbox'){
       // Shadowbox: pickets alternate front/back — ~1.5x picket count vs solid privacy
       const picketCt=Math.ceil(ft/(5.5/12)*1.5);
       const railCt=2+(sp.hasMidRail?1:0);
-      items.push({name:`Dog-Ear Picket 1x6x${sp.heightIn/12}'`,qty:picketCt,unit:'ea'});
-      items.push({name:`Post 4x4x${postLen}`,qty:typePostCount,unit:'ea'});
-      items.push({name:'2x4 Top Rail',qty:Math.ceil(ft),unit:'lf'});
-      items.push({name:'2x4 Bottom Rail',qty:Math.ceil(ft),unit:'lf'});
-      if(sp.hasMidRail)items.push({name:'2x4 Mid Rail',qty:Math.ceil(ft),unit:'lf'});
-      items.push({name:'Post Cap / Finial',qty:typePostCount,unit:'ea'});
+      items.push({name:`Dog-Ear Picket 1x6x${sp.heightIn/12}'`,costKey:'dog ear picket',qty:picketCt,unit:'ea'});
+      items.push({name:`Post 4x4x${postLen}`,costKey:'post',qty:typePostCount,unit:'ea'});
+      items.push({name:'2x4 Top Rail',costKey:'wood top rail',qty:Math.ceil(ft),unit:'lf'});
+      items.push({name:'2x4 Bottom Rail',costKey:'wood bottom rail',qty:Math.ceil(ft),unit:'lf'});
+      if(sp.hasMidRail)items.push({name:'2x4 Mid Rail',costKey:'wood mid rail',qty:Math.ceil(ft),unit:'lf'});
+      items.push({name:'Post Cap / Finial',costKey:'post cap finial',qty:typePostCount,unit:'ea'});
       // v5.3 fastener respec: same rule as privacy — 2/frame board/post + 9/picket.
-      items.push({name:'Exterior Screws (rails)',qty:railCt*typePostCount*2,unit:'ea'});
-      items.push({name:'Exterior Screws (pickets)',qty:picketCt*9,unit:'ea'});
-      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
+      items.push({name:'Exterior Screws (rails)',costKey:'exterior screws',qty:railCt*typePostCount*2,unit:'ea'});
+      items.push({name:'Exterior Screws (pickets)',costKey:'exterior screws',qty:picketCt*9,unit:'ea'});
+      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
     } else if(mat==='vinyl'&&(style==='privacy6'||style==='privacy8')){
-      items.push({name:`Vinyl Privacy Panel ${sp.heightIn}"`,qty:Math.ceil(ft/8),unit:'ea'});
-      items.push({name:`Vinyl Post ${postLen}`,qty:typePostCount,unit:'ea'});
-      items.push({name:'Vinyl Top Rail',qty:Math.ceil(ft),unit:'lf'});
-      items.push({name:'Vinyl Bottom Rail',qty:Math.ceil(ft),unit:'lf'});
-      if(sp.hasMidRail)items.push({name:'Vinyl Mid Rail',qty:Math.ceil(ft),unit:'lf'});
-      items.push({name:'Post Cap Vinyl',qty:typePostCount,unit:'ea'});
+      const panelCt=unitsPerSection(runStats,8);
+      items.push({name:`Vinyl Privacy Panel ${sp.heightIn}"`,costKey:'vinyl privacy panel',qty:panelCt,unit:'ea'});
+      items.push({name:`Vinyl Post ${postLen}`,costKey:'vinyl post',qty:typePostCount,unit:'ea'});
+      items.push({name:'Vinyl Top Rail',costKey:'vinyl top rail',qty:Math.ceil(ft),unit:'lf'});
+      items.push({name:'Vinyl Bottom Rail',costKey:'vinyl bottom rail',qty:Math.ceil(ft),unit:'lf'});
+      if(sp.hasMidRail)items.push({name:'Vinyl Mid Rail',costKey:'vinyl mid rail',qty:Math.ceil(ft),unit:'lf'});
+      items.push({name:'Post Cap Vinyl',costKey:'post cap vinyl',qty:typePostCount,unit:'ea'});
       // v5.3 fastener respec: vinyl is a snap-together panel system — the only
       // screw is one securing each top rail. 1 screw per top rail = 1 per 8' panel.
-      items.push({name:'Stainless Screws',qty:Math.ceil(ft/8),unit:'ea'});
-      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
+      items.push({name:'Stainless Screws',costKey:'stainless screws',qty:panelCt,unit:'ea'});
+      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
     } else if(mat==='vinyl'&&(style==='split2'||style==='split3')){
       const rails=style==='split2'?2:3;
-      const railSpans=Math.ceil(ft/8);
-      items.push({name:'Vinyl Split Rail',qty:railSpans*rails,unit:'ea'});
-      items.push({name:`Vinyl Split Rail Post ${postLen}`,qty:typePostCount,unit:'ea'});
-      items.push({name:'Post Cap Vinyl',qty:typePostCount,unit:'ea'});
-      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
+      // One rail per rail line per bay; bays follow the run's actual post spacing.
+      const railSpans=unitsPerSection(runStats,spacingFt);
+      items.push({name:'Vinyl Split Rail',costKey:'vinyl split rail',qty:railSpans*rails,unit:'ea'});
+      items.push({name:`Vinyl Split Rail Post ${postLen}`,costKey:'vinyl split rail post',qty:typePostCount,unit:'ea'});
+      items.push({name:'Post Cap Vinyl',costKey:'post cap vinyl',qty:typePostCount,unit:'ea'});
+      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
     } else if(type==='ornamental'){
-      const panelCt=Math.ceil(ft/6);
-      items.push({name:`Ornamental Panel ${sp.heightIn}"`,qty:panelCt,unit:'ea'});
-      items.push({name:`Ornamental Post ${postLen}`,qty:typePostCount,unit:'ea'});
-      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
-      items.push({name:'Panel Bracket Kit',qty:panelCt,unit:'ea'});
+      const panelCt=unitsPerSection(runStats,6);
+      items.push({name:`Ornamental Panel ${sp.heightIn}"`,costKey:'ornamental panel',qty:panelCt,unit:'ea'});
+      items.push({name:`Ornamental Post ${postLen}`,costKey:'ornamental post',qty:typePostCount,unit:'ea'});
+      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
+      items.push({name:'Panel Bracket Kit',costKey:'panel bracket kit',qty:panelCt,unit:'ea'});
       // v5.3 fastener respec: every panel connects with screws.
       // ASSUMED 4 per panel (2 brackets x 2 screws) — pending Justin sign-off.
-      items.push({name:'Self-Tapping Screws',qty:panelCt*4,unit:'ea'});
+      items.push({name:'Self-Tapping Screws',costKey:'self tapping screws',qty:panelCt*4,unit:'ea'});
     } else if(mat==='wood'&&(style==='split2'||style==='split3'||style==='split3fb')){
       const rails=style==='split2'?2:3;
       // Split rail: 11ft rails at 10ft post spacing (rails protrude past posts via hole inserts)
-      const railSpans=Math.ceil(ft/10);
-      items.push({name:`Split Rail 11ft Rail`,qty:railSpans*rails,unit:'ea'});
-      items.push({name:`Split Rail Post ${postLen}`,qty:typePostCount,unit:'ea'});
-      if(style==='split3fb')items.push({name:'1x6 Face Board',qty:Math.ceil(ft),unit:'lf'});
+      const railSpans=unitsPerSection(runStats,10);
+      items.push({name:`Split Rail 11ft Rail`,costKey:'split rail rail',qty:railSpans*rails,unit:'ea'});
+      items.push({name:`Split Rail Post ${postLen}`,costKey:'split rail post',qty:typePostCount,unit:'ea'});
+      if(style==='split3fb'&&sp.hasFaceBoard)items.push({name:'1x6 Face Board',costKey:'face board',qty:Math.ceil(ft),unit:'lf'});
     } else if(mat==='cattle'){
       // T-posts on line, wood corner/brace posts at terminals.
-      items.push({name:'T-Post 6ft',qty:lineCt,unit:'ea'});
-      items.push({name:`Wood Corner/Brace Post ${postLen}`,qty:termCt+cornerCt,unit:'ea'});
-      items.push({name:'Brace Wire',qty:(termCt+cornerCt)*2,unit:'ea'});
-      items.push({name:'T-Post Clips',qty:Math.ceil(ft*0.6),unit:'ea'});
+      items.push({name:'T-Post 6ft',costKey:'t post',qty:lineCt,unit:'ea'});
+      items.push({name:`Wood Corner/Brace Post ${postLen}`,costKey:'wood corner brace post',qty:termCt+cornerCt,unit:'ea'});
+      items.push({name:'Brace Wire',costKey:'brace wire',qty:(termCt+cornerCt)*2,unit:'ea'});
+      items.push({name:'T-Post Clips',costKey:'t post clips',qty:Math.ceil(ft*0.6),unit:'ea'});
       if(style==='field'){
         const strands=sp.barbStrands||4;
-        for(let s=1;s<=strands;s++)items.push({name:`Barbed Wire Strand ${s}`,qty:Math.ceil(ft),unit:'lf'});
+        for(let s=1;s<=strands;s++)items.push({name:`Barbed Wire Strand ${s}`,costKey:'barbed wire strand',qty:Math.ceil(ft),unit:'lf'});
       }else{
-        items.push({name:'Hog Wire Welded Panel (red-top)',qty:Math.ceil(ft),unit:'lf'});
+        items.push({name:'Hog Wire Welded Panel (red-top)',costKey:'hog wire welded panel',qty:Math.ceil(ft),unit:'lf'});
       }
-      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,qty:concreteBagsForPosts('terminal',termCt,sp)+concreteBagsForPosts('corner',cornerCt,sp),unit:'bag'});
+      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',termCt,sp)+concreteBagsForPosts('corner',cornerCt,sp),unit:'bag'});
     } else if(type==='temporary'){
-      items.push({name:'Temp Panel 6x12',qty:Math.ceil(ft/12),unit:'ea'});
-      items.push({name:'Temp Panel Coupler',qty:Math.ceil(ft/12),unit:'ea'});
-      items.push({name:'Panel Stand / Base',qty:Math.ceil(ft/12),unit:'ea'});
+      // Each fabric section is its own line of panels: a coupler joins each pair of
+      // neighbouring panels and a stand sits at every panel joint and section end.
+      const panelCt=unitsPerSection(runStats,12),sections=runStats.sectionFt.length;
+      items.push({name:'Temp Panel 6x12',costKey:'temp panel',qty:panelCt,unit:'ea'});
+      items.push({name:'Temp Panel Coupler',costKey:'temp panel coupler',qty:Math.max(0,panelCt-sections),unit:'ea'});
+      items.push({name:'Panel Stand / Base',costKey:'panel stand base',qty:panelCt+sections,unit:'ea'});
     }
 
     // Common addon materials
-    if(sp.addons.has('top-wire'))items.push({name:'Top Tension Wire 9ga',qty:Math.ceil(ft),unit:'lf'});
-    if(sp.addons.has('bottom-wire'))items.push({name:'Bottom Tension Wire 9ga',qty:Math.ceil(ft),unit:'lf'});
-    if(sp.addons.has('barbed-wire')){
-      for(let s=1;s<=sp.barbStrands;s++)items.push({name:`Barbed Wire Strand ${s}`,qty:Math.ceil(ft),unit:'lf'});
-      items.push({name:`Barb Arm ${sp.barbArm}`,qty:lineCt,unit:'ea'});
+    if(sp.addons.has('top-wire'))items.push({name:'Top Tension Wire 9ga',costKey:'top tension wire',qty:Math.ceil(ft),unit:'lf'});
+    if(sp.addons.has('bottom-wire'))items.push({name:'Bottom Tension Wire 9ga',costKey:'bottom tension wire',qty:Math.ceil(ft),unit:'lf'});
+    // Field cattle fence already carries its barbed strands (count from the same
+    // barbStrands setting) on T-posts; the add-on adds no second set and no arms.
+    if(sp.addons.has('barbed-wire')&&!(mat==='cattle'&&style==='field')){
+      for(let s=1;s<=sp.barbStrands;s++)items.push({name:`Barbed Wire Strand ${s}`,costKey:'barbed wire strand',qty:Math.ceil(ft),unit:'lf'});
+      items.push({name:`Barb Arm ${sp.barbArm}`,costKey:'barb arm',qty:lineCt,unit:'ea'});
     }
-    if(sp.addons.has('razor-ribbon'))items.push({name:'Razor Ribbon Coil',qty:Math.ceil(ft/50),unit:'coil'});
-    if(sp.addons.has('welded-wire'))items.push({name:'Welded Wire 2x4',qty:Math.ceil(ft),unit:'lf'});
-    if(sp.addons.has('tension-wire'))items.push({name:'Tension Wire 9ga',qty:Math.ceil(ft),unit:'lf'});
+    if(sp.addons.has('razor-ribbon'))items.push({name:'Razor Ribbon Coil',costKey:'razor ribbon coil',qty:Math.ceil(ft/50),unit:'coil'});
+    if(sp.addons.has('welded-wire'))items.push({name:'Welded Wire 2x4',costKey:'welded wire',qty:Math.ceil(ft),unit:'lf'});
+    if(sp.addons.has('tension-wire'))items.push({name:'Tension Wire 9ga',costKey:'tension wire',qty:Math.ceil(ft),unit:'lf'});
+    for(let i=from;i<items.length;i++)items[i].section=run.fenceType;
   });
 
   // Gates are priced from their owning run, never from project-global specs.
+  // A gate off its run is not priced (validateProject reports it). Gate posts
+  // shared with a neighbouring gate are bought once.
   S.elements.filter(el=>el.type==='gate').forEach(gate=>{
-    const owner=fenceRunById(gate.runId);
-    const sp=hydrateRunSpecs(owner?.specs||gate.specs||S.specs);
+    const owner=gateOwnerRun(gate);
+    if(!owner)return;
+    const sp=hydrateRunSpecs(owner.specs||gate.specs||S.specs);
     const gt=gate.gateType||'walk';
     const g=GATE_TYPES[gt]||{label:gt};
-    items.push({name:`${g.label} w/ Hardware`,qty:1,unit:'ea'});
-    items.push({name:postLengthLabel('gate',sp,'Gate Post'),qty:2,unit:'ea'});
-    if((owner?.fenceType||gate.fenceType)==='chainlink'&&!sp.addons.has('barbed-wire'))items.push({name:'Post Cap',qty:2,unit:'ea'});
-    items.push({name:`Gate Post Concrete (${FOOTING.bagWeightLb}lb bag)`,qty:concreteBagsForPosts('gate',2,sp),unit:'bag'});
+    const posts=stats.gatePostsByGate.get(gate)||0;
+    const from=items.length; // a gate belongs to its owning run's section
+    items.push({name:`${g.label} w/ Hardware`,costKey:GATE_COST_KEYS[gt],qty:1,unit:'ea'});
+    if(posts){
+      items.push({name:postLengthLabel('gate',sp,'Gate Post'),costKey:'gate post',qty:posts,unit:'ea'});
+      if(owner.fenceType==='chainlink'&&!sp.addons.has('barbed-wire'))items.push({name:'Post Cap',costKey:'post cap',qty:posts,unit:'ea'});
+      items.push({name:`Gate Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('gate',posts,sp),unit:'bag'});
+    }
+    for(let i=from;i<items.length;i++)items[i].section=owner.fenceType;
   });
 
+  // Lines merge by name; sectionQty keeps each section's share of the quantity
+  // so customer documents can price every section from its own materials.
   const merged=new Map();
-  items.forEach(it=>{const k=it.name+'|'+it.unit;const cur=merged.get(k);if(cur)cur.qty+=it.qty;else merged.set(k,{...it});});
+  items.forEach(({section,...it})=>{const k=it.name+'|'+it.unit;let cur=merged.get(k);if(cur)cur.qty+=it.qty;else merged.set(k,cur={...it,sectionQty:{}});cur.sectionQty[section]=(cur.sectionQty[section]||0)+it.qty;});
   return [...merged.values()];
 }
 
@@ -2337,10 +2669,24 @@ function updateTypeBar(){
 
 // Centralized fence-type switch: sets type, applies default spacing + height,
 // refreshes specs/type bar. Used by type bar, presets, and material picker.
+// Per-type spec memory (inventory audit F-6): switching type strips the
+// components and add-ons the new type cannot use, so each owner (a run, or the
+// drawing defaults) remembers its specs per type and switching back restores
+// them. Run memory dies with the run object; defaults memory with the job.
+const _runTypeSpecs=new WeakMap();
+let _defaultTypeSpecs={};
+function typeSpecMemory(run){
+  if(!run)return _defaultTypeSpecs;
+  if(!_runTypeSpecs.has(run))_runTypeSpecs.set(run,{});
+  return _runTypeSpecs.get(run);
+}
 function selectFenceType(key){
   const fdef=FENCE_TYPES[key];if(!fdef)return;
   const run=selectedFenceRun();
-  const sp=activeSpecs();
+  let sp=activeSpecs();
+  const prevType=activeFenceType(),mem=typeSpecMemory(run);
+  const remembered=prevType!==key?mem[key]:null;
+  if(prevType!==key)mem[prevType]=serializeRunSpecs(sp);
   if(run){
     pushHistory();
     run.fenceType=key;
@@ -2352,10 +2698,15 @@ function selectFenceType(key){
   const spacing=activePostSpacing();
   const ss=document.getElementById('spacing-slider');if(ss)ss.value=spacing;
   const sv=document.getElementById('spacing-val');if(sv)sv.textContent=spacing+' ft';
-  if(fdef.defaultHeightIn){
+  if(remembered){
+    sp=hydrateRunSpecs(remembered);
+    if(run)run.specs=sp;else S.specs=sp;
+  }else if(fdef.defaultHeightIn){
     sp.heightIn=fdef.defaultHeightIn;
     applyHeightDrivenSpecs({specs:sp});
   }
+  // Split + Face Board starts with its face board on; the Face Board checkbox removes it.
+  if(prevType!==key&&!remembered&&COMPONENT_MAP[key]?.includes('face-board'))sp.hasFaceBoard=true;
   syncSpecInputs();updateTypeBar();updateHint();updateSpecsForFenceType();
   if(run)rebuildRunAutoPosts(run);
   draw();updatePanel();updatePricing();scheduleAutosave();
@@ -2498,8 +2849,21 @@ function updateDrawers(){
     document.getElementById('do-backup').addEventListener('click',exportBackup);
     document.getElementById('do-restore').addEventListener('click',()=>document.getElementById('backup-file-input').click());
     document.getElementById('do-save').addEventListener('click',()=>{
-      const snap={...JSON.parse(JSON.stringify(snapshotState())),id:Date.now(),name:S.projectName,savedAt:new Date().toLocaleString()};
+      // Same name, different job (audit CAD-13): save under the next free
+      // "Name (n)" instead of silently overwriting the other job.
+      const sameName=S.savedJobs.find(j=>j.name===S.projectName);
+      if(sameName&&!(S.jobId!=null&&sameName.id===S.jobId)){
+        const base=S.projectName;let n=2;
+        while(S.savedJobs.some(j=>j.name===`${base} (${n})`))n++;
+        S.projectName=`${base} (${n})`;
+        const jnd=document.getElementById('job-name-display'),jni=document.getElementById('job-name');
+        if(jnd)jnd.textContent=S.projectName;if(jni)jni.value=S.projectName;
+        S.jobId=null;
+      }
+      if(!sameName||S.jobId==null)S.jobId=Date.now();
+      const snap={...JSON.parse(JSON.stringify(snapshotState())),id:S.jobId,name:S.projectName,savedAt:new Date().toLocaleString()};
       S.savedJobs=[snap,...S.savedJobs.filter(j=>j.name!==S.projectName)];
+      scheduleAutosave();
       try{localStorage.setItem(STORAGE_KEY,JSON.stringify(S.savedJobs));S.saveMsg=`Saved "${esc(S.projectName)}"`;}
       catch(err){S.saveMsg='Save failed — storage full or blocked';}
       updateDrawers();
@@ -2507,9 +2871,12 @@ function updateDrawers(){
     });
     jd.querySelectorAll('[data-ji]').forEach(el=>el.addEventListener('click',e=>{
       if(e.target.dataset.jdel!==undefined)return;
+      ensureSavedJobIds();// jobs from a backup restore may also predate ids
       const job=S.savedJobs[+el.dataset.ji];
-      if(S.elements.length||S.labels.length)pushHistory();// loading a job is undoable
       applyState(JSON.parse(JSON.stringify({...job,projectName:job.projectName||job.name})));
+      // History holds drawings only; undoing across a job load would put the
+      // previous job's drawing under this job's name (audit CAD-12).
+      S.history=[];S.future=[];updateUndoButtons();
       S.showJobs=false;
       syncSpecInputs();// keep SPECS tab controls in step with loaded state
       draw();updatePanel();updateMatList();updateDrawers();scheduleAutosave();
@@ -2573,7 +2940,12 @@ function handleDown(e){
       pushHistory();
       S.moving={idx:foundIdx,type:foundType,endpoint:foundEndpoint};
       S.moveStart=pt;
-      S.moveOrigEl=JSON.parse(JSON.stringify(S.elements[foundIdx]));
+      // structuredClone keeps specs.addons a Set; a JSON copy turned it into {}
+      // and Escape then erased the run's add-ons (audit CAD-01).
+      S.moveOrigEl=structuredClone(S.elements[foundIdx]);
+      const movingRun=S.elements[foundIdx].type==='fence'?S.elements[foundIdx]:null;
+      S.moveCarried=movingRun?S.elements.filter(el=>el.type==='gate'&&gateOwnerRun(el)===movingRun)
+        .map(gate=>({gate,start:{...gate.start},end:{...gate.end}})):[];
       S.selected=foundIdx;
     } else {
       // Tapped empty space — just deselect, do NOT push history
@@ -2617,6 +2989,7 @@ function handleMove(e){
     } else if(S.moving.type==='post'){
       el.pos={x:pt.x,y:pt.y};
     }
+    if(el.type==='fence')carryRunGates(el,orig,S.moveCarried,S.moving);
     draw();return;
   }
   if(S.drawing){
@@ -2637,9 +3010,13 @@ function handleUp(e){
       (dist(el.start,orig.start)>1e-6||dist(el.end,orig.end)>1e-6);
     if(changed){
       if(el.type==='fence')rebuildRunAutoPosts(el);
-      if(el.type==='gate')rebuildRunAutoPosts(fenceRunById(el.runId));
+      if(el.type==='gate'){
+        const {prev,next}=rebindGate(el);
+        if(prev&&prev!==next)rebuildRunAutoPosts(prev);
+        rebuildRunAutoPosts(next);
+      }
     }
-    S.moving=null;S.moveStart=null;S.moveOrigEl=null;
+    S.moving=null;S.moveStart=null;S.moveOrigEl=null;S.moveCarried=null;
     draw();updatePanel();scheduleAutosave();return;
   }
   if(S.drawing){
@@ -2652,12 +3029,13 @@ function handleUp(e){
       const runId=S.drawing.type==='fence'?makeRunId():undefined;
       const runSpecs=S.drawing.type==='fence'?cloneRunSpecs(S.specs):undefined;
       if(S.drawing.type==='gate'){
-        const owner=nearestFenceRunForGate(S.drawing.start,S.drawing.end);
-        if(!owner){showToast('Draw a fence run before placing a gate');S.drawing=null;S._snapTarget=null;draw();updatePanel();return;}
-        const gate=attachGateToRun({type:'gate',start:S.drawing.start,end:S.drawing.end,
-          gateType:S.gateType,hinge:'start',swingDir:1},owner);
+        if(!S.elements.some(el=>el.type==='fence')){showToast('Draw a fence run before placing a gate');S.drawing=null;S._snapTarget=null;draw();updatePanel();return;}
+        const gate={type:'gate',start:S.drawing.start,end:S.drawing.end,
+          gateType:S.gateType,hinge:'start',swingDir:1,fenceType:S.fenceType};
+        const {next:owner}=rebindGate(gate);
         S.elements.push(gate);
-        rebuildRunAutoPosts(owner);
+        if(owner)rebuildRunAutoPosts(owner);
+        else showToast('This gate is not on a fence run, so it is not priced. Draw it on the fence line.',true);
       }else{
         const newEls=[{type:S.drawing.type,start:S.drawing.start,end:S.drawing.end,
           fenceType:S.drawing.type!=='boundary'?S.fenceType:undefined,
@@ -2796,6 +3174,7 @@ function init(){
   loadCompany();
   // Load saved jobs
   try{const r=localStorage.getItem(STORAGE_KEY);if(r)S.savedJobs=JSON.parse(r);}catch(e){}
+  ensureSavedJobIds();
 
   // Restore the autosaved working session (refresh / tab-eviction safety).
   // Runs before UI construction so controls render with restored values.
@@ -2942,13 +3321,14 @@ function init(){
     const el=document.getElementById(id);
     if(!el)return;
     // number inputs: live 'input' only; checkboxes: 'change' — avoids double-firing
-    el.addEventListener(el.type==='number'?'input':'change',()=>{if(S.activeTab==='pricing')updatePricing();});
+    el.addEventListener(el.type==='number'?'input':'change',()=>{if(S.activeTab==='pricing')updatePricing();scheduleAutosave();});
   });
   document.getElementById('btn-gen-estimate').addEventListener('click',exportEstimatePDF);
   document.getElementById('btn-validate-job').addEventListener('click',runValidationReport);
   const _ce=document.getElementById('btn-cost-editor');if(_ce)_ce.addEventListener('click',openCostEditor);
   const _cp=document.getElementById('btn-company-profile');if(_cp)_cp.addEventListener('click',openCompanyEditor);
   const _crl=document.getElementById('crew-rate-lbl');if(_crl)_crl.textContent=LABOR.crewHourlyRate;
+  refreshSiteAdderLabels();
 
   // Header buttons
   document.getElementById('btn-reset-zoom').addEventListener('click',()=>{S.zoom=1;draw();updatePanel();});
@@ -2965,8 +3345,8 @@ function init(){
         const st=JSON.parse(rd.result);
         if(!st||st.app!=='FenceboundCAD'||!Array.isArray(st.elements))
           throw new Error('not a Fencebound job file');
-        pushHistory();// importing is undoable
         applyState(st);
+        S.history=[];S.future=[];// a new job: no undo back into the previous one (audit CAD-12)
         syncSpecInputs();
         draw();updatePanel();updateMatList();updateDrawers();updateUndoButtons();
         showToast(`Imported "${S.projectName}"`);
@@ -2985,7 +3365,17 @@ function init(){
   document.getElementById('btn-clear').addEventListener('click',()=>{
     if(!confirm('Clear all elements?'))return;
     if(S.elements.length||S.labels.length)pushHistory();// make Clear undoable
-    S.elements=[];S.labels=[];S.selected=null;S.editingGate=null;draw();updatePanel();updateGateEditor();
+    S.elements=[];S.labels=[];S.selected=null;S.editingGate=null;
+    // A cleared canvas starts the next quote (audit F5/F6, CAD-13): per-job
+    // pricing inputs return to defaults, prices from a viewed job give way to
+    // the company rate card, and the next Save is a new job record.
+    applyJobPricingInputs(null);restoreCompanyRateCard();S.jobId=null;
+    // ...and a clean job: name, customer fields and manual materials too.
+    // Undo of Clear restores the drawing only; with jobId cleared, Save
+    // cannot write it over the previous job.
+    S.projectName='Untitled Job';S.jobCustomer='';S.jobAddress='';S.jobNotes='';S.materials=[];
+    syncSpecInputs();updateMatList();updateDrawers();
+    draw();updatePanel();updateGateEditor();updatePricing();scheduleAutosave();
   });
   document.getElementById('btn-pdf').addEventListener('click',exportPDF);
   document.getElementById('btn-png').addEventListener('click',()=>{const a=document.createElement('a');a.download=S.projectName.replace(/\s+/g,'_')+'.png';a.href=canvas.toDataURL();a.click();});
@@ -3120,7 +3510,7 @@ function init(){
   });
   document.getElementById('has-truss-rod').addEventListener('change',e=>{activeSpecs().hasTrussRod=e.target.checked;updatePanel();});
   document.getElementById('has-bottom-rail').addEventListener('change',e=>{activeSpecs().hasBottomRail=e.target.checked;updatePanel();});
-  document.getElementById('has-face-board').addEventListener('change',e=>{activeSpecs().hasFaceBoard=e.target.checked;updatePanel();});
+  document.getElementById('has-face-board').addEventListener('change',e=>{const sp=activeSpecs();sp.hasFaceBoard=e.target.checked;sp.faceBoardChosen=true;updatePanel();});
   // Addons are rendered and bound dynamically per fence type in
   // updateSpecsForFenceType(). The barb-strand / arm selects are static.
   document.getElementById('barb-strands').addEventListener('change',e=>{activeSpecs().barbStrands=+e.target.value;updatePanel();});
@@ -3130,8 +3520,10 @@ function init(){
   // Materials
   document.getElementById('btn-add-mat').addEventListener('click',()=>{
     const name=document.getElementById('mat-name').value.trim();if(!name)return;
-    const qty=document.getElementById('mat-qty').value;
-    if(Number.isFinite(Number(qty))&&Number(qty)<0){showToast('Quantity cannot be negative',true);return;}
+    const rawQty=document.getElementById('mat-qty').value;
+    if(Number.isFinite(Number(rawQty))&&Number(rawQty)<0){showToast('Quantity cannot be negative',true);return;}
+    const qty=coerceNonNegNumber(rawQty); // stored as a number, never the raw input string
+    if(qty===null){showToast('Quantity must be a plain number of 0 or more',true);return;}
     S.materials.push({name,qty,unit:document.getElementById('mat-unit').value,id:Date.now()});
     document.getElementById('mat-name').value='';document.getElementById('mat-qty').value='';
     updateMatList();
@@ -3190,7 +3582,8 @@ function init(){
       if(S.drawing){S.drawing=null;draw();}
       else if(S.moving&&S.moveOrigEl&&S.elements[S.moving.idx]){
         S.elements[S.moving.idx]=S.moveOrigEl;
-        S.moving=null;S.moveStart=null;S.moveOrigEl=null;draw();updatePanel();
+        (S.moveCarried||[]).forEach(c=>{c.gate.start=c.start;c.gate.end=c.end;});
+        S.moving=null;S.moveStart=null;S.moveOrigEl=null;S.moveCarried=null;draw();updatePanel();
       }
     }
     // Delete / Backspace — remove the selected element
@@ -3346,16 +3739,45 @@ const toCents=v=>Math.round(Number(v)*100);
 const centsOf=(unitDollars,qty)=>Math.round(toCents(unitDollars)*Number(qty));
 const applyPctC=(cents,pct)=>Math.round(cents*(100+pct)/100);
 const dollars=c=>c/100;
+// Largest-remainder apportionment: splits integer totalC across [key,weight]
+// pairs in proportion to weight, floors each share, then gives the leftover
+// cents to the largest fractional parts (ties: earlier key). The shares always
+// sum to totalC exactly. With no positive total weight, totalC goes to key ''.
+function apportionC(totalC,weights){
+  const out={};
+  if(!totalC)return out;
+  const W=weights.reduce((s,[,w])=>s+w,0);
+  if(!(W>0)||!Number.isFinite(W)){out['']=totalC;return out;}
+  const parts=weights.map(([k,w],i)=>{const x=totalC*w/W,b=Math.floor(x+1e-9);return{k,i,b,f:x-b};});
+  let left=totalC-parts.reduce((s,p)=>s+p.b,0);
+  const order=[...parts].sort((a,b)=>b.f-a.f||a.i-b.i);
+  for(let j=0;left>0;j++,left--)order[j%order.length].b++;
+  parts.forEach(p=>{out[p.k]=(out[p.k]||0)+p.b;});
+  return out;
+}
 
 function computePricing(){
   const stats=getStats();
+  // A fence type named like an Object property ("constructor", "toString") corrupts
+  // the footage tally; such a job cannot be priced (validateProject: PRICING_RUNTIME).
+  if(!Object.values(stats.fence).every(Number.isFinite))throw new Error('Fence footage could not be measured.');
+  // Inputs that fail boundary coercion: each blocks FINAL-READY and is reported
+  // by validateProject (INVALID_PRICING_INPUT); none is priced silently.
+  const invalidInputs=[];
+  // A rejected rate keeps a finite number's own value (so totals still show how
+  // wrong it is, e.g. TOTAL_INVALID) and uses 0 for anything non-numeric.
+  const rate=(v,label)=>{const n=coerceNonNegNumber(v);if(n===null){invalidInputs.push(label);return typeof v==='number'&&Number.isFinite(v)?v:0;}return n;};
   const manualBom=S.materials.map(item=>{
-    const parsedQty=Number(item.qty);
+    const parsedQty=coerceNonNegNumber(item.qty);
     // Load-bearing backstop: imported and older saved jobs bypass the input guard;
-    // non-finite or non-positive quantities must never discount or corrupt a quote.
-    return{name:item.name,qty:Number.isFinite(parsedQty)&&parsedQty>0?parsedQty:0,unit:item.unit,source:'manual'};
+    // invalid or non-positive quantities must never discount or corrupt a quote.
+    if(parsedQty===null)invalidInputs.push(`Quantity of manual item “${item.name}”`);
+    return{name:item.name,qty:parsedQty!==null&&parsedQty>0?parsedQty:0,unit:item.unit,source:'manual'};
   });
   const bom=[...calcAutoMaterials(),...manualBom]; // entry origin does not alter pricing
+  // A legacy or unknown fence type has no BOM branch, so its quote is incomplete:
+  // it can never be FINAL-READY (validateProject reports FENCE_TYPE).
+  const unsupportedTypes=[...new Set(S.elements.filter(el=>el.type==='fence'&&!Object.prototype.hasOwnProperty.call(FENCE_TYPES,el.fenceType)).map(el=>String(el.fenceType)))];
   const ucDemo=document.getElementById('uc-demo')?.checked;
   const ucSlope=document.getElementById('uc-slope')?.checked;
   const ucUrban=document.getElementById('uc-urban')?.checked;
@@ -3364,58 +3786,103 @@ function computePricing(){
   const useHours=Number.isFinite(hoursOverride)&&hoursOverride>0;
 
   // ── 1. MATERIAL COST — price every BOM line at buy cost (integer cents) ──
-  let matCostC=0; const matLines=[]; const unknown=[];
+  let matCostC=0; const matLines=[]; const unknown=[]; const unitMismatch=[];
+  const normUnit=u=>{const s=String(u??'').trim().toLowerCase().replace(/[.]/g,'');return UNIT_ALIASES[s]||s;};
   bom.forEach(it=>{
-    const unit=lookupCost(it.name);
-    if(unit===null){ unknown.push(it.name); matLines.push({name:it.name,qty:it.qty,unit:it.unit,source:it.source,unitCost:null,ext:0,unitCostC:null,extC:0,clientUnitCost:null,clientExt:0,clientUnitCostC:null,clientExtC:0}); return; }
+    const costKey=costKeyFor(it);
+    const entry=costKey!==null&&Object.prototype.hasOwnProperty.call(COST_DB,costKey)?COST_DB[costKey]:null;
+    const rawCost=entry&&typeof entry==='object'?entry.cost:entry;
+    const unit=rawCost===null||rawCost===undefined?null:coerceNonNegNumber(rawCost);
+    // A manual line is priced per its entered unit, which must be the rate-card
+    // entry's unit: there is no unit conversion, so 1 roll is never priced as 1 lf.
+    const rateUnit=entry&&typeof entry==='object'&&entry.unit?normUnit(entry.unit):null;
+    if(it.source==='manual'&&unit!==null&&rateUnit&&normUnit(it.unit)!==rateUnit){
+      unitMismatch.push(`“${it.name}” is entered in ${it.unit||'no unit'} but its rate-card cost is per ${entry.unit}`);
+      matLines.push({name:it.name,qty:it.qty,unit:it.unit,rateUnit,source:it.source,costKey,unitCost:null,ext:0,unitCostC:null,extC:0,clientUnitCost:null,clientExt:0,clientUnitCostC:null,clientExtC:0});
+      return;
+    }
+    const badCost=unit===null&&rawCost!==null&&rawCost!==undefined;
+    const qty=coerceNonNegNumber(it.qty),badQty=qty===null; // manual qty is already coerced above
+    if(badCost)invalidInputs.push(`Cost of “${it.name}”`);
+    else if(unit!==null&&badQty)invalidInputs.push(`Quantity of “${it.name}”`);
+    if(unit===null||badQty){ if(!badCost&&unit===null)unknown.push(it.name); matLines.push({name:it.name,qty:it.qty,unit:it.unit,source:it.source,costKey,unitCost:null,ext:0,unitCostC:null,extC:0,clientUnitCost:null,clientExt:0,clientUnitCostC:null,clientExtC:0}); return; }
     const unitC=toCents(unit);
-    const extC=centsOf(unit,it.qty);
+    const extC=centsOf(unit,qty);
     matCostC+=extC;
-    matLines.push({name:it.name,qty:it.qty,unit:it.unit,source:it.source,unitCost:dollars(unitC),ext:dollars(extC),unitCostC:unitC,extC});
+    matLines.push({name:it.name,qty:it.qty,unit:it.unit,rateUnit,source:it.source,costKey,unitCost:dollars(unitC),ext:dollars(extC),unitCostC:unitC,extC,sectionQty:it.sectionQty});
   });
 
   // ── 2. LABOR COST — $/LF by type (default) OR crew hours override ──
   let laborCostC=0; const laborLines=[];
+  const laborBySecC={}; // base labor cents per section (fence type)
   if(useHours){
-    const extC=centsOf(LABOR.crewHourlyRate,hoursOverride);
+    const crew=rate(LABOR.crewHourlyRate,'Crew hourly rate');
+    const extC=centsOf(crew,hoursOverride);
     laborCostC+=extC;
-    laborLines.push({label:`Crew labor (${hoursOverride}h × $${LABOR.crewHourlyRate}/h)`,ext:dollars(extC),extC});
+    // Crew hours are job-level: each section carries a share by its gross LF.
+    Object.assign(laborBySecC,apportionC(extC,Object.entries(stats.fence)));
+    laborLines.push({label:`Crew labor (${hoursOverride}h × $${crew}/h)`,ext:dollars(extC),extC});
   }else{
     Object.entries(stats.netFence).forEach(([type,ft])=>{
-      const r=LABOR.perLF[type]; if(!r)return;
-      const extC=centsOf(r,ft); laborCostC+=extC;
+      if(LABOR.perLF[type]===undefined||LABOR.perLF[type]===null)return;
+      const r=rate(LABOR.perLF[type],`Labor $/LF for ${(FENCE_TYPES[type]||{}).label||type}`); if(!r)return;
+      const extC=centsOf(r,ft); laborCostC+=extC; laborBySecC[type]=(laborBySecC[type]||0)+extC;
       laborLines.push({label:`${(FENCE_TYPES[type]||{}).label||type} labor (${ft.toFixed(0)} LF × $${r})`,ext:dollars(extC),extC});
     });
+    const gateUnitC={};
     Object.entries(stats.gates||{}).forEach(([gt,cnt])=>{
-      if(!cnt)return; const r=LABOR.gate[gt]||0; const extC=toCents(r)*cnt; laborCostC+=extC;
+      if(!cnt)return; const r=LABOR.gate[gt]!==undefined&&LABOR.gate[gt]!==null?rate(LABOR.gate[gt],`Gate labor for ${(GATE_TYPES[gt]||{}).label||gt}`):0; const extC=toCents(r)*cnt; laborCostC+=extC; gateUnitC[gt]=toCents(r);
       if(extC)laborLines.push({label:`${(GATE_TYPES[gt]||{}).label||gt} install (${cnt} × $${r})`,ext:dollars(extC),extC});
+    });
+    // Gate install labor belongs to the gate's owning run (stats.gates counts only owned gates).
+    S.elements.filter(el=>el.type==='gate').forEach(gate=>{
+      const owner=gateOwnerRun(gate); if(!owner)return;
+      const c=gateUnitC[gate.gateType||'walk']||0; if(c)laborBySecC[owner.fenceType]=(laborBySecC[owner.fenceType]||0)+c;
     });
   }
 
   // ── 3. SITE UPCHARGES — applied to COST (they raise your real cost) ──
   let totalFt=stats.totalFt||0;
-  let demoCostC=ucDemo?Math.round(totalFt*300):0;             // your cost to demo/haul (not the upsell)
-  let slopeCostC=ucSlope?Math.round(totalFt*50):0;            // added labor for grade
-  let hardDigCostC=ucHardDig?Math.round(laborCostC*30/100):0;  // rocky terrain = +30% labor cost
+  let demoCostC=ucDemo?Math.round(totalFt*toCents(siteAdderRate('demoPerLF'))):0;   // your cost to demo/haul (not the upsell)
+  let slopeCostC=ucSlope?Math.round(totalFt*toCents(siteAdderRate('slopePerLF'))):0; // added labor for grade
+  let hardDigCostC=ucHardDig?Math.round(laborCostC*siteAdderRate('hardDigPct')/100):0; // rocky terrain = +% labor cost
   laborCostC+=slopeCostC+hardDigCostC;
   matCostC+=demoCostC;
 
   // ── 4. CLIENT PRICE — separate markup on materials vs labor ──
+  const matPct=rate(MARKUP.materialPct,'Material markup %'),labPct=rate(MARKUP.laborPct,'Labor markup %');
   // Per-line client extensions, then summed: totals are sums of rounded lines.
   matLines.forEach(line=>{
     if(line.unitCostC===null){line.clientUnitCost=null;line.clientExt=0;line.clientUnitCostC=null;line.clientExtC=0;return;}
-    const clientUnitC=applyPctC(line.unitCostC,MARKUP.materialPct);
-    const clientExtC=Math.round(line.unitCostC*line.qty*(100+MARKUP.materialPct)/100);
+    const clientUnitC=applyPctC(line.unitCostC,matPct);
+    const clientExtC=Math.round(line.unitCostC*line.qty*(100+matPct)/100);
     line.clientUnitCost=dollars(clientUnitC);line.clientExt=dollars(clientExtC);
     line.clientUnitCostC=clientUnitC;line.clientExtC=clientExtC;
   });
   // Demo/haul is folded into material cost above but has no BOM line, so it is
   // marked up here; omitting it would drop it from the client price.
-  const matPriceC=matLines.reduce((s,l)=>s+(l.clientExtC||0),0)+applyPctC(demoCostC,MARKUP.materialPct);
-  const laborPriceC=applyPctC(laborCostC,MARKUP.laborPct);
+  const matPriceC=matLines.reduce((s,l)=>s+(l.clientExtC||0),0)+applyPctC(demoCostC,matPct);
+  const laborPriceC=applyPctC(laborCostC,labPct);
   const clientSubtotalC=matPriceC+laborPriceC;
-  const urbanAddC=ucUrban?Math.round(clientSubtotalC*15/100):0;   // urban premium is pure margin
+  const urbanAddC=ucUrban?Math.round(clientSubtotalC*siteAdderRate('urbanPct')/100):0;   // urban premium is pure margin
   const clientTotalC=clientSubtotalC+urbanAddC;
+
+  // ── 4b. CUSTOMER SECTIONS — each fence type's own client price (cents) ──
+  // A section's price is its own auto materials (by its share of each merged
+  // line's quantity), gates, labor, demo and grade (per its gross LF), hard dig
+  // (per its labor) and markup. Every split is largest-remainder, so the
+  // sections plus manual lines sum exactly to clientSubtotalC. Urban premium
+  // stays its own customer line. Key '' holds anything with no section.
+  const addC=(m,o)=>Object.entries(o).forEach(([k,c])=>{m[k]=(m[k]||0)+c;});
+  const byFt=Object.entries(stats.fence);
+  const secLabor={...laborBySecC};
+  const baseLaborW=Object.entries(secLabor);
+  addC(secLabor,apportionC(slopeCostC,byFt));
+  addC(secLabor,apportionC(hardDigCostC,baseLaborW));
+  const sectionCents={};
+  matLines.forEach(line=>{if(line.source!=='manual'&&line.clientExtC)addC(sectionCents,apportionC(line.clientExtC,Object.entries(line.sectionQty||{})));});
+  addC(sectionCents,apportionC(applyPctC(demoCostC,matPct),byFt));
+  addC(sectionCents,apportionC(laborPriceC,Object.entries(secLabor)));
 
   // ── 5. MARGIN — the number that matters ──
   const internalCostC=matCostC+laborCostC;        // demo/slope/harddig already folded in
@@ -3431,15 +3898,39 @@ function computePricing(){
     matPrice:dollars(matPriceC),laborPrice:dollars(laborPriceC),clientSubtotal:dollars(clientSubtotalC),
     urbanAdd:dollars(urbanAddC),clientTotal:dollars(clientTotalC),
     profit:dollars(profitC),marginPct,cents,
-    matLines,laborLines,unknown,
+    matLines,laborLines,unknown,invalidInputs,unitMismatch,unsupportedTypes,sectionCents,
     zeroCostLines:matLines.filter(m=>m.unitCost===0).map(m=>m.name),
-    isFinalReady:unknown.length===0 && matLines.every(m=>m.unitCost!==0),
+    isFinalReady:unknown.length===0 && invalidInputs.length===0 && unitMismatch.length===0 && unsupportedTypes.length===0 && matLines.every(m=>m.unitCost!==0) && !stats.unownedGates
+      && Object.values(cents).every(Number.isFinite),
     hasData: bom.length>0 || laborCostC>0,
     flags:{ucDemo,ucSlope,ucUrban,ucHardDig,useHours,hoursOverride}
   };
 }
 
+// ── CUSTOMER DOCUMENT LINES — the single source for the panel client view and
+// the estimate PDF, so they cannot disagree. One row per fence section at its own
+// price (computePricing().sectionCents), then hand-added materials and the urban
+// premium as their own lines, as the estimate already listed them. Amounts are
+// shown in exact cents, so the displayed lines sum to the displayed total.
+const customerMoney=c=>`${c<0?'-':''}$${(Math.abs(c)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+function customerDocumentLines(P,stats){
+  const sec={...(P.sectionCents||{})},rows=[];
+  Object.entries(stats.fence||{}).forEach(([type,ft])=>{
+    const amountC=sec[type]||0; delete sec[type];
+    if(!(ft>0)&&!amountC)return;
+    const fdef=Object.prototype.hasOwnProperty.call(FENCE_TYPES,type)?FENCE_TYPES[type]:null;
+    rows.push({kind:'section',type,label:fdef?fdef.label:String(type),color:fdef?fdef.color:null,ft:ft>0?ft:0,amountC});
+  });
+  const otherC=Object.values(sec).reduce((s,c)=>s+c,0);
+  if(otherC)rows.push({kind:'other',label:'Other installation charges',amountC:otherC});
+  (P.matLines||[]).filter(l=>l.source==='manual').forEach(line=>rows.push({kind:'manual',label:line.name,line,amountC:line.clientExtC||0}));
+  if((P.flags&&P.flags.ucUrban)||P.cents.urbanAdd)rows.push({kind:'urban',label:'Urban/City Market Premium',amountC:P.cents.urbanAdd});
+  rows.forEach(r=>{r.amount=customerMoney(r.amountC);});
+  return{rows,totalC:P.cents.clientTotal,total:customerMoney(P.cents.clientTotal)};
+}
+
 function updatePricing(){
+  refreshSiteAdderLabels();
   const _spn=document.getElementById('seed-price-note');
   if(_spn)_spn.style.display=usingSeedPrices()?'block':'none';
   const P=computePricing();
@@ -3455,19 +3946,20 @@ function updatePricing(){
         const c=m.unitCost===null
           ?`<span style="color:#E8A33D;font-size:10px">no cost set</span>`
           :`<span class="stat-val">$${m.ext.toFixed(2)}</span>`;
-        breakdownHtml+=`<div class="stat-row"><span style="font-size:10px;color:var(--text2)">${esc(m.name)}<span style="color:var(--text3)"> ·${m.qty}${m.unit}${m.unitCost!==null?` ×$${m.unitCost}`:''}</span></span>${c}</div>`;
+        breakdownHtml+=`<div class="stat-row"><span style="font-size:10px;color:var(--text2)">${esc(m.name)}<span style="color:var(--text3)"> ·${m.qty}${m.unit}${m.unitCost!==null?` ×$${m.unitCost}${m.rateUnit?'/'+m.rateUnit:''}`:''}</span></span>${c}</div>`;
       });
       breakdownHtml+=`<div class="stat-row" style="border-top:1px solid var(--border);padding-top:3px;margin-top:2px"><span style="font-size:10px;color:var(--text2)">Material cost</span><span class="stat-val">$${P.matCost.toFixed(2)}</span></div>`;
       breakdownHtml+='<div style="font-size:10px;color:var(--text2);font-weight:700;letter-spacing:0.035em;margin:5px 0 3px">LABOR @ COST</div>';
       P.laborLines.forEach(l=>{breakdownHtml+=`<div class="stat-row"><span style="font-size:10px;color:var(--text2)">${esc(l.label)}</span><span class="stat-val">$${l.ext.toFixed(2)}</span></div>`;});
       breakdownHtml+=`<div class="stat-row" style="border-top:1px solid var(--border);padding-top:3px;margin-top:2px"><span style="font-size:10px;color:var(--text2)">Labor cost</span><span class="stat-val">$${P.laborCost.toFixed(2)}</span></div>`;
     }else{
-      // Client view — clean, by category, summarized
+      // Client view — the same customer lines as the estimate PDF (urban is in the totals)
       const stats=getStats();
-      Object.entries(stats.fence).forEach(([type,ft])=>{
-        const fdef=FENCE_TYPES[type]; if(!fdef||!ft)return;
-        const lfPrice=P.clientTotal* (ft / (stats.totalFt||1)); // proportional display only
-        breakdownHtml+=`<div class="stat-row"><span style="color:${fdef.color};font-size:10px">${fdef.label}<br><span style="color:var(--text3);font-size:10px">${ft.toFixed(1)} ft</span></span><span class="stat-val">$${lfPrice.toFixed(0)}</span></div>`;
+      customerDocumentLines(P,stats).rows.forEach(r=>{
+        if(r.kind==='urban')return;
+        const sub=r.kind==='section'?`${r.ft.toFixed(1)} ft`:r.kind==='manual'?`${r.line.qty} ${r.line.unit}`:'';
+        const amount=r.kind==='manual'&&r.line.clientUnitCost===null?'Not priced':r.amount;
+        breakdownHtml+=`<div class="stat-row"><span style="color:${r.color||'var(--text2)'};font-size:10px">${esc(r.label)}${sub?`<br><span style="color:var(--text3);font-size:10px">${esc(sub)}</span>`:''}</span><span class="stat-val">${amount}</span></div>`;
       });
       if(stats.gateTotal)breakdownHtml+=`<div class="stat-row"><span style="color:#F5A623;font-size:10px">Gates<span style="color:var(--text3)"> · ${stats.gateTotal}</span></span></div>`;
     }
@@ -3489,10 +3981,10 @@ function updatePricing(){
       tHtml+=`<div class="stat-row"><span style="color:var(--text3);font-size:10px">↳ labor</span><span style="color:var(--text3);font-size:10px">${mc(P.laborCost)}</span></div>`;
       tHtml+=`<div class="stat-row"><span style="color:var(--text2)">Profit</span><span class="stat-val" style="color:#5FBF7F">${mc(P.profit)}</span></div>`;
     }
-    if(P.urbanAdd>0)tHtml+=`<div class="stat-row"><span style="color:var(--text3);font-size:10px">Urban premium (+15%)</span><span style="color:var(--text3);font-size:10px">+${mc(P.urbanAdd)}</span></div>`;
+    if(P.urbanAdd>0)tHtml+=`<div class="stat-row"><span style="color:var(--text3);font-size:10px">Urban premium (+${siteAdderRate('urbanPct')}%)</span><span style="color:var(--text3);font-size:10px">+${customerMoney(P.cents.urbanAdd)}</span></div>`;
     tHtml+=`<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:5px">
       <div style="color:var(--text2);font-weight:700;font-size:10px;letter-spacing:.08em">${showCost?'CLIENT PRICE':'ESTIMATE'}</div>
-      <div class="stat-val" style="color:var(--accent);font-weight:800;font-size:30px;line-height:1.1;margin-top:2px">${mc(P.clientTotal)}</div>
+      <div class="stat-val" style="color:var(--accent);font-weight:800;font-size:30px;line-height:1.1;margin-top:2px">${customerMoney(P.cents.clientTotal)}</div>
     </div>`;
     // LIVE MARGIN — always visible, color-graded
     const mCol = P.marginPct>=40?'#5FBF7F':P.marginPct>=25?'#E8C03D':'#E8703D';
@@ -3642,6 +4134,9 @@ function openRestoreDialog(payload){
   ov.querySelector('#rs-cancel').onclick=close;ov.onclick=e=>{if(e.target===ov)close();};
   ov.querySelector('#rs-apply').onclick=()=>{
     if(!state.doJobs&&!state.doPricing&&!state.doCompany){showToast('Nothing selected',true);return;}
+    // Invalid backup prices refuse the restore before anything is written.
+    const badPricing=state.doPricing&&payload.pricing?sanitizePricingInputs(payload.pricing).problems:[];
+    if(badPricing.length){showToast(`Restore failed — ${badPricing[0]} is not a number of 0 or more`,true);return;}
     if(state.doJobs&&state.mode==='replace'&&existing.length&&!confirm(`Delete all ${existing.length} job(s) on this device and replace with ${incomingJobs.length} from the backup?\n\nThis cannot be undone.`))return;
     if(state.doPricing&&_pricingFromLoadedProject&&!confirm('These displayed prices came from the loaded project. Restoring will replace your company rate card. Continue?'))return;
     const done=[];
@@ -3710,10 +4205,22 @@ function csvParse(text,delim){
   }
   row.push(cell);rows.push(row);return rows.filter(r=>r.some(v=>String(v).trim()!==''));
 }
+// csvParseMoney: "$1,234.50", "12.50", "(3.20)" (negative), "45¢"/"45c" (cents).
+// Commas are accepted only as US thousands separators (1,234 / 12,345.67). A
+// comma decimal such as "12,50" or "1.234,56" is ambiguous and returns the
+// sentinel CSV_COMMA_DECIMAL so the row is rejected rather than guessed.
+// Anything else that is not a plain decimal after the currency sign is NaN.
+const CSV_COMMA_DECIMAL='comma-decimal';
 function csvParseMoney(raw){
-  let s=String(raw==null?'':raw).trim();if(!s)return NaN;const neg=/^\(.*\)$/.test(s);
-  s=s.replace(/[()]/g,'').replace(/[^0-9.\-]/g,'');const parts=s.split('.');if(parts.length>2)s=parts.shift()+'.'+parts.join('');
-  const v=parseFloat(s);return Number.isFinite(v)?(neg?-v:v):NaN;
+  let s=String(raw==null?'':raw).trim();if(!s)return NaN;
+  const neg=/^\(.*\)$/.test(s)||/^-/.test(s);
+  s=s.replace(/^\((.*)\)$/,'$1').replace(/^-/,'').trim().replace(/^[$€£]\s*|^usd\s*|\s*usd$/gi,'');
+  const cents=/^[^¢c]+\s*[¢c]$/i.test(s);if(cents)s=s.replace(/\s*[¢c]$/i,'');
+  if(/^[1-9]\d{0,2}(?:,\d{3})+(?:\.\d+)?$/.test(s))s=s.replace(/,/g,'');
+  else if(/,/.test(s)&&/^[\d.,]+$/.test(s))return CSV_COMMA_DECIMAL;
+  let v=coerceNonNegNumber(s);if(v===null)return NaN;
+  if(cents)v=Math.round(v*100)/10000;
+  return neg?-v:v;
 }
 function csvNormalizeUnit(raw,fallbackKey){
   const s=String(raw==null?'':raw).trim().toLowerCase().replace(/[.]/g,'');
@@ -3725,8 +4232,9 @@ function csvBuildPreview(rows,map,hasHeader,dupeMode){
   for(let i=hasHeader?1:0;i<rows.length;i++){
     const r=rows[i],name=String(map.name>=0?r[map.name]??'':'').trim();
     if(!name){rejected.push({row:i+1,name:'(blank)',why:'no material name'});continue;}
-    const key=normalizeMatKey(name);if(!key){rejected.push({row:i+1,name,why:'name normalized to empty'});continue;}
+    const key=costKeyForName(name);if(!key){rejected.push({row:i+1,name,why:'name normalized to empty'});continue;}
     const cost=csvParseMoney(map.cost>=0?r[map.cost]:'');
+    if(cost===CSV_COMMA_DECIMAL){rejected.push({row:i+1,name,why:'ambiguous comma decimal price (use 12.50)'});continue;}
     if(!Number.isFinite(cost)){rejected.push({row:i+1,name,why:'price not a number'});continue;}
     if(cost<0){rejected.push({row:i+1,name,why:'negative price'});continue;}
     if(cost>1000000){rejected.push({row:i+1,name,why:'price out of range'});continue;}
@@ -3830,6 +4338,11 @@ function openCostEditor(){
         <div class="ce-sec">Labor — install cost per gate</div>
         ${gateRows}
         <div class="ce-row"><span>Crew hourly rate (hours-override mode)</span><input type="number" id="ce-crew-rate" value="${LABOR.crewHourlyRate}" step="5" style="width:70px"/><span style="color:var(--text3);font-size:10px">$/hr</span></div>
+        <div class="ce-sec">Site upcharges</div>
+        <div class="ce-row"><span>Demo / removal (your cost, marked up as material)</span><input type="number" id="ce-demo-rate" value="${siteAdderRate('demoPerLF')}" min="0" step="0.05" style="width:70px"/><span style="color:var(--text3);font-size:10px">$/LF</span></div>
+        <div class="ce-row"><span>Grade / slope (added labor)</span><input type="number" id="ce-slope-rate" value="${siteAdderRate('slopePerLF')}" min="0" step="0.05" style="width:70px"/><span style="color:var(--text3);font-size:10px">$/LF</span></div>
+        <div class="ce-row"><span>Hard dig / rocky (of labor cost)</span><input type="number" id="ce-harddig-pct" value="${siteAdderRate('hardDigPct')}" min="0" step="1" style="width:70px"/><span style="color:var(--text3);font-size:10px">%</span></div>
+        <div class="ce-row"><span>Urban / city premium (of client subtotal)</span><input type="number" id="ce-urban-pct" value="${siteAdderRate('urbanPct')}" min="0" step="1" style="width:70px"/><span style="color:var(--text3);font-size:10px">%</span></div>
         <div class="ce-sec">Takeoff parameters</div>
         <div class="ce-note" style="margin-bottom:6px">Footing defaults follow owner field practice. Post OD defaults are proposed and remain owner-editable.</div>
         ${Object.entries(FOOTING.bagsByDepthIn).map(([depth,bags])=>`<div class="ce-row"><span>Concrete bags at ${depth}&quot; depth</span><input type="number" data-footing-depth="${depth}" value="${bags}" min="0" step="1" style="width:70px"/><span style="color:var(--text3);font-size:10px">60 lb</span></div>`).join('')}
@@ -3883,7 +4396,22 @@ function openCostEditor(){
   };
   ov.onclick=e=>{if(e.target===ov)close();};
   ov.querySelector('#ce-save').onclick=()=>{
+    // Site upcharge rates are validated before anything is applied: a negative,
+    // blank or non-numeric value rejects the whole save.
+    const adderInputs={demoPerLF:'#ce-demo-rate',slopePerLF:'#ce-slope-rate',hardDigPct:'#ce-harddig-pct',urbanPct:'#ce-urban-pct'};
+    const adders={};
+    for(const [k,sel] of Object.entries(adderInputs)){
+      const raw=String(ov.querySelector(sel).value).trim();
+      const v=raw===''?NaN:Number(raw);
+      if(!Number.isFinite(v)||v<0){showToast('Site upcharge rates must be numbers of 0 or more',true);return;}
+      adders[k]=k.endsWith('PerLF')?Math.round(v*100)/100:v; // $ amounts to whole cents
+    }
+    // Costs, labor rates, markups and crew rate pass the same boundary rule;
+    // any negative, blank or malformed field rejects the whole save.
+    const rateFields=[...ov.querySelectorAll('[data-cost],[data-labor],[data-gatelabor]'),...['#ce-mat-markup','#ce-lab-markup','#ce-crew-rate'].map(sel=>ov.querySelector(sel))];
+    if(rateFields.some(i=>coerceNonNegNumber(String(i.value))===null)){showToast('Costs, labor rates and markups must be numbers of 0 or more',true);return;}
     if(_pricingFromLoadedProject&&!confirm('These displayed prices came from the loaded project. Saving will replace your company rate card with these prices. Continue?'))return;
+    LABOR.demoPerLF=adders.demoPerLF;LABOR.slopePerLF=adders.slopePerLF;LABOR.hardDigPct=adders.hardDigPct;MARKUP.urbanPct=adders.urbanPct;
     Object.entries(addedCosts).forEach(([k,e])=>{if(!COST_DB[k])COST_DB[k]={...e};});
     ov.querySelectorAll('[data-cost]').forEach(i=>{const k=i.dataset.cost;const v=parseFloat(i.value);if(Number.isFinite(v)&&COST_DB[k])COST_DB[k].cost=v;});
     ov.querySelectorAll('[data-labor]').forEach(i=>{const v=parseFloat(i.value);if(Number.isFinite(v))LABOR.perLF[i.dataset.labor]=v;});
@@ -3949,13 +4477,11 @@ function openCostEditor(){
     const rd=new FileReader();
     rd.onload=()=>{try{
       const o=JSON.parse(rd.result);
-      if(o.costs)COST_DB={...COST_DB,...normalizeImportedCosts(o.costs)};
-      if(o.labor)LABOR={...LABOR,...o.labor,perLF:{...LABOR.perLF,...(o.labor.perLF||{})},gate:{...LABOR.gate,...(o.labor.gate||{})}};
-      if(o.markup)MARKUP={...MARKUP,...o.markup};
-      if(o.footing)mergeFooting(o.footing);
-      if(o.postODIn)mergePostOD(o.postODIn);
-      if(o.postEmbedIn)mergePostEmbed(o.postEmbedIn);
-      refreshPostDiaDefaults();
+      if(!o||typeof o!=='object')throw new Error('not a price file');
+      // Refuse the whole file before anything is applied if any rate is invalid.
+      const bad=sanitizePricingInputs(o).problems;
+      if(bad.length)throw new Error(`${bad[0]} is not a number of 0 or more${bad.length>1?` (+${bad.length-1} more)`:''}`);
+      mergeSavedCostDB(o);
       const priorPricingProvenance=_pricingFromLoadedProject;
       _pricingFromLoadedProject=false;
       if(!saveCostDB()){
@@ -4011,12 +4537,26 @@ function validateProject(options={}){
     if(!Number.isFinite(spacing)||spacing<=0)err('POST_SPACING',`${label} has no valid post spacing.`,run);
     else if(spacing>20)warn('POST_SPACING_HIGH',`${label} post spacing exceeds 20 ft.`,run);
     if(!(sp.addons instanceof Set))err('ADDON_STATE',`${label} add-ons are malformed.`,run);
+    ['terminal','corner','gate'].forEach(role=>{
+      const depth=Number(sp.postEmbedIn?.[role]);
+      if(depth>0&&!footingDepthOnTable(depth))warn('CONCRETE_DEPTH_OFF_TABLE',
+        `${label} ${role} hole depth ${depth}" is not on the footing schedule; its concrete is estimated at ${footingBagsForDepth(depth)} bag(s) per post. Verify.`,run);
+    });
   });
 
   gates.forEach((gate,index)=>{
     const label=`Gate ${index+1}`;
-    const owner=fenceRunById(gate.runId);
-    if(!gate.runId||!owner)err('ORPHAN_GATE',`${label} is not attached to a fence run.`,gate);
+    const bound=fenceRunById(gate.runId),owner=gateOwnerRun(gate);
+    if(!owner)err('ORPHAN_GATE',bound?`${label} does not lie on its fence run; it is not deducted or priced.`
+      :`${label} is not on a fence run; it is not deducted or priced.`,gate);
+    const gateFt=gate.start&&gate.end?dist(gate.start,gate.end):0;
+    const along=(bound?[bound]:fences).find(run=>{
+      const ax=run.start&&run.end?runAxis(run):null;
+      return ax&&ax.off(gate.start)<=GATE_ON_RUN_TOL&&ax.off(gate.end)<=GATE_ON_RUN_TOL
+        &&Math.max(ax.along(gate.start),ax.along(gate.end))>=0&&Math.min(ax.along(gate.start),ax.along(gate.end))<=ax.L;
+    });
+    if(along&&gateFt>dist(along.start,along.end)+GATE_ON_RUN_TOL)
+      err('GATE_LONGER_THAN_RUN',`${label} is wider than the fence run it is drawn on.`,gate);
     if(!GATE_TYPES[gate.gateType])err('GATE_TYPE',`${label} has an unknown gate type: ${gate.gateType||'blank'}.`,gate);
     const widthFt=gate.start&&gate.end?dist(gate.start,gate.end)/GRID_FT:0;
     if(!Number.isFinite(widthFt)||widthFt<=0)err('GATE_WIDTH',`${label} has zero or invalid width.`,gate);
@@ -4029,8 +4569,26 @@ function validateProject(options={}){
     }
   });
 
+  fences.forEach((run,index)=>{
+    if(!run.start||!run.end)return; // RUN_LENGTH already reported; pricing reports PRICING_RUNTIME
+    const spans=runGateLayout(run).spans;
+    for(let i=0;i<spans.length;i++)for(let j=i+1;j<spans.length;j++)
+      if(Math.min(spans[i].rawHi,spans[j].rawHi)-Math.max(spans[i].rawLo,spans[j].rawLo)>GATE_ON_RUN_TOL)
+        err('GATE_OVERLAP',`Run ${index+1} has overlapping gates ${gates.indexOf(spans[i].gate)+1} and ${gates.indexOf(spans[j].gate)+1}.`,spans[j].gate);
+  });
+
   posts.filter(p=>p.auto).forEach((post,index)=>{
     if(post.runId&&!fenceRunById(post.runId))warn('ORPHAN_AUTO_POST',`Auto post ${index+1} references a missing run.`,post);
+  });
+
+  // Malformed geometry cannot be measured; computePricing below reports it as PRICING_RUNTIME.
+  let stats=null;try{stats=getStats();}catch(ex){}
+  if(stats)stats.unpricedPosts.forEach(post=>warn('POST_NOT_ON_FENCE',`Post ${posts.indexOf(post)+1} is not on a fence section; it is not counted or priced.`,post));
+  if(stats)fences.forEach((run,index)=>{
+    const row=stats.byRunId[run.runId],spacing=+(run.postSpacing||run.autoPostSpacing||0);
+    if(!row||row.lineCt||!(spacing>0))return;
+    const needed=row.sectionFt.reduce((n,f)=>n+Math.max(0,Math.ceil(f/spacing-1e-6)-1),0);
+    if(needed)warn('NO_LINE_POSTS',`Run ${index+1} has no line posts but needs about ${needed} at ${spacing} ft spacing. Turn on auto-posts or place posts.`,run);
   });
 
   if(includePricing){
@@ -4039,7 +4597,9 @@ function validateProject(options={}){
     if(P){
       if(!P.hasData)err('NO_BOM','The job produced no bill of materials or labor.');
       [...new Set(P.unknown||[])].forEach(name=>err('MISSING_COST',`No cost is set for “${name}”.`));
+      (P.unitMismatch||[]).forEach(what=>err('UNIT_MISMATCH',`${what}; it was not priced. Enter it in the rate-card unit.`));
       [...new Set(P.zeroCostLines||[])].forEach(name=>err('ZERO_COST',`“${name}” has a zero-dollar cost.`));
+      [...new Set(P.invalidInputs||[])].forEach(what=>err('INVALID_PRICING_INPUT',`${what} is not a valid number of 0 or more; it was not priced.`));
       if(!Number.isFinite(P.clientTotal)||P.clientTotal<=0)err('TOTAL_INVALID','The client total is zero or invalid.');
       if(Number.isFinite(P.marginPct)&&P.marginPct<15)warn('LOW_MARGIN',`Estimated margin is ${P.marginPct.toFixed(1)}%. Verify markup and costs.`);
     }
@@ -4111,6 +4671,8 @@ function projectExportWarning(validation){
     POST_SPACING:'A fence section has no valid post spacing.',
     ADDON_STATE:'A fence section has add-on selections that could not be verified.',
     ORPHAN_GATE:'A gate is not connected to a fence section.',
+    GATE_OVERLAP:'Two gates overlap on one fence section.',
+    GATE_LONGER_THAN_RUN:'A gate is wider than the fence section it is drawn on.',
     GATE_TYPE:'A gate has an unrecognized style.',
     GATE_WIDTH:'A gate has no measurable width.',
     PRICING_RUNTIME:'Pricing could not be calculated; materials, labor, and the estimate total were not priced.',
@@ -4155,11 +4717,8 @@ function exportEstimatePDF(){
   const ucSlope=document.getElementById('uc-slope')?.checked;
   const ucUrban=document.getElementById('uc-urban')?.checked;
   const ucHardDig=document.getElementById('uc-harddig')?.checked;
-  // Client-facing LF price: installation subtotal excluding separately listed
-  // manual materials, distributed across runs by length.
-  const manualMatLines=P.matLines.filter(line=>line.source==='manual');
-  const manualClientTotal=manualMatLines.reduce((sum,line)=>sum+line.clientExt,0);
-  const clientPerLF = (stats.totalFt>0)? (P.clientSubtotal-manualClientTotal)/stats.totalFt : 0;
+  // Customer lines (shared with the panel): each section at its own price.
+  const docLines=customerDocumentLines(P,stats);
 
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'letter'});
   const PW=216,PH=279;
@@ -4229,36 +4788,34 @@ function exportEstimatePDF(){
     y+=rowH;
   };
 
-  // Fence line items — client price distributed by length (LF-summarized)
-  Object.entries(stats.fence).forEach(([type,ft])=>{
-    const fdef=FENCE_TYPES[type];
-    if(!fdef||!ft)return;
+  // Fence line items — each section at its own price (materials, gates, labor,
+  // demo/grade/hard dig, markup); $/LF is that section's amount over its LF.
+  docLines.rows.filter(r=>r.kind==='section').forEach(({type,label,ft,amountC,amount})=>{
     let notes='';
     if(ucDemo)notes+=' + Demo';
     if(ucSlope)notes+=' + Grade';
-    const lineTotal=clientPerLF*ft;
     addRow(
       `${ft.toFixed(1)} LF`,
-      `${fdef.label} Installation${notes}${(()=>{const hs=[...new Set(S.elements.filter(r=>r.type==='fence'&&r.fenceType===type).map(r=>hydrateRunSpecs(r.specs).heightIn))];return hs.length===1?` (${hs[0]}\" H)`:hs.length>1?` (Mixed heights: ${hs.join(', ')}\")`:'';})()}`,
-      `$${clientPerLF.toFixed(2)}/LF`,
-      `$${lineTotal.toFixed(0)}`
+      `${label} Installation${notes}${(()=>{const hs=[...new Set(S.elements.filter(r=>r.type==='fence'&&r.fenceType===type).map(r=>hydrateRunSpecs(r.specs).heightIn))];return hs.length===1?` (${hs[0]}\" H)`:hs.length>1?` (Mixed heights: ${hs.join(', ')}\")`:'';})()}`,
+      ft>0?`${customerMoney(Math.round(amountC/ft))}/LF`:'',
+      amount
     );
   });
+  docLines.rows.filter(r=>r.kind==='other').forEach(r=>addRow('1',r.label,'',r.amount));
 
   // Hand-added materials are priced in the same material loop and listed
   // separately so every cost included in the total is visible to the recipient.
-  manualMatLines.forEach(line=>{
+  docLines.rows.filter(r=>r.kind==='manual').forEach(({line,amount})=>{
     const priced=line.clientUnitCost!==null;
     addRow(
       `${line.qty} ${line.unit}`,
       line.name,
       priced?`$${line.clientUnitCost.toFixed(2)}/${line.unit}`:'Not priced',
-      priced?`$${line.clientExt.toFixed(2)}`:'Not priced'
+      priced?amount:'Not priced'
     );
   });
 
-  // Gates — per type, at marked-up client cost (rolled into clientSubtotal already;
-  // shown here as descriptive line, priced into the per-LF distribution above)
+  // Gates — descriptive line; each gate is priced in its owning run's section above
   if(stats.gateTotal){
     const walks=stats.gates.walk||0,dbl=stats.gates.doubledrive||0,cant=stats.gates.cantilever||0;
     let gateDesc=[];
@@ -4269,7 +4826,7 @@ function exportEstimatePDF(){
   }
 
   // Upcharges
-  if(ucUrban)addRow('1','Urban/City Market Premium','15%',`+$${P.urbanAdd.toFixed(0)}`);
+  docLines.rows.filter(r=>r.kind==='urban').forEach(r=>addRow('1',r.label,`${siteAdderRate('urbanPct')}%`,`+${r.amount}`));
   if(ucHardDig)addRow('1','Hard Dig / Equipment Required','Est.','Included');
 
   // ── TOTALS ──
@@ -4280,7 +4837,7 @@ function exportEstimatePDF(){
   doc.setFillColor(28,28,28);doc.rect(ML,y,tableW,9,'F');
   doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(...ACC);
   doc.text('ESTIMATE TOTAL',ML+4,y+6);
-  doc.text(P.pricingUnavailable?'NOT CALCULATED':`$${P.clientTotal.toFixed(0)}`,PW-MR-2,y+6,{align:'right'});
+  doc.text(P.pricingUnavailable?'NOT CALCULATED':docLines.total,PW-MR-2,y+6,{align:'right'});
   y+=14;
 
   // Deposit line

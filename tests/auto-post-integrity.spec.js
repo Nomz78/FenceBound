@@ -89,14 +89,16 @@ test('moving one run preserves another run and manual posts at shared coordinate
 test('gate placement and movement remove posts inside opening and restore vacated positions', async ({ page }) => {
   await openRun(page);
   await addGate(page);
-  expect((await record(page)).positions).toEqual([[10,0],[30,0],[40,0]]);
+  // Line posts are spaced per fabric section (2026-10-15 gate/run ownership, I-F-7):
+  // sections 0-15 and 27-42, not the run-start grid that left 3 ft and 2 ft bays.
+  expect((await record(page)).positions).toEqual([[10,0],[37,0]]);
   expect((await record(page)).netFeet).toBe(30);
   await moveElement(page,'gate',10,0);
-  expect((await record(page)).positions).toEqual([[10,0],[20,0],[40,0]]);
+  expect((await record(page)).positions).toEqual([[10,0],[20,0]]);
   await page.locator('#btn-undo').click();
-  expect((await record(page)).positions).toEqual([[10,0],[30,0],[40,0]]);
+  expect((await record(page)).positions).toEqual([[10,0],[37,0]]);
   await page.locator('#btn-redo').click();
-  expect((await record(page)).positions).toEqual([[10,0],[20,0],[40,0]]);
+  expect((await record(page)).positions).toEqual([[10,0],[20,0]]);
 });
 
 for(const method of ['button','keyboard'])test(`gate deletion through ${method} restores original quantities and price`, async ({ page }) => {

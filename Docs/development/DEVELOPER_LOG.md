@@ -345,3 +345,213 @@ Append one entry for every development session. Preserve prior entries.
   yes); under-6 ft depth editability; session:init handling of PR merge commits.
 - **Authority drift:** older CLAUDE/SOURCE_OF_TRUTH ordering and supplement listings differ
   from START_HERE; embedded Development Index remains stale. Recorded, not revised.
+
+## 2026-10-15 — Estimator, inventory and CAD deep audit (cloud session)
+
+- **Branch:** `claude/focused-bell-rirwad` from `82a148f`. Docs/evidence only; no runtime or test change.
+- **Method:** seven parallel agents — pricing, takeoff and CAD audits run against a scratch copy of
+  `index.html` in headless Chromium; test baseline; three web-research reports (fence software,
+  contractor methodology/NC tax, estimating-engine architecture).
+- **Result:** `Docs/research/2026-10-15_estimator-audit/` (summary, six reports, test baseline,
+  repro scripts). Concrete-as-post mispricing in `lookupCost` hand-verified; R15 embeds it.
+- **Gate:** `npm test` 67/96 (29 jsPDF-only failures, cdnjs blocked by proxy); matrix 12/12.
+- **Next:** owner Step 0 rulings, then exact-key pricing as the first defect repair.
+
+## 2026-10-15 — Exact-key pricing repair (audit F1/F2, inventory F-1/F-2)
+
+- **Branch:** `claude/focused-bell-rirwad`. Implementation commit `efd2b5b`
+  (`index.html`, new `tests/exact-key-pricing.spec.js`, R15/R16 updates).
+- **Defect:** `lookupCost` priced BOM lines by fuzzy display-name matching. Concrete priced as
+  wood `post` / `gate post`; wood and chain-link rails shared keys; both brace-band sizes shared
+  `brace band`; unrelated manual names borrowed prices; results depended on rate-card key order.
+- **Repair:** every auto BOM line carries an explicit `costKey` (69 line names enumerated across
+  all fence types, gate types, add-ons and barb arms); concrete → `post concrete bag`. New keys
+  seeded at the price each line resolved to before: `wood top rail` 1.85, `wood mid rail` 1.85,
+  `wood bottom rail` 4.20, `terminal size brace band` 0.80, `line size brace band` 0.80;
+  `bottom rail` is now chain-link only; `brace band` removed. Fuzzy fallbacks removed; manual rows
+  price only from their exact normalized name. Unmatched lines raise `MISSING_COST`. No seed
+  price value changed.
+- **Owner ruling (2026-10-15, "approve new R15"):** R15 31122 → **28692** cents (concrete
+  4 bags at $6.50 instead of $11: 4 × 450 × 1.35 = 2430). R16 (jsPDF) now adds a
+  `post cap special` entry at the `post cap` price, since the manual row no longer borrows it.
+- **Red/green:** E1–E5 5/5 failed on the unmodified runtime, 5/5 passed after.
+- **Gate:** Playwright 72 passed / 29 failed (all 29 the known jsPDF/cdnjs baseline);
+  `node scripts/cad-persistence-matrix.js` 12/12; `git diff --check` clean.
+- **Not done / follow-ups:** saved rate cards that customised the old shared `top rail`,
+  `mid rail`, `bottom rail` or `brace band` keep that price only for the chain-link line; wood rails
+  and band sizes fall back to seed values (per instruction; no migration of user prices). Barb-arm
+  orientations still share `barb arm`. CSV import still keys rows by normalized name, so
+  "2x4 Top Rail" in a supplier CSV lands on chain-link `top rail` (audit F15 area, not changed).
+- **Follow-up (fix commit after `efd2b5b`):** both items above repaired. Pre-split saved cards,
+  price files and job files seed the split keys from the saved shared-key price each line was
+  charged; CSV rows named as BOM lines land on that line's cost key. E6–E8 red then green;
+  suite 75 passed / 29 jsPDF-only; matrix 12/12.
+- **Editable site upcharges (owner ruling 2026-10-15, "make add-ons editable"; audit F12),
+  commit `5f4241a`:** the four hardcoded site adders are now company rate-card values, seeded
+  with the former constants: demo/removal `LABOR.demoPerLF` 3 ($/LF), grade/slope
+  `LABOR.slopePerLF` 0.5 ($/LF), hard dig `LABOR.hardDigPct` 30 (% of labor), urban
+  `MARKUP.urbanPct` 15 (% of client subtotal). They persist via `saveCostDB` under the
+  `_pricingFromLoadedProject` guard and ride the existing job-file, JSON import/export, backup,
+  reset and reload paths; old cards fall back to seeds; `siteAdderRate()` substitutes the seed for
+  any non-finite or negative stored value. Cost editor "Site upcharges" section; Save rejects
+  negative/blank/non-numeric input. Urban/hard-dig % labels, the urban stat row and the PDF urban
+  row read the edited value. No pricing value changed; R15 stays 28692.
+  New `tests/editable-site-adders.spec.js` SA1–SA7 (10 tests): 10/10 red on `7c63be7`, 10/10
+  green. Suite 85 passed / 29 jsPDF-only; matrix 12/12; `git diff --check` clean.
+  Not done (out of scope): F6 job persistence of the upcharge checkboxes; F13/F14; per-run or
+  slope-%-graded adders; the PDF urban row is not test-covered here (jsPDF blocked by cdnjs).
+- **Boundary coercion (owner directive 2026-10-15 "start the fixes", audit Step 1.2; pricing
+  F3/F4/F8/F11, inventory qty known defect):** one rule, `coerceNonNegNumber()`, applies at every
+  pricing boundary: finite numbers >= 0 pass, plain decimal strings ("12", "12.5", ".5") coerce,
+  everything else (NaN, Infinity, negatives, "1e2", "12,50", "35%", blank) is rejected.
+  `sanitizePricingInputs()` runs it over costs/labor/markup for job load (`applyState`, so saved
+  jobs, autosave and job-file import), the saved rate card and backup restore
+  (`mergeSavedCostDB`) and JSON price import. Legacy bare-number costs load as `{cost,unit}`.
+  JSON price import and backup restore refuse the whole file before writing anything; a loaded
+  job keeps the bad value and `computePricing` lists it in `invalidInputs` (unpriced line, or
+  0 for a non-numeric rate), which blocks `isFinalReady` and raises validation error
+  `INVALID_PRICING_INPUT`. FINAL-READY also requires every cents total to be finite. Cost editor
+  Save rejects any negative/blank/malformed cost, labor, gate, markup or crew-rate field.
+  CSV money: `$1,234.50`, `12.50`, `45¢`/`45c` (= 0.45), `(3.20)` negative; comma decimals
+  (`12,50`, `0,85`, `1.234,56`) are a row error, not a guess; `3.20 per 100` is a row error.
+  Manual qty is stored as a number at entry ('1e2' and blank rejected); old string qtys load as
+  numbers; non-plain loaded qtys stay, price at 0 and are reported. Site-adder keys stay with
+  `siteAdderRate()` (seed fallback, accepted in `5f4241a`). No pricing value changed; R15 stays
+  28692. A finite negative rate keeps its value in the arithmetic so F2 `TOTAL_INVALID`
+  (markup -100) still fires alongside the new error. New `tests/input-boundary-validation.spec.js`
+  IB1–IB10 (19 tests): 19/19 red on `c2e682a`, 19/19 green. Suite 104 passed / 29 jsPDF-only
+  (same failing set as baseline); matrix 12/12; `git diff --check` clean.
+  Not done: matrix route 10 / unknown legacy fence types; failed portable import atomicity;
+  footing/post-OD/embed inputs keep their existing guards.
+- **Gate/run ownership (owner directive 2026-10-15 "start the fixes", audit Step 1.3; CAD-02..05,
+  inventory F-13 and F-7), `ee08eae`:** a gate is owned by its run only when both edges lie within
+  `GATE_ON_RUN_TOL` (= `GRID_FT*SQRT1_2`, 0.71 ft, half the default 1 ft snap-cell diagonal) of the
+  run line and inside its span; `nearestFenceRunForGate` (any distance) is gone. Unowned gates are
+  not deducted or priced, block FINAL-READY and raise `ORPHAN_GATE`; new errors `GATE_OVERLAP` and
+  `GATE_LONGER_THAN_RUN`. Gate edges at a run end, corner or neighbouring gate share one post;
+  termination ends count per fabric section. Moving/stretching a run carries its gates; deleting a
+  run removes its gates and auto posts (one undo each). Line posts are spaced per section between
+  gates. CAD-06 untouched (owner rule pending). Moved expectation (F-7 correction only):
+  `auto-post-integrity` gate test positions `[[10,0],[30,0],[40,0]]`→`[[10,0],[37,0]]` and
+  `[[10,0],[20,0],[40,0]]`→`[[10,0],[20,0]]`. R15 stays 28692; 168 LF fixture values unchanged.
+  New `tests/gate-run-ownership.spec.js` (4 tests): 4/4 red on `0e866ac`, 4/4 green. Suite 108
+  passed / 29 jsPDF-only (baseline set); matrix 12/12; `git diff --check` clean.
+  Not done: gate seating/presets onto the line (v6.0 CAD); a gate spanning a collinear joint is
+  unowned (it lies on neither run); per-section panel counts (Step 1.5); posts already stored
+  inside an opening in saved jobs are not rewritten on load (rebuilt on the next edit).
+- **Gate seating at every snap (follow-up, `90527a0`):** coarse snaps (6/8/10 ft) put gate edges up
+  to snapFt×0.71 ft off a diagonal run, so drawn gates were false `ORPHAN_GATE`s. Placement,
+  move and paste now project a gate aimed at a run (edges within max(0.71 ft, snapFt×0.71 ft) of
+  its line, ≤45°, inside its span) onto the line; validation keeps the strict tolerance. On load,
+  pre-`ee08eae` gates slightly off their bound run (or unbound, nearest run) are projected when
+  within 7.07 ft (largest snap reach); farther gates stay orphan. No expectation moved; R15 28692.
+  Tests 5–6 in `gate-run-ownership.spec.js`: 2/2 red, 2/2 green. Suite 110 passed / 29
+  jsPDF-only; matrix 12/12; `git diff --check` clean.
+- **Job-state isolation (owner directive 2026-10-15 "start the fixes", audit Step 1.4; pricing
+  F5/F6, CAD-01, CAD-12, CAD-13, inventory F-6), `ef58957`:** the four site-upcharge checkboxes
+  and the labor-hours override are saved with the job (`siteUpcharges`, `laborHours` in
+  `snapshotState`) and restored by `applyState`; older jobs and Clear reset them to off/auto.
+  Clear now starts the next quote: `restoreCompanyRateCard()` leaves loaded-project pricing by
+  reloading the saved company rate card (else shipped defaults) and never writes it. Restore was
+  chosen because nothing in source or docs records an owner choice to keep loaded prices; the only
+  trace was the cost-editor `confirm()` (audit F5). Loading a saved job or importing a job file
+  clears undo/redo (history holds drawings only). Saved jobs carry `jobId`; Save updates only the
+  open job's record and saves a different job under a taken name as "Name (n)" (no prior app
+  pattern; " (2)" per directive). Move keeps a `structuredClone`, so Escape restores
+  `specs.addons` as a Set; carried gates are restored too. `selectFenceType` remembers specs per
+  type per owner (run, or drawing defaults; reset on job load), so a type round trip restores
+  stripped components, add-ons and height. Undo-label invariant untouched. No pricing value
+  changed; R15 stays 28692; no expectation moved. New `tests/job-state-isolation.spec.js` (6
+  tests): 6/6 red on `895760b`, 6/6 green. Suite 116 passed / 29 jsPDF-only (baseline set);
+  matrix 12/12; `git diff --check` clean.
+  Not done: Undo of Clear restores the drawing but not the loaded pricing/upcharges (it cannot
+  overwrite another job: `jobId` is cleared); Clear still keeps job name/customer and manual
+  materials; the grade selector still auto-checks the slope box (F6 item 3); legacy saved jobs
+  without `id` re-save as "Name (2)". (Both job-identity items repaired in the follow-up below.)
+- **Job identity follow-up (`3977725`):** `ensureSavedJobIds()` gives each saved job without an `id`
+  (every record saved before `ef58957`) a stable unique id and persists it, at startup and before a
+  job loads, so load → Save updates it in place. Clear now also resets the job name, customer,
+  address, notes and manual materials (`S.materials`, a pricing leak otherwise); the existing
+  confirm is kept. Undo of Clear restores the drawing only; `jobId` stays cleared, so Save makes a
+  new record and cannot overwrite the old job (test 8 checks the stored record is byte-identical).
+  Tests 7–8: 2/2 red on `c7d21f8`, 2/2 green. Suite 118 passed / 29 jsPDF-only (baseline set);
+  matrix 12/12; `git diff --check` clean; R15 stays 28692.
+- **Remaining Tier 2 counts (owner directive 2026-10-15 "start the fixes", audit Step 1.5;
+  inventory F-3, F-4, F-8, F-9, F-10, F-11, F-12, F-14):** each its own commit and red→green test
+  in new `tests/takeoff-counts.spec.js`. Re-verified against current code first; all eight were
+  still present (F-11 partly: `FENCE_TYPE` already errored, but `isFinalReady` stayed true).
+  - `d481612` (T1) panels, rail spans, temporary stands/couplers round per fabric section
+    (`getStats` row `sectionFt`, `unitsPerSection`). Gated audit case: vinyl 11→12, ornamental
+    14→15, temporary 8→9 (couplers = panels − sections, stands = panels + sections).
+  - `f5b1f23` (T2) vinyl split rails = bays at the run's post spacing × rails (100 LF: 26→20).
+  - `df859dc` (T3) off-table hole depth: no ratified bag-yield model exists, so next deeper table
+    depth (beyond 42" the 42" entry scaled up, rounded up) plus `CONCRETE_DEPTH_OFF_TABLE`
+    warning. Legacy 28": 0→3 bags per terminal/gate post.
+  - `b36301d` (T4) field cattle + Barbed Wire add-on: no second strand set, no barb arms.
+  - `fbddeb6` (T5) Post-tool posts count as line posts of the run section they stand on (not
+    again on an end, corner, gate or existing post); `POST_NOT_ON_FENCE` and `NO_LINE_POSTS`
+    warnings.
+  - `b1e6a09` (T6) manual material priced only when its unit (via `UNIT_ALIASES`) matches the
+    rate-card unit; otherwise unpriced, not FINAL-READY, `UNIT_MISMATCH` error. Cost view shows
+    `/unit`.
+  - `5f1116d` (T7) Face Board checkbox controls the face-board line; choosing the type turns it on.
+  - `4813e49` (T8) legacy/unknown fence type → `unsupportedTypes`, never FINAL-READY; no BOM
+    invented.
+  - `d5a025f` golden BOM per fence type (14), 100 LF + 4 ft walk + 12 ft double drive; 6 fail on
+    `a6e20d0`, 8 characterize unchanged output.
+  No pricing value changed; R15 stays 28692; no existing expectation moved. Gate: 140 passed
+  (all non-jsPDF) / 29 jsPDF-only excluded (cdnjs blocked); matrix 12/12; `git diff --check` clean.
+  Not changed (owner rulings pending): line-post concrete, post stock lengths, truss rods on
+  non-corner ends, sleeves/carriage bolts, CAD-06 joint post, per-run fabric rounding.
+  **Owner questions:** (1) gates on every non-chain-link type get chain-link pipe gate posts
+  ("Gate Post 10.5'/11'"), chain-link gate concrete (temporary panels included) and one flat kit
+  per gate type; what should wood, vinyl, ornamental, split-rail, cattle and temporary gates get?
+  (2) woodsplit3fb runs saved before `5f1116d` carry `hasFaceBoard:false` and reopen without the
+  face board line until the box is checked; migrate them to on? (3) depths beyond 42" are
+  extrapolated; ratify or extend the footing table. (4) Vinyl split rail has no default height and
+  still inherits the previous type's height (audit, not repaired here).
+- **Face board regression follow-up:** owner question 2 above was a regression from `5f1116d`, not
+  an owner choice. Saved specs always carried `hasFaceBoard:false` explicitly (whole-spec
+  serialization), so the checkbox now records `faceBoardChosen`, and on load (`applyState` →
+  `migrateRunOwnership`) a Split + Face Board run without a user-set flag gets its face board
+  back; a user-unchecked flag stays off. T9: red on `00ecaab` (272520 for 288396 cents), green.
+  Gate 141 passed / 29 jsPDF-only excluded; matrix 12/12; R15 stays 28692.
+- **Customer documents (audit F7/F16, directive step 1.6), `37cdd86`:** each section's amount on
+  the panel client view and the estimate PDF now comes from its own costs. Merged BOM lines keep
+  `sectionQty` per fence type, and gates go to their owning run. `computePricing().sectionCents`
+  holds each section's materials, gate and $/LF labor, demo and grade (by its gross LF), hard dig
+  (by its labor) and markup. Each split uses largest-remainder integer cents (`apportionC`).
+  Crew-hours labor is job-level and is shared by gross LF. Urban premium and manual materials stay
+  their own lines, as the PDF already listed them. `customerDocumentLines(P,stats)` feeds both
+  documents. Amounts are shown in exact cents: R16 already required cents on manual lines, and with
+  cents the lines sum to the total without any re-rounding. Repro: ornamental was shown at the
+  blended $1,644.78 and now shows its own $2,493.47. CDS1–2 were red on `6381d74` and are green
+  now. No pricing value changed, R15 stays 28692, and no existing expectation moved.
+  **First full run including jsPDF:** a scratch-only wrapper (one `*.wrap.js` per spec, adding a
+  `context.route` for the cdnjs jsPDF 2.5.1 URL to an npm `jspdf@2.5.1` UMD file, then
+  `require` of the repo spec) ran 172 tests: 169 passed and 3 failed. All 3 are pre-existing
+  failures of R9 (`persistence-integrity` ×3: null start throws in `validateProject`; the
+  constructor/toString types no longer produce `PRICING_RUNTIME`). They fail the same way on
+  `6381d74`. Not repaired here. Matrix 12/12; `git diff --check` clean.
+- **R9 regression repair, `5b9e99e`:** a bisect with jsPDF routed through a scratch worktree found
+  R9 3/3 passing on `82a148f` through `5f4241a`. `f41b5f0` broke the "constructor" and
+  "toString" cases. Those type names collide with Object properties, so the footage tally is
+  corrupt. Before `f41b5f0` that corrupt footage crashed pricing by accident; after it the job
+  priced as INVALID_PRICING_INPUT. `computePricing` now throws on any non-finite section footage,
+  which restores PRICING_RUNTIME. `ee08eae` broke the null-start case: its GATE_OVERLAP loop
+  (and later `fbddeb6`'s `getStats` warnings) threw inside `validateProject`. The loop now
+  skips runs without endpoints, and the warnings are skipped when `getStats` cannot measure the
+  drawing. R9 was red 3/3 and is green 3/3; no expectation changed. **Full suite with jsPDF
+  routed: 172/172.** Matrix 12/12; R15 stays 28692. The earlier entry's note that these 3
+  failures were older than this session was wrong: they were regressions from this session.
+- **Session closeout:** Step 1 complete; full suite 172/172 including PDF tests (cdnjs routed to
+  npm jspdf@2.5.1 in a scratch wrapper), matrix 12/12. CURRENT_HANDOFF and CURRENT_STATE updated;
+  prior handoff preserved in `Docs/handoffs/2026-10-15__field-hole-depths-closeout.md`.
+- **Owner redirection (2026-10-15):** contractors supply prices; priority is accurate,
+  purchasable counts, modeled on commercial tools. v6.0 pricing-engine items (tax, overhead,
+  margin, labor model, snapshot) deprioritized. Codex handoff `HANDOFF.md` (C0-C4) with
+  loop-breaker rules; C0 asks the owner for real past jobs as acceptance fixtures.
+- **Owner ruling (2026-10-15):** hardware rules come from distributor/manufacturer literature
+  (Merchants Metals, formerly Hudson Fence Supply; Capital Fence Supply; others serving
+  Albemarle/Charlotte/Greensboro NC) and commercial-software specs. Owner has no own
+  distributor pricing. HANDOFF.md C0 is now a cited hardware spec reference; C0b applies it.

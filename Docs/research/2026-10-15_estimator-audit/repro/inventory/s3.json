@@ -1,0 +1,5 @@
+{
+"toprail_loss":"(()=>{const a={top:S.specs.hasTopRail,bw:S.specs.addons.has('bottom-wire'),mid:S.specs.hasMidRail};selectFenceType('ornamental');selectFenceType('chainlink');const b={top:S.specs.hasTopRail,bw:S.specs.addons.has('bottom-wire'),checkbox:document.getElementById('has-top-rail').checked};selectFenceType('woodprivacy');selectFenceType('chainlink');return {fresh:a,afterOrnamentalRoundTrip:b,afterWoodRoundTrip:{top:S.specs.hasTopRail,bw:S.specs.addons.has('bottom-wire'),h:S.specs.heightIn,mid:S.specs.hasMidRail}};})()",
+"cl72_fullspec_gates":"build('chainlink',72,100,[[40,44,'walk'],[70,82,'doubledrive']],{mutate:s=>{s.hasTopRail=true;}})",
+"cl48_fullspec_gates":"build('chainlink',48,100,[[40,44,'walk'],[70,82,'doubledrive']],{mutate:s=>{s.hasTopRail=true;}})"
+}
