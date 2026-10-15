@@ -555,3 +555,45 @@ Append one entry for every development session. Preserve prior entries.
   (Merchants Metals, formerly Hudson Fence Supply; Capital Fence Supply; others serving
   Albemarle/Charlotte/Greensboro NC) and commercial-software specs. Owner has no own
   distributor pricing. HANDOFF.md C0 is now a cited hardware spec reference; C0b applies it.
+
+## 2026-10-15 — C0 hardware reference (local, awaiting closeout)
+
+- **Scope:** C0 only, on `codex/counting-c0` from `424750b` on
+  `claude/focused-bell-rirwad`. Added `Docs/reference/HARDWARE_SPEC_REFERENCE.md`;
+  no runtime, tests, golden BOM quantities, price values, or dependencies changed.
+- **Evidence:** Manufacturer/distributor literature and all 142 existing golden BOM rows
+  across 14 types. Product-specific alternatives and existing owner walls remain explicit.
+  Strict C0 completion is not claimed: missing product/SKU and fastening information is
+  labeled unverified rather than fabricated as a match or source disagreement. No C0b/C1 work.
+- **Owner clarification:** Capital Fence Supply is in “Statesville, NC. basically in
+  Charlotte, NC.” Official research found Capitol Wholesale's Charlotte branch and the
+  distinct Merchants Metals Statesville branch; exact intended supplier identity remains
+  unresolved. No supplier contacted and no account/pricing assumptions made.
+- **Initialization:** `session:init` found pre-existing stale HEAD metadata (`ea67c4e`
+  recorded versus `424750b` actual). All three intervening commits were documentation only;
+  no governance/tooling repair included.
+- **Validation:** 2026-10-15, unchanged runtime at `424750b`: `npm test` 172/172,
+  including PDF tests without the prior cloud wrapper; persistence matrix 12/12.
+  Static checks and 14-type/142-line documentation coverage passed. Independent review
+  found three documentation issues, all repaired (hog-panel scope, vinyl cap kit contents,
+  concrete wording); missing evidence remains unresolved.
+- **Closeout:** No commit, push or PR created. Human closeout and the explicit external
+  PR-creation gate remain outstanding; no release or synchronization claim.
+- **Task separation on continuation:** C0's reference and this log addition are now
+  isolated in `/Users/altairus78/Developer/fencebound-c0-review` on `codex/counting-c0`.
+  Reference contents are unchanged. Readiness assessment and software repairs belong
+  to their own branches; neither is a C0 deliverable. No new runtime test run is claimed.
+
+## 2026-10-15 — C0 hardware reference: approved closeout
+
+- Owner approved the three-branch commit/validate/push sequence; no PRs are authorized.
+- Task implementation commit: `0a0f43e585f000734b8304c8cdd572900227c1b7` on `codex/counting-c0`. This entry is in its
+  direct documentation-closeout child. Only the task's own files/log addition were
+  introduced; predecessor work is inherited through the ordered branch stack.
+- Fresh gate: `npm test` 172/172, persistence matrix 12/12,
+  `git diff --check` PASS. Timestamp: `2026-10-15T18:24:44+00:00`. Ordinary HTTP/PDF configuration.
+- Task-specific files, historical red/green evidence where applicable, limitations,
+  and validation artifacts are recorded in `Docs/handoffs/2026-10-15__counting-c0-reference-closeout.md`.
+- Independent task/boundary review found no unresolved blocking finding. State and
+  current/archive handoffs now describe this tested branch. Push and initialization
+  are verified live after this metadata commit; earlier pending/local status is historical.

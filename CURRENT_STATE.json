@@ -2,10 +2,10 @@
   "$schema": "./CURRENT_STATE.schema.json",
   "stateSchemaVersion": 1,
   "project": "FenceBound",
-  "repository": "~/Desktop/FenceBound",
-  "branch": "claude/focused-bell-rirwad",
-  "head": "ea67c4ed9d2b47380032fe7875a724a2084bb6e1",
-  "upstream": "origin/claude/focused-bell-rirwad",
+  "repository": "/Users/altairus78/Developer/fencebound-c0-review",
+  "branch": "codex/counting-c0",
+  "head": "0a0f43e585f000734b8304c8cdd572900227c1b7",
+  "upstream": "origin/codex/counting-c0",
   "worktreeClean": true,
   "canonicalRuntime": "index.html",
   "applicationVersion": "5.4.0",
@@ -22,20 +22,25 @@
   "developmentIndex": "index.html#FenceboundCAD-Development-Index",
   "projectInstructions": "PROJECT-INSTRUCTIONS.md",
   "currentHandoff": "Docs/CURRENT_HANDOFF.md",
-  "lastCompletedTask": "2026-10-15 estimator audit and Step 1 defect repairs: exact-key pricing (concrete no longer priced as post; R15 = 28692 cents, owner-approved), editable site upcharge rates (owner-approved), input boundary validation, gate/run ownership, job-state isolation, per-type takeoff counts with golden BOMs for all 14 types, customer section prices reconciled to total, R9 regression restored.",
-  "activeTask": "Counting accuracy (owner direction 2026-10-15: contractors supply prices; focus on exact purchasable counts). Codex tasks C0-C4 in HANDOFF.md, starting with real-job acceptance fixtures.",
-  "nextOwnerDecision": "Gate parts per non-chain-link fence type; footing depths past 42 in.; vinyl split-rail default height; collinear joint post (CAD-06); line-post concrete; residential post stock lengths; truss rods/sleeves/bolts; NC sales-tax treatment (CPA/NC DOR); v6.0 engine authorization; mid/bottom rail ties; under-6 ft depth editability; session:init merge handling. O-6 remains unresolved.",
-  "repositoryHeadAtGeneration": "ea67c4ed9d2b47380032fe7875a724a2084bb6e1",
-  "testedHead": "ea67c4ed9d2b47380032fe7875a724a2084bb6e1",
+  "lastCompletedTask": "Added a cited hardware reference and comparison of all 142 existing golden BOM rows across 14 types. No runtime or test changes. Strict C0 completion remains blocked by missing product/source evidence and owner choices.",
+  "activeTask": "Review the C0 evidence gaps and product choices. Do not treat conditional source mismatches as authorization for C0b. Assessment and repairs are separately authorized downstream branches.",
+  "nextOwnerDecision": "C0 named product/assembly choices and unresolved source evidence; footing depths past 42 in.; vinyl split-rail default height; collinear joint post (CAD-06); line-post concrete; residential post stock lengths; truss rods/sleeves/bolts; NC sales-tax treatment (CPA/NC DOR); v6.0 engine authorization; mid/bottom rail ties; under-6 ft depth editability; session:init merge handling. O-6 remains unresolved.",
+  "repositoryHeadAtGeneration": "0a0f43e585f000734b8304c8cdd572900227c1b7",
+  "testedHead": "0a0f43e585f000734b8304c8cdd572900227c1b7",
   "closeoutConvention": "The current HEAD may be one direct documentation-only closeout child of head; see START_HERE.md.",
   "gate": {
     "status": "PASS",
-    "command": "npm test (cdnjs jsPDF routed to npm jspdf@2.5.1 via scratch wrapper, cloud proxy blocks cdnjs); node scripts/cad-persistence-matrix.js",
-    "timestamp": "2026-10-15",
-    "head": "ea67c4ed9d2b47380032fe7875a724a2084bb6e1",
+    "command": "npm test; node scripts/cad-persistence-matrix.js; git diff --check",
+    "timestamp": "2026-10-15T18:24:44+00:00",
+    "head": "0a0f43e585f000734b8304c8cdd572900227c1b7",
     "results": {
-      "npm test": "172/172 passed, including PDF tests (cloud container, scratch jsPDF routing)",
-      "node scripts/cad-persistence-matrix.js": "12/12 passed"
+      "npm test": "172/172 passed, including PDF tests; ordinary repository configuration",
+      "node scripts/cad-persistence-matrix.js": "12/12 passed",
+      "git diff --check": "PASS"
+    },
+    "artifacts": {
+      "tests": "/tmp/fencebound-closeout-c0-tests.log",
+      "matrix": "/tmp/fencebound-closeout-c0-matrix.log"
     }
   },
   "knownDrift": [

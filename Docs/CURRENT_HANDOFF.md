@@ -1,82 +1,89 @@
-# FenceBound current handoff
+# FenceBound current handoff — C0 hardware reference
 
 <!-- SESSION_METADATA
-generatedAt: 2026-10-15
-repositoryRoot: ~/Desktop/FenceBound
-branch: claude/focused-bell-rirwad
-testedHead: ea67c4ed9d2b47380032fe7875a724a2084bb6e1
-repositoryHeadAtGeneration: ea67c4ed9d2b47380032fe7875a724a2084bb6e1
-upstream: origin/claude/focused-bell-rirwad
+generatedAt: 2026-10-15T18:24:44+00:00
+repositoryRoot: /Users/altairus78/Developer/fencebound-c0-review
+branch: codex/counting-c0
+testedHead: 0a0f43e585f000734b8304c8cdd572900227c1b7
+repositoryHeadAtGeneration: 0a0f43e585f000734b8304c8cdd572900227c1b7
+upstream: origin/codex/counting-c0
 worktreeClean: true
 canonicalRuntime: index.html
 applicationVersion: 5.4.0
 schemaVersion: 3
 gateStatus: PASS
-gateHead: ea67c4ed9d2b47380032fe7875a724a2084bb6e1
+gateHead: 0a0f43e585f000734b8304c8cdd572900227c1b7
 -->
 
-Verified 2026-10-15 in a Claude cloud container on `claude/focused-bell-rirwad`
-(started from main `82a148f`). Not yet merged to main; no PR opened. The previous
-handoff is preserved verbatim in `Docs/handoffs/2026-10-15__field-hole-depths-closeout.md`.
+This handoff records the tested task commit. The final Git HEAD is its direct,
+allowlisted documentation-closeout child under the two-commit convention.
+The owner approved the three-branch commit/validate/push sequence and explicitly
+prohibited opening PRs. No release or merge is authorized. Final push/synchronization
+is verified against live Git, not inferred from this document.
 
-## Completed this session
+## Completed task and files
 
-1. **Deep audit** — `Docs/research/2026-10-15_estimator-audit/` (`00-SUMMARY.md` first):
-   pricing, takeoff and CAD audits (~55 confirmed bugs) and research on commercial fence
-   estimators, contractor pricing/NC tax, and estimating-engine architecture. Not canonical.
-2. **Step 1 defect repairs** (owner: "approve new R15, make add-ons editable, start the fixes"),
-   each with a red-before/green-after test:
-   - exact-key pricing `efd2b5b`, `144d0a9` — concrete priced as concrete; split shared keys
-     keep customised prices; **R15 = 28692 cents** (was 31122, owner-approved);
-   - editable site upcharges `5f4241a` — demo, slope, hard dig, urban are rate-card values;
-   - input boundary validation `f41b5f0`; gate/run ownership `ee08eae`, `90527a0`;
-   - job-state isolation `ef58957`, `3977725`;
-   - takeoff counts `d481612`…`4813e49`, golden BOMs for all 14 types `d5a025f`,
-     face-board migration `402742d`;
-   - customer section prices from own costs, panel = PDF `37cdd86`;
-   - R9 hostile-input regression (from `f41b5f0`/`ee08eae`) restored `5b9e99e`.
-   Every moved BOM quantity is listed in its commit body and the developer log.
+Added a cited hardware reference and comparison of all 142 existing golden BOM rows across 14 types. No runtime or test changes. Strict C0 completion remains blocked by missing product/source evidence and owner choices.
 
-## Verification
+Files in this task commit, excluding inherited predecessor work:
 
-- `npm test`: **172/172**, including PDF tests. The cloud proxy blocks cdnjs, so jsPDF 2.5.1
-  was served from an npm copy through a scratch-only Playwright wrapper (no repo change);
-  re-run on the owner machine to confirm with the real CDN.
-- `node scripts/cad-persistence-matrix.js`: **12/12**. `git diff --check` clean.
+- `Docs/development/DEVELOPER_LOG.md`
+- `Docs/reference/HARDWARE_SPEC_REFERENCE.md`
 
-## Open owner decisions
+The documentation-closeout child changes only `CURRENT_STATE.json`, this handoff,
+`Docs/development/DEVELOPER_LOG.md`, and `Docs/handoffs/2026-10-15__counting-c0-reference-closeout.md`.
+The approved branch sequence is C0 → assessment → repairs; this handoff records
+its completed stage. Each developer-log addition belongs to its own task. Task-local inherited log statements about pending approval or
+uncommitted work describe earlier checkpoints and are superseded by this closeout.
 
-Gate posts/concrete/kits for non-chain-link types (currently chain-link parts); footing depths
-past 42" (extrapolated); vinyl split-rail default height; CAD-06 collinear joint; line-post
-concrete; residential stock lengths; truss rods, sleeves, bolts; NC sales tax (CPA/NC DOR);
-authorize v6.0 engine (Step 2) and CAD parity (Step 3); earlier open items (rail ties,
-under-6 ft depth editability, session:init merge handling, O-6).
+## Validation and independent review
 
-## Known limits carried
+- `npm test`: **172/172 passed**, including PDF tests, on `0a0f43e585f000734b8304c8cdd572900227c1b7`.
+- `node scripts/cad-persistence-matrix.js`: **12/12 passed** on the same commit.
+- `git diff --check`: **PASS**. Gate timestamp: `2026-10-15T18:24:44+00:00`.
+- Logs: `/tmp/fencebound-closeout-c0-tests.log`, `/tmp/fencebound-closeout-c0-matrix.log`.
+- Runtime SHA-256: `0b0f2a896305af3a1b2a44177269b08346f7950f4ea2b41a58d8e93874932d9c`.
+- Prior independent task reviews and the continuation boundary review found no
+  unresolved blocking finding. Supported documentation and repair findings were fixed.
+  C0 source gaps and planning uncertainty are retained, not certified away.
+- Initialization is rechecked after the closeout and push. Known historical warnings
+  are retained in `CURRENT_STATE.json`; no session-init tooling was changed.
 
-Undo of Clear restores only the drawing. A gate across a joint between two collinear runs is
-an orphan. Saved jobs with a post inside a gate opening are corrected on the next edit of that
-run. CSV comma-decimal prices are rejected, not guessed. See `CURRENT_STATE.json`.
+No code changes in this task; red-before/green-after repair evidence is not applicable.
+The full unchanged-runtime suite and persistence matrix passed on the task commit.
+
+## Remaining work
+
+Review the C0 evidence gaps and product choices. Do not treat conditional source mismatches as authorization for C0b. Assessment and repairs are separately authorized downstream branches.
+
+C0 reference evidence gaps, unresolved owner choices, product/variant identity,
+parameter compatibility, purchasing/waste/order output, offline delivery, and broader
+pilot acceptance still limit market readiness. Neither research report certifies release.
+Carried runtime limits: undo of Clear restores only the drawing; a gate spanning a
+collinear joint is orphaned; saved posts inside gate openings are corrected on the
+next run edit; CSV comma-decimal prices are rejected. These are not repaired here.
+See `CURRENT_STATE.json` for other carried defects and owner decisions. No price values,
+dependencies, field doctrine, application version, schema, or golden BOM counts changed.
 
 ## Restart
 
-```bash
-npm run session:init
-```
+Run `npm run session:init` in this worktree and read the Tier 1 files. For the latest
+combined approved work, use `codex/market-readiness-repairs` after its closeout.
+Earlier per-branch handoffs describe their own tested stage of the stack.
 
 <!-- BOOTSTRAP_START -->
 FENCEBOUND FRESH SESSION BOOTSTRAP
 
-Repository: ~/Desktop/FenceBound (this work: branch claude/focused-bell-rirwad, not yet on main)
-Branch: claude/focused-bell-rirwad
-Verified HEAD: ea67c4ed9d2b47380032fe7875a724a2084bb6e1 (docs-only closeout child permitted)
+Repository: /Users/altairus78/Developer/fencebound-c0-review
+Branch: codex/counting-c0
+Verified HEAD: 0a0f43e585f000734b8304c8cdd572900227c1b7 (direct documentation-closeout child permitted)
 Canonical runtime: index.html (5.4.0)
 Schema: 3
 Authority: tested source/runtime → frozen Engineering Bible + supplements → System Atlas → Development Index → current handoff/state → history
-Last completed: 2026-10-15 audit + Step 1 defect repairs (exact-key pricing, editable upcharges, input validation, gate ownership, job isolation, takeoff counts, section prices). R15 = 28692. Full suite 172/172, matrix 12/12.
-Active next task: Counting accuracy per HANDOFF.md (Codex C0-C4: real-job fixtures, pack-size order quantities, waste, material order, house termination). Pricing engine work deprioritized by owner.
-Owner decisions required: see "Open owner decisions" above.
-Known defects or drift: See CURRENT_STATE.json; branch not merged to main.
-Required reading: AGENTS.md, START_HERE.md, Docs/CURRENT_HANDOFF.md, CURRENT_STATE.json, PROJECT-INSTRUCTIONS.md, Docs/research/2026-10-15_estimator-audit/00-SUMMARY.md.
-Required gate: npm run session:init; npm test (including PDF tests); node scripts/cad-persistence-matrix.js; git diff --check.
+Last completed: Added a cited hardware reference and comparison of all 142 existing golden BOM rows across 14 types. No runtime or test changes. Strict C0 completion remains blocked by missing product/source evidence and owner choices.
+Active next task: Review the C0 evidence gaps and product choices. Do not treat conditional source mismatches as authorization for C0b. Assessment and repairs are separately authorized downstream branches.
+Owner decisions required: source/product choices and carried rulings in CURRENT_STATE.json; no PR creation authorized.
+Known defects or drift: carried limitations in CURRENT_STATE.json; no C0b/C1 completion or release claim.
+Required reading: START_HERE.md, Docs/CURRENT_HANDOFF.md, CURRENT_STATE.json, PROJECT-INSTRUCTIONS.md.
+Required gate: npm run session:init; npm test; node scripts/cad-persistence-matrix.js; git diff --check.
 <!-- BOOTSTRAP_END -->
