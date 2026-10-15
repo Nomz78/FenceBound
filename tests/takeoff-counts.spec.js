@@ -4,6 +4,7 @@ const { test, expect } = require('@playwright/test');
 // audit, inventory report 02 §3, Step 1.5 of 00-SUMMARY.md). Each test failed
 // before its repair and passes after it.
 //  - T1: panel and section counts round per fabric section, not per run (F-4).
+//  - T2: vinyl split-rail rails follow the run's post spacing (F-3).
 
 async function cleanOpen(page) {
   await page.goto('/index.html');
@@ -61,4 +62,16 @@ test('T1 panels, rail spans, stands and couplers round per fabric section betwee
   // Ungated temporary: one section of 9 panels joined by 8 couplers on 10 stands.
   const tempPlain = await bomFor(page, 'temporary', false);
   expect([tempPlain['Temp Panel 6x12'], tempPlain['Temp Panel Coupler'], tempPlain['Panel Stand / Base']]).toEqual([9, 8, 10]);
+});
+
+test('T2 vinyl split-rail rails equal bays at the run post spacing times rails per bay', async ({ page }) => {
+  await cleanOpen(page);
+  // Default 10 ft spacing: 10 bays x 2 rails, not ceil(100/8) x 2 = 26.
+  expect((await bomFor(page, 'vinylsplit2', false))['Vinyl Split Rail']).toBe(20);
+  // Gated: sections 40, 26, 18 at 10 ft = 4 + 3 + 2 bays x 3 rails.
+  expect((await bomFor(page, 'vinylsplit3', true))['Vinyl Split Rail']).toBe(27);
+  // The rails track the run's own spacing, as the drawn posts do.
+  const at8 = await bomFor(page, 'vinylsplit2', false, 'S.postSpacing=8;');
+  expect(at8['Vinyl Split Rail']).toBe(13 * 2);
+  expect(await state(page, `getStats().linePosts`)).toBe(12);
 });

@@ -1927,7 +1927,8 @@ function calcAutoMaterials(){
       items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
     } else if(mat==='vinyl'&&(style==='split2'||style==='split3')){
       const rails=style==='split2'?2:3;
-      const railSpans=unitsPerSection(runStats,8);
+      // One rail per rail line per bay; bays follow the run's actual post spacing.
+      const railSpans=unitsPerSection(runStats,spacingFt);
       items.push({name:'Vinyl Split Rail',costKey:'vinyl split rail',qty:railSpans*rails,unit:'ea'});
       items.push({name:`Vinyl Split Rail Post ${postLen}`,costKey:'vinyl split rail post',qty:typePostCount,unit:'ea'});
       items.push({name:'Post Cap Vinyl',costKey:'post cap vinyl',qty:typePostCount,unit:'ea'});
