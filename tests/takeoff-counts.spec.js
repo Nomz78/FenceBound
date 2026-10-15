@@ -11,6 +11,7 @@ const { test, expect } = require('@playwright/test');
 //  - T6: a manual material is priced per its entered unit or not at all (F-10).
 //  - T7: the Face Board checkbox controls the face board line (F-12).
 //  - T8: a legacy or unknown fence type blocks FINAL-READY (F-11).
+//  - T9: a Split + Face Board run saved before the checkbox worked keeps its face board.
 //  - G-<type>: golden BOM for every fence type, 100 LF with a 4 ft walk gate and
 //    a 12 ft double drive. The first BOM coverage for any non-chain-link type.
 
@@ -223,3 +224,20 @@ for (const [type, golden] of Object.entries(GOLDEN)) {
     expect(await state(page, `validateProject({requireClient:false}).errors.map(e=>e.code)`)).toEqual([]);
   });
 }
+
+test('T9 a Split + Face Board job saved before the checkbox worked reopens with its face board and total', async ({ page }) => {
+  await cleanOpen(page);
+  await state(page, seedRunSource('woodsplit3fb', true));
+  const reopen = mutate => state(page, `(()=>{const st=JSON.parse(JSON.stringify(snapshotState()));
+    st.elements.filter(el=>el.type==='fence').forEach(el=>{${mutate}});
+    applyState(st);const bom=${bomSource};return {face:bom['1x6 Face Board'],total:computePricing().cents.clientTotal};})()`);
+  // Saved before 5f1116d: the flag was always serialized false (never user-set).
+  expect(await reopen(`el.specs.hasFaceBoard=false;delete el.specs.faceBoardChosen;`))
+    .toEqual({ face: 84, total: GOLDEN.woodsplit3fb.clientTotal });
+  // Flag absent altogether.
+  expect(await reopen(`delete el.specs.hasFaceBoard;delete el.specs.faceBoardChosen;`))
+    .toEqual({ face: 84, total: GOLDEN.woodsplit3fb.clientTotal });
+  // Unchecked by the user after the repair: stays off across save and reopen.
+  const off = await reopen(`el.specs.hasFaceBoard=false;el.specs.faceBoardChosen=true;`);
+  expect(off.face).toBeUndefined();
+});

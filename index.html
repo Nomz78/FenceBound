@@ -885,6 +885,9 @@ function migrateRunOwnership(){
     if(el.type==='fence'){
       if(!el.runId)el.runId=makeRunId();
       el.specs=hydrateSavedRunSpecs(el.specs||S.specs);
+      // Before the Face Board checkbox worked, every Split + Face Board run had its
+      // face board whatever the saved flag; only a flag the user set keeps it off.
+      if(el.fenceType==='woodsplit3fb'&&!el.specs.faceBoardChosen)el.specs.hasFaceBoard=true;
       if(!Number.isFinite(el.postSpacing))el.postSpacing=el.autoPostSpacing||S.postSpacing||10;
     }
     if(el.type==='gate'){
@@ -3500,7 +3503,7 @@ function init(){
   });
   document.getElementById('has-truss-rod').addEventListener('change',e=>{activeSpecs().hasTrussRod=e.target.checked;updatePanel();});
   document.getElementById('has-bottom-rail').addEventListener('change',e=>{activeSpecs().hasBottomRail=e.target.checked;updatePanel();});
-  document.getElementById('has-face-board').addEventListener('change',e=>{activeSpecs().hasFaceBoard=e.target.checked;updatePanel();});
+  document.getElementById('has-face-board').addEventListener('change',e=>{const sp=activeSpecs();sp.hasFaceBoard=e.target.checked;sp.faceBoardChosen=true;updatePanel();});
   // Addons are rendered and bound dynamically per fence type in
   // updateSpecsForFenceType(). The barb-strand / arm selects are static.
   document.getElementById('barb-strands').addEventListener('change',e=>{activeSpecs().barbStrands=+e.target.value;updatePanel();});
