@@ -918,6 +918,19 @@ function applyJobPricingInputs(st){
   const h=document.getElementById('labor-hours');
   if(h)h.value=st&&(typeof st.laborHours==='string'||Number.isFinite(st.laborHours))?String(st.laborHours):'';
 }
+// Jobs saved before ef58957 have no `id`. Give each a stable one and persist
+// it, so load → Save updates that record instead of saving "Name (2)".
+function ensureSavedJobIds(){
+  if(!Array.isArray(S.savedJobs))return;
+  let next=Date.now(),changed=false;
+  const used=new Set(S.savedJobs.map(j=>j&&j.id).filter(id=>id!=null));
+  S.savedJobs.forEach(j=>{
+    if(!j||typeof j!=='object'||j.id!=null)return;
+    while(used.has(next))next++;
+    j.id=next;used.add(next);changed=true;
+  });
+  if(changed)try{localStorage.setItem(STORAGE_KEY,JSON.stringify(S.savedJobs));}catch(e){}
+}
 function snapshotState(){
   return{app:'FenceboundCAD',schemaVersion:3,appVersion:APP_VERSION,savedAt:new Date().toISOString(),
     jobId:S.jobId??null,...readJobPricingInputs(),
@@ -2806,6 +2819,7 @@ function updateDrawers(){
     });
     jd.querySelectorAll('[data-ji]').forEach(el=>el.addEventListener('click',e=>{
       if(e.target.dataset.jdel!==undefined)return;
+      ensureSavedJobIds();// jobs from a backup restore may also predate ids
       const job=S.savedJobs[+el.dataset.ji];
       applyState(JSON.parse(JSON.stringify({...job,projectName:job.projectName||job.name})));
       // History holds drawings only; undoing across a job load would put the
@@ -3108,6 +3122,7 @@ function init(){
   loadCompany();
   // Load saved jobs
   try{const r=localStorage.getItem(STORAGE_KEY);if(r)S.savedJobs=JSON.parse(r);}catch(e){}
+  ensureSavedJobIds();
 
   // Restore the autosaved working session (refresh / tab-eviction safety).
   // Runs before UI construction so controls render with restored values.
@@ -3303,6 +3318,11 @@ function init(){
     // pricing inputs return to defaults, prices from a viewed job give way to
     // the company rate card, and the next Save is a new job record.
     applyJobPricingInputs(null);restoreCompanyRateCard();S.jobId=null;
+    // ...and a clean job: name, customer fields and manual materials too.
+    // Undo of Clear restores the drawing only; with jobId cleared, Save
+    // cannot write it over the previous job.
+    S.projectName='Untitled Job';S.jobCustomer='';S.jobAddress='';S.jobNotes='';S.materials=[];
+    syncSpecInputs();updateMatList();updateDrawers();
     draw();updatePanel();updateGateEditor();updatePricing();scheduleAutosave();
   });
   document.getElementById('btn-pdf').addEventListener('click',exportPDF);

@@ -196,3 +196,40 @@ test('6 saving a new job under an existing name does not overwrite the saved job
   expect(await state(page, 'S.savedJobs.length')).toBe(2);
   expect(await state(page, `S.savedJobs.find(j=>j.name==='Untitled Job (2)').elements.filter(e=>e.type==='fence').length`)).toBe(2);
 });
+
+test('7 a job saved before job ids existed keeps its identity: load then Save updates it in place', async ({ page }) => {
+  await cleanOpen(page);
+  await setJob(page, 'Legacy Job', 'Lee');
+  await drawRun(page, 2, 25);
+  // A record as written before ef58957: no `id`, no `jobId`.
+  await state(page, `(()=>{const st=JSON.parse(JSON.stringify(snapshotState()));delete st.jobId;
+    localStorage.setItem(STORAGE_KEY,JSON.stringify([{...st,name:'Legacy Job',savedAt:'then'}]));})()`);
+  await page.reload();
+  await expect(page.locator('#canvas')).toBeVisible();
+  await loadJob(page, 'Legacy Job');
+  await drawRun(page, 6, 10);
+  await saveJob(page);
+  const saved = await state(page, `S.savedJobs.map(j=>({name:j.name,runs:j.elements.filter(e=>e.type==='fence').length,hasId:j.id!=null}))`);
+  expect(saved).toEqual([{ name: 'Legacy Job', runs: 2, hasId: true }]);
+  expect(await state(page, `JSON.parse(localStorage.getItem(STORAGE_KEY)).map(j=>j.name)`)).toEqual(['Legacy Job']);
+});
+
+test('8 Clear starts a clean job, and Undo of Clear cannot let Save overwrite the old job', async ({ page }) => {
+  await cleanOpen(page);
+  await state(page, `(()=>{S.projectName='Job A';S.jobCustomer='Alice';S.jobAddress='1 A St';S.jobNotes='gate code 12';
+    S.materials=[{name:'Special Post Cap',qty:4,unit:'ea'}];syncSpecInputs();updateMatList();})()`);
+  await drawRun(page, 2, 20);
+  await saveJob(page);
+  const storedA = await state(page, `JSON.stringify(S.savedJobs.find(j=>j.name==='Job A'))`);
+
+  await clearCanvas(page);
+  expect(await state(page, `({n:S.projectName,c:S.jobCustomer,a:S.jobAddress,o:S.jobNotes,m:S.materials.length,e:S.elements.length})`))
+    .toEqual({ n: 'Untitled Job', c: '', a: '', o: '', m: 0, e: 0 });
+  await expect(page.locator('#job-name-display')).toHaveText('Untitled Job');
+
+  await state(page, 'doUndo()');
+  expect(await state(page, `S.elements.filter(e=>e.type==='fence').length`)).toBe(1);
+  await saveJob(page);
+  expect(await state(page, `JSON.stringify(S.savedJobs.find(j=>j.name==='Job A'))`)).toBe(storedA);
+  expect(await state(page, 'S.savedJobs.length')).toBe(2);
+});
