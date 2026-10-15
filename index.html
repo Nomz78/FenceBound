@@ -824,7 +824,11 @@ function snapshotState(){
 function applyState(st){
   S.elements=Array.isArray(st.elements)?st.elements:[];
   S.labels=Array.isArray(st.labels)?st.labels:[];
-  S.materials=Array.isArray(st.materials)?st.materials:[];
+  // Manual quantities: older saves stored the raw input string; plain decimals
+  // load as numbers, anything else stays as saved and is flagged by pricing.
+  S.materials=Array.isArray(st.materials)?st.materials.map(m=>{
+    if(!m||typeof m!=='object')return m;const q=coerceNonNegNumber(m.qty);return q===null?m:{...m,qty:q};
+  }):[];
   S.projectName=st.projectName||'Untitled Job';
   S.jobCustomer=st.jobCustomer||'';S.jobAddress=st.jobAddress||'';S.jobNotes=st.jobNotes||'';
   if(st.footing)mergeFooting(st.footing);
@@ -852,9 +856,13 @@ function applyState(st){
   if(typeof st.showCostView==='boolean')S.showCostView=st.showCostView;
   // Prices ride along inside the job file → a reopened quote shows the costs it
   // was built on. Merge over current so partial/old files don't wipe categories.
-  if(st.costs)COST_DB={...COST_DB,...migrateLegacyCostKeys(st.costs)};
-  if(st.labor)LABOR={...LABOR,...st.labor,perLF:{...LABOR.perLF,...(st.labor.perLF||{})},gate:{...LABOR.gate,...(st.labor.gate||{})}};
-  if(st.markup)MARKUP={...MARKUP,...st.markup};
+  // Boundary coercion: legacy bare-number costs become {cost,unit} and plain
+  // decimal strings become numbers; anything invalid stays and is reported by
+  // computePricing/validateProject rather than priced silently.
+  const pin=sanitizePricingInputs(st);
+  if(pin.costs)COST_DB={...COST_DB,...pin.costs};
+  if(pin.labor)LABOR={...LABOR,...pin.labor,perLF:{...LABOR.perLF,...(pin.labor.perLF||{})},gate:{...LABOR.gate,...(pin.labor.gate||{})}};
+  if(pin.markup)MARKUP={...MARKUP,...pin.markup};
   _pricingFromLoadedProject=!!(st.costs||st.labor||st.markup);
   if(st.pan&&Number.isFinite(st.pan.x)&&Number.isFinite(st.pan.y))S.pan={x:st.pan.x,y:st.pan.y};
   if(Number.isFinite(st.zoom))S.zoom=Math.max(0.05,Math.min(4,st.zoom));
@@ -1393,13 +1401,55 @@ function refreshPostDiaDefaults(){
     POST_ROLES.forEach(role=>{if(!sp.postEmbedDirty[role])sp.postEmbedIn[role]=embedDefaultFor(role,sp);});
   });
 }
+// ── INPUT BOUNDARY COERCION (estimator audit 2026-10-15, Step 1.2) ──
+// One rule for money, percent and quantity values at every load/import/edit
+// boundary: a finite number >= 0 passes; a string that is a plain decimal
+// ("12", "12.5", ".5") coerces to that number; anything else (NaN, Infinity,
+// negatives, "1e2", "12,50", "35%", blank, null) is rejected as null.
+const PLAIN_DECIMAL_RE=/^(?:\d+(?:\.\d*)?|\.\d+)$/;
+function coerceNonNegNumber(v){
+  if(typeof v==='number')return Number.isFinite(v)&&v>=0?v:null;
+  if(typeof v==='string'){const s=v.trim();return PLAIN_DECIMAL_RE.test(s)?Number(s):null;}
+  return null;
+}
+// sanitizePricingInputs: coerce the costs/labor/markup of a job file, saved rate
+// card, price import or backup. Legacy bare-number costs become {cost,unit}.
+// A value that cannot be coerced is kept as-is and listed in `problems`, so an
+// import can refuse the file and a loaded job reports it through validation
+// (computePricing flags it) instead of pricing it silently. Site-upcharge keys
+// are left to siteAdderRate(), which already falls back to its seed.
+function sanitizePricingInputs(src){
+  src=src&&typeof src==='object'?src:{};
+  const problems=[],out={};
+  const fix=(v,label)=>{const n=coerceNonNegNumber(v);if(n===null){problems.push(`${label} (${typeof v==='string'?`"${v}"`:String(v)})`);return v;}return n;};
+  if(src.costs&&typeof src.costs==='object'){
+    out.costs={};
+    Object.entries(migrateLegacyCostKeys(src.costs)||{}).forEach(([k,v])=>{
+      const isObj=!!v&&typeof v==='object';
+      const unit=(isObj&&v.unit)||(COST_DB[k]&&COST_DB[k].unit)||'ea';
+      out.costs[k]={...(isObj?v:{}),cost:fix(isObj?v.cost:v,`Cost of “${k}”`),unit};
+    });
+  }
+  if(src.labor&&typeof src.labor==='object'){
+    const l={...src.labor};
+    if('crewHourlyRate' in l)l.crewHourlyRate=fix(l.crewHourlyRate,'Crew hourly rate');
+    ['perLF','gate'].forEach(grp=>{
+      if(l[grp]&&typeof l[grp]==='object'){l[grp]={...l[grp]};Object.keys(l[grp]).forEach(k=>{l[grp][k]=fix(l[grp][k],grp==='gate'?`Gate labor for ${k}`:`Labor $/LF for ${k}`);});}
+    });
+    out.labor=l;
+  }
+  if(src.markup&&typeof src.markup==='object'){
+    const m={...src.markup};
+    if('materialPct' in m)m.materialPct=fix(m.materialPct,'Material markup %');
+    if('laborPct' in m)m.laborPct=fix(m.laborPct,'Labor markup %');
+    out.markup=m;
+  }
+  return{...out,problems};
+}
 // Accept both legacy Rate Card bare-number costs and canonical CAD {cost,unit} costs.
 function normalizeImportedCosts(src){
   const out={};
-  Object.entries(migrateLegacyCostKeys(src)||{}).forEach(([k,v])=>{
-    if(typeof v==='number') out[k]={cost:v,unit:(COST_DB[k]&&COST_DB[k].unit)||'ea'};
-    else if(v&&typeof v.cost==='number') out[k]={cost:v.cost,unit:v.unit||((COST_DB[k]&&COST_DB[k].unit)||'ea')};
-  });
+  Object.entries(sanitizePricingInputs({costs:src}).costs||{}).forEach(([k,v])=>{out[k]={cost:v.cost,unit:v.unit};});
   return out;
 }
 function readSavedCostDB(){
@@ -1413,9 +1463,10 @@ function readSavedCostDB(){
 }
 function mergeSavedCostDB(o){
   o=o&&typeof o==='object'?o:{};
+  const c=sanitizePricingInputs(o);
   if(o.costs)COST_DB={...COST_DB,...normalizeImportedCosts(o.costs)};
-  if(o.labor)LABOR={...LABOR,...o.labor,perLF:{...LABOR.perLF,...(o.labor.perLF||{})},gate:{...LABOR.gate,...(o.labor.gate||{})}};
-  if(o.markup)MARKUP={...MARKUP,...o.markup};
+  if(c.labor)LABOR={...LABOR,...c.labor,perLF:{...LABOR.perLF,...(c.labor.perLF||{})},gate:{...LABOR.gate,...(c.labor.gate||{})}};
+  if(c.markup)MARKUP={...MARKUP,...c.markup};
   if(o.footing)mergeFooting(o.footing);
   if(o.postODIn)mergePostOD(o.postODIn);
   if(o.postEmbedIn)mergePostEmbed(o.postEmbedIn);
@@ -3188,8 +3239,10 @@ function init(){
   // Materials
   document.getElementById('btn-add-mat').addEventListener('click',()=>{
     const name=document.getElementById('mat-name').value.trim();if(!name)return;
-    const qty=document.getElementById('mat-qty').value;
-    if(Number.isFinite(Number(qty))&&Number(qty)<0){showToast('Quantity cannot be negative',true);return;}
+    const rawQty=document.getElementById('mat-qty').value;
+    if(Number.isFinite(Number(rawQty))&&Number(rawQty)<0){showToast('Quantity cannot be negative',true);return;}
+    const qty=coerceNonNegNumber(rawQty); // stored as a number, never the raw input string
+    if(qty===null){showToast('Quantity must be a plain number of 0 or more',true);return;}
     S.materials.push({name,qty,unit:document.getElementById('mat-unit').value,id:Date.now()});
     document.getElementById('mat-name').value='';document.getElementById('mat-qty').value='';
     updateMatList();
@@ -3407,11 +3460,18 @@ const dollars=c=>c/100;
 
 function computePricing(){
   const stats=getStats();
+  // Inputs that fail boundary coercion: each blocks FINAL-READY and is reported
+  // by validateProject (INVALID_PRICING_INPUT); none is priced silently.
+  const invalidInputs=[];
+  // A rejected rate keeps a finite number's own value (so totals still show how
+  // wrong it is, e.g. TOTAL_INVALID) and uses 0 for anything non-numeric.
+  const rate=(v,label)=>{const n=coerceNonNegNumber(v);if(n===null){invalidInputs.push(label);return typeof v==='number'&&Number.isFinite(v)?v:0;}return n;};
   const manualBom=S.materials.map(item=>{
-    const parsedQty=Number(item.qty);
+    const parsedQty=coerceNonNegNumber(item.qty);
     // Load-bearing backstop: imported and older saved jobs bypass the input guard;
-    // non-finite or non-positive quantities must never discount or corrupt a quote.
-    return{name:item.name,qty:Number.isFinite(parsedQty)&&parsedQty>0?parsedQty:0,unit:item.unit,source:'manual'};
+    // invalid or non-positive quantities must never discount or corrupt a quote.
+    if(parsedQty===null)invalidInputs.push(`Quantity of manual item “${item.name}”`);
+    return{name:item.name,qty:parsedQty!==null&&parsedQty>0?parsedQty:0,unit:item.unit,source:'manual'};
   });
   const bom=[...calcAutoMaterials(),...manualBom]; // entry origin does not alter pricing
   const ucDemo=document.getElementById('uc-demo')?.checked;
@@ -3426,10 +3486,15 @@ function computePricing(){
   bom.forEach(it=>{
     const costKey=costKeyFor(it);
     const entry=costKey!==null&&Object.prototype.hasOwnProperty.call(COST_DB,costKey)?COST_DB[costKey]:null;
-    const unit=entry?entry.cost:null;
-    if(unit===null){ unknown.push(it.name); matLines.push({name:it.name,qty:it.qty,unit:it.unit,source:it.source,costKey,unitCost:null,ext:0,unitCostC:null,extC:0,clientUnitCost:null,clientExt:0,clientUnitCostC:null,clientExtC:0}); return; }
+    const rawCost=entry&&typeof entry==='object'?entry.cost:entry;
+    const unit=rawCost===null||rawCost===undefined?null:coerceNonNegNumber(rawCost);
+    const badCost=unit===null&&rawCost!==null&&rawCost!==undefined;
+    const qty=coerceNonNegNumber(it.qty),badQty=qty===null; // manual qty is already coerced above
+    if(badCost)invalidInputs.push(`Cost of “${it.name}”`);
+    else if(unit!==null&&badQty)invalidInputs.push(`Quantity of “${it.name}”`);
+    if(unit===null||badQty){ if(!badCost&&unit===null)unknown.push(it.name); matLines.push({name:it.name,qty:it.qty,unit:it.unit,source:it.source,costKey,unitCost:null,ext:0,unitCostC:null,extC:0,clientUnitCost:null,clientExt:0,clientUnitCostC:null,clientExtC:0}); return; }
     const unitC=toCents(unit);
-    const extC=centsOf(unit,it.qty);
+    const extC=centsOf(unit,qty);
     matCostC+=extC;
     matLines.push({name:it.name,qty:it.qty,unit:it.unit,source:it.source,costKey,unitCost:dollars(unitC),ext:dollars(extC),unitCostC:unitC,extC});
   });
@@ -3437,17 +3502,19 @@ function computePricing(){
   // ── 2. LABOR COST — $/LF by type (default) OR crew hours override ──
   let laborCostC=0; const laborLines=[];
   if(useHours){
-    const extC=centsOf(LABOR.crewHourlyRate,hoursOverride);
+    const crew=rate(LABOR.crewHourlyRate,'Crew hourly rate');
+    const extC=centsOf(crew,hoursOverride);
     laborCostC+=extC;
-    laborLines.push({label:`Crew labor (${hoursOverride}h × $${LABOR.crewHourlyRate}/h)`,ext:dollars(extC),extC});
+    laborLines.push({label:`Crew labor (${hoursOverride}h × $${crew}/h)`,ext:dollars(extC),extC});
   }else{
     Object.entries(stats.netFence).forEach(([type,ft])=>{
-      const r=LABOR.perLF[type]; if(!r)return;
+      if(LABOR.perLF[type]===undefined||LABOR.perLF[type]===null)return;
+      const r=rate(LABOR.perLF[type],`Labor $/LF for ${(FENCE_TYPES[type]||{}).label||type}`); if(!r)return;
       const extC=centsOf(r,ft); laborCostC+=extC;
       laborLines.push({label:`${(FENCE_TYPES[type]||{}).label||type} labor (${ft.toFixed(0)} LF × $${r})`,ext:dollars(extC),extC});
     });
     Object.entries(stats.gates||{}).forEach(([gt,cnt])=>{
-      if(!cnt)return; const r=LABOR.gate[gt]||0; const extC=toCents(r)*cnt; laborCostC+=extC;
+      if(!cnt)return; const r=LABOR.gate[gt]!==undefined&&LABOR.gate[gt]!==null?rate(LABOR.gate[gt],`Gate labor for ${(GATE_TYPES[gt]||{}).label||gt}`):0; const extC=toCents(r)*cnt; laborCostC+=extC;
       if(extC)laborLines.push({label:`${(GATE_TYPES[gt]||{}).label||gt} install (${cnt} × $${r})`,ext:dollars(extC),extC});
     });
   }
@@ -3461,18 +3528,19 @@ function computePricing(){
   matCostC+=demoCostC;
 
   // ── 4. CLIENT PRICE — separate markup on materials vs labor ──
+  const matPct=rate(MARKUP.materialPct,'Material markup %'),labPct=rate(MARKUP.laborPct,'Labor markup %');
   // Per-line client extensions, then summed: totals are sums of rounded lines.
   matLines.forEach(line=>{
     if(line.unitCostC===null){line.clientUnitCost=null;line.clientExt=0;line.clientUnitCostC=null;line.clientExtC=0;return;}
-    const clientUnitC=applyPctC(line.unitCostC,MARKUP.materialPct);
-    const clientExtC=Math.round(line.unitCostC*line.qty*(100+MARKUP.materialPct)/100);
+    const clientUnitC=applyPctC(line.unitCostC,matPct);
+    const clientExtC=Math.round(line.unitCostC*line.qty*(100+matPct)/100);
     line.clientUnitCost=dollars(clientUnitC);line.clientExt=dollars(clientExtC);
     line.clientUnitCostC=clientUnitC;line.clientExtC=clientExtC;
   });
   // Demo/haul is folded into material cost above but has no BOM line, so it is
   // marked up here; omitting it would drop it from the client price.
-  const matPriceC=matLines.reduce((s,l)=>s+(l.clientExtC||0),0)+applyPctC(demoCostC,MARKUP.materialPct);
-  const laborPriceC=applyPctC(laborCostC,MARKUP.laborPct);
+  const matPriceC=matLines.reduce((s,l)=>s+(l.clientExtC||0),0)+applyPctC(demoCostC,matPct);
+  const laborPriceC=applyPctC(laborCostC,labPct);
   const clientSubtotalC=matPriceC+laborPriceC;
   const urbanAddC=ucUrban?Math.round(clientSubtotalC*siteAdderRate('urbanPct')/100):0;   // urban premium is pure margin
   const clientTotalC=clientSubtotalC+urbanAddC;
@@ -3491,9 +3559,10 @@ function computePricing(){
     matPrice:dollars(matPriceC),laborPrice:dollars(laborPriceC),clientSubtotal:dollars(clientSubtotalC),
     urbanAdd:dollars(urbanAddC),clientTotal:dollars(clientTotalC),
     profit:dollars(profitC),marginPct,cents,
-    matLines,laborLines,unknown,
+    matLines,laborLines,unknown,invalidInputs,
     zeroCostLines:matLines.filter(m=>m.unitCost===0).map(m=>m.name),
-    isFinalReady:unknown.length===0 && matLines.every(m=>m.unitCost!==0),
+    isFinalReady:unknown.length===0 && invalidInputs.length===0 && matLines.every(m=>m.unitCost!==0)
+      && Object.values(cents).every(Number.isFinite),
     hasData: bom.length>0 || laborCostC>0,
     flags:{ucDemo,ucSlope,ucUrban,ucHardDig,useHours,hoursOverride}
   };
@@ -3703,6 +3772,9 @@ function openRestoreDialog(payload){
   ov.querySelector('#rs-cancel').onclick=close;ov.onclick=e=>{if(e.target===ov)close();};
   ov.querySelector('#rs-apply').onclick=()=>{
     if(!state.doJobs&&!state.doPricing&&!state.doCompany){showToast('Nothing selected',true);return;}
+    // Invalid backup prices refuse the restore before anything is written.
+    const badPricing=state.doPricing&&payload.pricing?sanitizePricingInputs(payload.pricing).problems:[];
+    if(badPricing.length){showToast(`Restore failed — ${badPricing[0]} is not a number of 0 or more`,true);return;}
     if(state.doJobs&&state.mode==='replace'&&existing.length&&!confirm(`Delete all ${existing.length} job(s) on this device and replace with ${incomingJobs.length} from the backup?\n\nThis cannot be undone.`))return;
     if(state.doPricing&&_pricingFromLoadedProject&&!confirm('These displayed prices came from the loaded project. Restoring will replace your company rate card. Continue?'))return;
     const done=[];
@@ -3771,10 +3843,22 @@ function csvParse(text,delim){
   }
   row.push(cell);rows.push(row);return rows.filter(r=>r.some(v=>String(v).trim()!==''));
 }
+// csvParseMoney: "$1,234.50", "12.50", "(3.20)" (negative), "45¢"/"45c" (cents).
+// Commas are accepted only as US thousands separators (1,234 / 12,345.67). A
+// comma decimal such as "12,50" or "1.234,56" is ambiguous and returns the
+// sentinel CSV_COMMA_DECIMAL so the row is rejected rather than guessed.
+// Anything else that is not a plain decimal after the currency sign is NaN.
+const CSV_COMMA_DECIMAL='comma-decimal';
 function csvParseMoney(raw){
-  let s=String(raw==null?'':raw).trim();if(!s)return NaN;const neg=/^\(.*\)$/.test(s);
-  s=s.replace(/[()]/g,'').replace(/[^0-9.\-]/g,'');const parts=s.split('.');if(parts.length>2)s=parts.shift()+'.'+parts.join('');
-  const v=parseFloat(s);return Number.isFinite(v)?(neg?-v:v):NaN;
+  let s=String(raw==null?'':raw).trim();if(!s)return NaN;
+  const neg=/^\(.*\)$/.test(s)||/^-/.test(s);
+  s=s.replace(/^\((.*)\)$/,'$1').replace(/^-/,'').trim().replace(/^[$€£]\s*|^usd\s*|\s*usd$/gi,'');
+  const cents=/^[^¢c]+\s*[¢c]$/i.test(s);if(cents)s=s.replace(/\s*[¢c]$/i,'');
+  if(/^[1-9]\d{0,2}(?:,\d{3})+(?:\.\d+)?$/.test(s))s=s.replace(/,/g,'');
+  else if(/,/.test(s)&&/^[\d.,]+$/.test(s))return CSV_COMMA_DECIMAL;
+  let v=coerceNonNegNumber(s);if(v===null)return NaN;
+  if(cents)v=Math.round(v*100)/10000;
+  return neg?-v:v;
 }
 function csvNormalizeUnit(raw,fallbackKey){
   const s=String(raw==null?'':raw).trim().toLowerCase().replace(/[.]/g,'');
@@ -3788,6 +3872,7 @@ function csvBuildPreview(rows,map,hasHeader,dupeMode){
     if(!name){rejected.push({row:i+1,name:'(blank)',why:'no material name'});continue;}
     const key=costKeyForName(name);if(!key){rejected.push({row:i+1,name,why:'name normalized to empty'});continue;}
     const cost=csvParseMoney(map.cost>=0?r[map.cost]:'');
+    if(cost===CSV_COMMA_DECIMAL){rejected.push({row:i+1,name,why:'ambiguous comma decimal price (use 12.50)'});continue;}
     if(!Number.isFinite(cost)){rejected.push({row:i+1,name,why:'price not a number'});continue;}
     if(cost<0){rejected.push({row:i+1,name,why:'negative price'});continue;}
     if(cost>1000000){rejected.push({row:i+1,name,why:'price out of range'});continue;}
@@ -3959,6 +4044,10 @@ function openCostEditor(){
       if(!Number.isFinite(v)||v<0){showToast('Site upcharge rates must be numbers of 0 or more',true);return;}
       adders[k]=k.endsWith('PerLF')?Math.round(v*100)/100:v; // $ amounts to whole cents
     }
+    // Costs, labor rates, markups and crew rate pass the same boundary rule;
+    // any negative, blank or malformed field rejects the whole save.
+    const rateFields=[...ov.querySelectorAll('[data-cost],[data-labor],[data-gatelabor]'),...['#ce-mat-markup','#ce-lab-markup','#ce-crew-rate'].map(sel=>ov.querySelector(sel))];
+    if(rateFields.some(i=>coerceNonNegNumber(String(i.value))===null)){showToast('Costs, labor rates and markups must be numbers of 0 or more',true);return;}
     if(_pricingFromLoadedProject&&!confirm('These displayed prices came from the loaded project. Saving will replace your company rate card with these prices. Continue?'))return;
     LABOR.demoPerLF=adders.demoPerLF;LABOR.slopePerLF=adders.slopePerLF;LABOR.hardDigPct=adders.hardDigPct;MARKUP.urbanPct=adders.urbanPct;
     Object.entries(addedCosts).forEach(([k,e])=>{if(!COST_DB[k])COST_DB[k]={...e};});
@@ -4026,13 +4115,11 @@ function openCostEditor(){
     const rd=new FileReader();
     rd.onload=()=>{try{
       const o=JSON.parse(rd.result);
-      if(o.costs)COST_DB={...COST_DB,...normalizeImportedCosts(o.costs)};
-      if(o.labor)LABOR={...LABOR,...o.labor,perLF:{...LABOR.perLF,...(o.labor.perLF||{})},gate:{...LABOR.gate,...(o.labor.gate||{})}};
-      if(o.markup)MARKUP={...MARKUP,...o.markup};
-      if(o.footing)mergeFooting(o.footing);
-      if(o.postODIn)mergePostOD(o.postODIn);
-      if(o.postEmbedIn)mergePostEmbed(o.postEmbedIn);
-      refreshPostDiaDefaults();
+      if(!o||typeof o!=='object')throw new Error('not a price file');
+      // Refuse the whole file before anything is applied if any rate is invalid.
+      const bad=sanitizePricingInputs(o).problems;
+      if(bad.length)throw new Error(`${bad[0]} is not a number of 0 or more${bad.length>1?` (+${bad.length-1} more)`:''}`);
+      mergeSavedCostDB(o);
       const priorPricingProvenance=_pricingFromLoadedProject;
       _pricingFromLoadedProject=false;
       if(!saveCostDB()){
@@ -4117,6 +4204,7 @@ function validateProject(options={}){
       if(!P.hasData)err('NO_BOM','The job produced no bill of materials or labor.');
       [...new Set(P.unknown||[])].forEach(name=>err('MISSING_COST',`No cost is set for “${name}”.`));
       [...new Set(P.zeroCostLines||[])].forEach(name=>err('ZERO_COST',`“${name}” has a zero-dollar cost.`));
+      [...new Set(P.invalidInputs||[])].forEach(what=>err('INVALID_PRICING_INPUT',`${what} is not a valid number of 0 or more; it was not priced.`));
       if(!Number.isFinite(P.clientTotal)||P.clientTotal<=0)err('TOTAL_INVALID','The client total is zero or invalid.');
       if(Number.isFinite(P.marginPct)&&P.marginPct<15)warn('LOW_MARGIN',`Estimated margin is ${P.marginPct.toFixed(1)}%. Verify markup and costs.`);
     }
