@@ -533,3 +533,14 @@ Append one entry for every development session. Preserve prior entries.
   failures of R9 (`persistence-integrity` ×3: null start throws in `validateProject`; the
   constructor/toString types no longer produce `PRICING_RUNTIME`). They fail the same way on
   `6381d74`. Not repaired here. Matrix 12/12; `git diff --check` clean.
+- **R9 regression repair, `5b9e99e`:** a bisect with jsPDF routed through a scratch worktree found
+  R9 3/3 passing on `82a148f` through `5f4241a`. `f41b5f0` broke the "constructor" and
+  "toString" cases. Those type names collide with Object properties, so the footage tally is
+  corrupt. Before `f41b5f0` that corrupt footage crashed pricing by accident; after it the job
+  priced as INVALID_PRICING_INPUT. `computePricing` now throws on any non-finite section footage,
+  which restores PRICING_RUNTIME. `ee08eae` broke the null-start case: its GATE_OVERLAP loop
+  (and later `fbddeb6`'s `getStats` warnings) threw inside `validateProject`. The loop now
+  skips runs without endpoints, and the warnings are skipped when `getStats` cannot measure the
+  drawing. R9 was red 3/3 and is green 3/3; no expectation changed. **Full suite with jsPDF
+  routed: 172/172.** Matrix 12/12; R15 stays 28692. The earlier entry's note that these 3
+  failures were older than this session was wrong: they were regressions from this session.
