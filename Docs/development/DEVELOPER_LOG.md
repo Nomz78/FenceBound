@@ -547,3 +547,7 @@ Append one entry for every development session. Preserve prior entries.
 - **Session closeout:** Step 1 complete; full suite 172/172 including PDF tests (cdnjs routed to
   npm jspdf@2.5.1 in a scratch wrapper), matrix 12/12. CURRENT_HANDOFF and CURRENT_STATE updated;
   prior handoff preserved in `Docs/handoffs/2026-10-15__field-hole-depths-closeout.md`.
+- **Owner redirection (2026-10-15):** contractors supply prices; priority is accurate,
+  purchasable counts, modeled on commercial tools. v6.0 pricing-engine items (tax, overhead,
+  margin, labor model, snapshot) deprioritized. Codex handoff `HANDOFF.md` (C0-C4) with
+  loop-breaker rules; C0 asks the owner for real past jobs as acceptance fixtures.

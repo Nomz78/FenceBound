@@ -23,7 +23,7 @@
   "projectInstructions": "PROJECT-INSTRUCTIONS.md",
   "currentHandoff": "Docs/CURRENT_HANDOFF.md",
   "lastCompletedTask": "2026-10-15 estimator audit and Step 1 defect repairs: exact-key pricing (concrete no longer priced as post; R15 = 28692 cents, owner-approved), editable site upcharge rates (owner-approved), input boundary validation, gate/run ownership, job-state isolation, per-type takeoff counts with golden BOMs for all 14 types, customer section prices reconciled to total, R9 regression restored.",
-  "activeTask": "Owner rulings on open takeoff questions, then decide whether to authorize the v6.0 estimator engine (Docs/research/2026-10-15_estimator-audit/00-SUMMARY.md Step 2) and CAD parity (Step 3).",
+  "activeTask": "Counting accuracy (owner direction 2026-10-15: contractors supply prices; focus on exact purchasable counts). Codex tasks C0-C4 in HANDOFF.md, starting with real-job acceptance fixtures.",
   "nextOwnerDecision": "Gate parts per non-chain-link fence type; footing depths past 42 in.; vinyl split-rail default height; collinear joint post (CAD-06); line-post concrete; residential post stock lengths; truss rods/sleeves/bolts; NC sales-tax treatment (CPA/NC DOR); v6.0 engine authorization; mid/bottom rail ties; under-6 ft depth editability; session:init merge handling. O-6 remains unresolved.",
   "repositoryHeadAtGeneration": "ea67c4ed9d2b47380032fe7875a724a2084bb6e1",
   "testedHead": "ea67c4ed9d2b47380032fe7875a724a2084bb6e1",

@@ -74,7 +74,7 @@ Canonical runtime: index.html (5.4.0)
 Schema: 3
 Authority: tested source/runtime → frozen Engineering Bible + supplements → System Atlas → Development Index → current handoff/state → history
 Last completed: 2026-10-15 audit + Step 1 defect repairs (exact-key pricing, editable upcharges, input validation, gate ownership, job isolation, takeoff counts, section prices). R15 = 28692. Full suite 172/172, matrix 12/12.
-Active next task: Owner rulings on open takeoff questions; then v6.0 engine authorization per Docs/research/2026-10-15_estimator-audit/00-SUMMARY.md.
+Active next task: Counting accuracy per HANDOFF.md (Codex C0-C4: real-job fixtures, pack-size order quantities, waste, material order, house termination). Pricing engine work deprioritized by owner.
 Owner decisions required: see "Open owner decisions" above.
 Known defects or drift: See CURRENT_STATE.json; branch not merged to main.
 Required reading: AGENTS.md, START_HERE.md, Docs/CURRENT_HANDOFF.md, CURRENT_STATE.json, PROJECT-INSTRUCTIONS.md, Docs/research/2026-10-15_estimator-audit/00-SUMMARY.md.
