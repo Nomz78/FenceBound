@@ -3758,6 +3758,9 @@ function apportionC(totalC,weights){
 
 function computePricing(){
   const stats=getStats();
+  // A fence type named like an Object property ("constructor", "toString") corrupts
+  // the footage tally; such a job cannot be priced (validateProject: PRICING_RUNTIME).
+  if(!Object.values(stats.fence).every(Number.isFinite))throw new Error('Fence footage could not be measured.');
   // Inputs that fail boundary coercion: each blocks FINAL-READY and is reported
   // by validateProject (INVALID_PRICING_INPUT); none is priced silently.
   const invalidInputs=[];
@@ -4567,6 +4570,7 @@ function validateProject(options={}){
   });
 
   fences.forEach((run,index)=>{
+    if(!run.start||!run.end)return; // RUN_LENGTH already reported; pricing reports PRICING_RUNTIME
     const spans=runGateLayout(run).spans;
     for(let i=0;i<spans.length;i++)for(let j=i+1;j<spans.length;j++)
       if(Math.min(spans[i].rawHi,spans[j].rawHi)-Math.max(spans[i].rawLo,spans[j].rawLo)>GATE_ON_RUN_TOL)
@@ -4577,9 +4581,10 @@ function validateProject(options={}){
     if(post.runId&&!fenceRunById(post.runId))warn('ORPHAN_AUTO_POST',`Auto post ${index+1} references a missing run.`,post);
   });
 
-  const stats=getStats();
-  stats.unpricedPosts.forEach(post=>warn('POST_NOT_ON_FENCE',`Post ${posts.indexOf(post)+1} is not on a fence section; it is not counted or priced.`,post));
-  fences.forEach((run,index)=>{
+  // Malformed geometry cannot be measured; computePricing below reports it as PRICING_RUNTIME.
+  let stats=null;try{stats=getStats();}catch(ex){}
+  if(stats)stats.unpricedPosts.forEach(post=>warn('POST_NOT_ON_FENCE',`Post ${posts.indexOf(post)+1} is not on a fence section; it is not counted or priced.`,post));
+  if(stats)fences.forEach((run,index)=>{
     const row=stats.byRunId[run.runId],spacing=+(run.postSpacing||run.autoPostSpacing||0);
     if(!row||row.lineCt||!(spacing>0))return;
     const needed=row.sectionFt.reduce((n,f)=>n+Math.max(0,Math.ceil(f/spacing-1e-6)-1),0);
