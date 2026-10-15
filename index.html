@@ -604,10 +604,10 @@ label{font-size:10px;color:var(--text2);letter-spacing:0.02em;display:block;marg
               <input type="checkbox" id="uc-slope" style="width:auto;accent-color:var(--accent)"/> Grade / Slope
             </label>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:10px;color:var(--text2)">
-              <input type="checkbox" id="uc-urban" style="width:auto;accent-color:var(--accent)"/> Urban / City Premium (+15%)
+              <input type="checkbox" id="uc-urban" style="width:auto;accent-color:var(--accent)"/> Urban / City Premium (<span id="uc-urban-lbl">+15%</span>)
             </label>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:10px;color:var(--text2)">
-              <input type="checkbox" id="uc-harddig" style="width:auto;accent-color:var(--accent)"/> Hard Dig / Rocky (+30% labor)
+              <input type="checkbox" id="uc-harddig" style="width:auto;accent-color:var(--accent)"/> Hard Dig / Rocky (<span id="uc-harddig-lbl">+30% labor</span>)
             </label>
           </div>
         </div>
@@ -1338,12 +1338,30 @@ const DEFAULT_LABOR={
           vinylprivacy6:10, vinylprivacy8:12, vinylsplit2:6, vinylsplit3:7,
           cattlefield:4, cattlehog:5, temporary:3, barbedwire:5 },
   gate:{ walk:60, doubledrive:180, cantilever:350 },
-  crewHourlyRate:55   // used when hours-override is enabled
+  crewHourlyRate:55,  // used when hours-override is enabled
+  // Site upcharges (owner ruling 2026-10-15: contractor-editable, seeded with the
+  // former hardcoded rates). demo/slope are $/LF of total run length; hardDig is
+  // a % of labor cost. The urban premium % lives on MARKUP.
+  demoPerLF:3, slopePerLF:0.5, hardDigPct:30
 };
 
 // DEFAULT_MARKUP — client price built from internal cost. Separate levers for
 // materials vs. labor (your chosen model). Live margin % is derived, not entered.
-const DEFAULT_MARKUP={ materialPct:35, laborPct:55 };
+const DEFAULT_MARKUP={ materialPct:35, laborPct:55, urbanPct:15 };
+// siteAdderRate: the live rate-card value for a site upcharge, or its seed when the
+// stored value is not a finite non-negative number (old/corrupt/imported cards),
+// so NaN or strings never reach the pricing arithmetic.
+const SITE_ADDER_SOURCES={demoPerLF:'labor',slopePerLF:'labor',hardDigPct:'labor',urbanPct:'markup'};
+function siteAdderRate(key){
+  const live=SITE_ADDER_SOURCES[key]==='markup'?MARKUP:LABOR;
+  const seed=SITE_ADDER_SOURCES[key]==='markup'?DEFAULT_MARKUP:DEFAULT_LABOR;
+  const v=live&&live[key];
+  return typeof v==='number'&&Number.isFinite(v)&&v>=0?v:seed[key];
+}
+function refreshSiteAdderLabels(){
+  const u=document.getElementById('uc-urban-lbl');if(u)u.textContent=`+${siteAdderRate('urbanPct')}%`;
+  const h=document.getElementById('uc-harddig-lbl');if(h)h.textContent=`+${siteAdderRate('hardDigPct')}% labor`;
+}
 
 // Live working copies (seeded from defaults, overwritten by localStorage / job file).
 let COST_DB = JSON.parse(JSON.stringify(DEFAULT_COST_DB));
@@ -2988,6 +3006,7 @@ function init(){
   const _ce=document.getElementById('btn-cost-editor');if(_ce)_ce.addEventListener('click',openCostEditor);
   const _cp=document.getElementById('btn-company-profile');if(_cp)_cp.addEventListener('click',openCompanyEditor);
   const _crl=document.getElementById('crew-rate-lbl');if(_crl)_crl.textContent=LABOR.crewHourlyRate;
+  refreshSiteAdderLabels();
 
   // Header buttons
   document.getElementById('btn-reset-zoom').addEventListener('click',()=>{S.zoom=1;draw();updatePanel();});
@@ -3435,9 +3454,9 @@ function computePricing(){
 
   // ── 3. SITE UPCHARGES — applied to COST (they raise your real cost) ──
   let totalFt=stats.totalFt||0;
-  let demoCostC=ucDemo?Math.round(totalFt*300):0;             // your cost to demo/haul (not the upsell)
-  let slopeCostC=ucSlope?Math.round(totalFt*50):0;            // added labor for grade
-  let hardDigCostC=ucHardDig?Math.round(laborCostC*30/100):0;  // rocky terrain = +30% labor cost
+  let demoCostC=ucDemo?Math.round(totalFt*toCents(siteAdderRate('demoPerLF'))):0;   // your cost to demo/haul (not the upsell)
+  let slopeCostC=ucSlope?Math.round(totalFt*toCents(siteAdderRate('slopePerLF'))):0; // added labor for grade
+  let hardDigCostC=ucHardDig?Math.round(laborCostC*siteAdderRate('hardDigPct')/100):0; // rocky terrain = +% labor cost
   laborCostC+=slopeCostC+hardDigCostC;
   matCostC+=demoCostC;
 
@@ -3455,7 +3474,7 @@ function computePricing(){
   const matPriceC=matLines.reduce((s,l)=>s+(l.clientExtC||0),0)+applyPctC(demoCostC,MARKUP.materialPct);
   const laborPriceC=applyPctC(laborCostC,MARKUP.laborPct);
   const clientSubtotalC=matPriceC+laborPriceC;
-  const urbanAddC=ucUrban?Math.round(clientSubtotalC*15/100):0;   // urban premium is pure margin
+  const urbanAddC=ucUrban?Math.round(clientSubtotalC*siteAdderRate('urbanPct')/100):0;   // urban premium is pure margin
   const clientTotalC=clientSubtotalC+urbanAddC;
 
   // ── 5. MARGIN — the number that matters ──
@@ -3481,6 +3500,7 @@ function computePricing(){
 }
 
 function updatePricing(){
+  refreshSiteAdderLabels();
   const _spn=document.getElementById('seed-price-note');
   if(_spn)_spn.style.display=usingSeedPrices()?'block':'none';
   const P=computePricing();
@@ -3530,7 +3550,7 @@ function updatePricing(){
       tHtml+=`<div class="stat-row"><span style="color:var(--text3);font-size:10px">↳ labor</span><span style="color:var(--text3);font-size:10px">${mc(P.laborCost)}</span></div>`;
       tHtml+=`<div class="stat-row"><span style="color:var(--text2)">Profit</span><span class="stat-val" style="color:#5FBF7F">${mc(P.profit)}</span></div>`;
     }
-    if(P.urbanAdd>0)tHtml+=`<div class="stat-row"><span style="color:var(--text3);font-size:10px">Urban premium (+15%)</span><span style="color:var(--text3);font-size:10px">+${mc(P.urbanAdd)}</span></div>`;
+    if(P.urbanAdd>0)tHtml+=`<div class="stat-row"><span style="color:var(--text3);font-size:10px">Urban premium (+${siteAdderRate('urbanPct')}%)</span><span style="color:var(--text3);font-size:10px">+${mc(P.urbanAdd)}</span></div>`;
     tHtml+=`<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:5px">
       <div style="color:var(--text2);font-weight:700;font-size:10px;letter-spacing:.08em">${showCost?'CLIENT PRICE':'ESTIMATE'}</div>
       <div class="stat-val" style="color:var(--accent);font-weight:800;font-size:30px;line-height:1.1;margin-top:2px">${mc(P.clientTotal)}</div>
@@ -3871,6 +3891,11 @@ function openCostEditor(){
         <div class="ce-sec">Labor — install cost per gate</div>
         ${gateRows}
         <div class="ce-row"><span>Crew hourly rate (hours-override mode)</span><input type="number" id="ce-crew-rate" value="${LABOR.crewHourlyRate}" step="5" style="width:70px"/><span style="color:var(--text3);font-size:10px">$/hr</span></div>
+        <div class="ce-sec">Site upcharges</div>
+        <div class="ce-row"><span>Demo / removal (your cost, marked up as material)</span><input type="number" id="ce-demo-rate" value="${siteAdderRate('demoPerLF')}" min="0" step="0.05" style="width:70px"/><span style="color:var(--text3);font-size:10px">$/LF</span></div>
+        <div class="ce-row"><span>Grade / slope (added labor)</span><input type="number" id="ce-slope-rate" value="${siteAdderRate('slopePerLF')}" min="0" step="0.05" style="width:70px"/><span style="color:var(--text3);font-size:10px">$/LF</span></div>
+        <div class="ce-row"><span>Hard dig / rocky (of labor cost)</span><input type="number" id="ce-harddig-pct" value="${siteAdderRate('hardDigPct')}" min="0" step="1" style="width:70px"/><span style="color:var(--text3);font-size:10px">%</span></div>
+        <div class="ce-row"><span>Urban / city premium (of client subtotal)</span><input type="number" id="ce-urban-pct" value="${siteAdderRate('urbanPct')}" min="0" step="1" style="width:70px"/><span style="color:var(--text3);font-size:10px">%</span></div>
         <div class="ce-sec">Takeoff parameters</div>
         <div class="ce-note" style="margin-bottom:6px">Footing defaults follow owner field practice. Post OD defaults are proposed and remain owner-editable.</div>
         ${Object.entries(FOOTING.bagsByDepthIn).map(([depth,bags])=>`<div class="ce-row"><span>Concrete bags at ${depth}&quot; depth</span><input type="number" data-footing-depth="${depth}" value="${bags}" min="0" step="1" style="width:70px"/><span style="color:var(--text3);font-size:10px">60 lb</span></div>`).join('')}
@@ -3924,7 +3949,18 @@ function openCostEditor(){
   };
   ov.onclick=e=>{if(e.target===ov)close();};
   ov.querySelector('#ce-save').onclick=()=>{
+    // Site upcharge rates are validated before anything is applied: a negative,
+    // blank or non-numeric value rejects the whole save.
+    const adderInputs={demoPerLF:'#ce-demo-rate',slopePerLF:'#ce-slope-rate',hardDigPct:'#ce-harddig-pct',urbanPct:'#ce-urban-pct'};
+    const adders={};
+    for(const [k,sel] of Object.entries(adderInputs)){
+      const raw=String(ov.querySelector(sel).value).trim();
+      const v=raw===''?NaN:Number(raw);
+      if(!Number.isFinite(v)||v<0){showToast('Site upcharge rates must be numbers of 0 or more',true);return;}
+      adders[k]=k.endsWith('PerLF')?Math.round(v*100)/100:v; // $ amounts to whole cents
+    }
     if(_pricingFromLoadedProject&&!confirm('These displayed prices came from the loaded project. Saving will replace your company rate card with these prices. Continue?'))return;
+    LABOR.demoPerLF=adders.demoPerLF;LABOR.slopePerLF=adders.slopePerLF;LABOR.hardDigPct=adders.hardDigPct;MARKUP.urbanPct=adders.urbanPct;
     Object.entries(addedCosts).forEach(([k,e])=>{if(!COST_DB[k])COST_DB[k]={...e};});
     ov.querySelectorAll('[data-cost]').forEach(i=>{const k=i.dataset.cost;const v=parseFloat(i.value);if(Number.isFinite(v)&&COST_DB[k])COST_DB[k].cost=v;});
     ov.querySelectorAll('[data-labor]').forEach(i=>{const v=parseFloat(i.value);if(Number.isFinite(v))LABOR.perLF[i.dataset.labor]=v;});
@@ -4310,7 +4346,7 @@ function exportEstimatePDF(){
   }
 
   // Upcharges
-  if(ucUrban)addRow('1','Urban/City Market Premium','15%',`+$${P.urbanAdd.toFixed(0)}`);
+  if(ucUrban)addRow('1','Urban/City Market Premium',`${siteAdderRate('urbanPct')}%`,`+$${P.urbanAdd.toFixed(0)}`);
   if(ucHardDig)addRow('1','Hard Dig / Equipment Required','Est.','Included');
 
   // ── TOTALS ──
