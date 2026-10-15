@@ -423,3 +423,19 @@ Append one entry for every development session. Preserve prior entries.
   (same failing set as baseline); matrix 12/12; `git diff --check` clean.
   Not done: matrix route 10 / unknown legacy fence types; failed portable import atomicity;
   footing/post-OD/embed inputs keep their existing guards.
+- **Gate/run ownership (owner directive 2026-10-15 "start the fixes", audit Step 1.3; CAD-02..05,
+  inventory F-13 and F-7), `ee08eae`:** a gate is owned by its run only when both edges lie within
+  `GATE_ON_RUN_TOL` (= `GRID_FT*SQRT1_2`, 0.71 ft, half the default 1 ft snap-cell diagonal) of the
+  run line and inside its span; `nearestFenceRunForGate` (any distance) is gone. Unowned gates are
+  not deducted or priced, block FINAL-READY and raise `ORPHAN_GATE`; new errors `GATE_OVERLAP` and
+  `GATE_LONGER_THAN_RUN`. Gate edges at a run end, corner or neighbouring gate share one post;
+  termination ends count per fabric section. Moving/stretching a run carries its gates; deleting a
+  run removes its gates and auto posts (one undo each). Line posts are spaced per section between
+  gates. CAD-06 untouched (owner rule pending). Moved expectation (F-7 correction only):
+  `auto-post-integrity` gate test positions `[[10,0],[30,0],[40,0]]`→`[[10,0],[37,0]]` and
+  `[[10,0],[20,0],[40,0]]`→`[[10,0],[20,0]]`. R15 stays 28692; 168 LF fixture values unchanged.
+  New `tests/gate-run-ownership.spec.js` (4 tests): 4/4 red on `0e866ac`, 4/4 green. Suite 108
+  passed / 29 jsPDF-only (baseline set); matrix 12/12; `git diff --check` clean.
+  Not done: gate seating/presets onto the line (v6.0 CAD); a gate spanning a collinear joint is
+  unowned (it lies on neither run); per-section panel counts (Step 1.5); posts already stored
+  inside an opening in saved jobs are not rewritten on load (rebuilt on the next edit).
