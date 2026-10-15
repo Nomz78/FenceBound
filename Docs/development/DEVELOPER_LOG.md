@@ -386,3 +386,17 @@ Append one entry for every development session. Preserve prior entries.
   price files and job files seed the split keys from the saved shared-key price each line was
   charged; CSV rows named as BOM lines land on that line's cost key. E6–E8 red then green;
   suite 75 passed / 29 jsPDF-only; matrix 12/12.
+- **Editable site upcharges (owner ruling 2026-10-15, "make add-ons editable"; audit F12),
+  commit `5f4241a`:** the four hardcoded site adders are now company rate-card values, seeded
+  with the former constants: demo/removal `LABOR.demoPerLF` 3 ($/LF), grade/slope
+  `LABOR.slopePerLF` 0.5 ($/LF), hard dig `LABOR.hardDigPct` 30 (% of labor), urban
+  `MARKUP.urbanPct` 15 (% of client subtotal). They persist via `saveCostDB` under the
+  `_pricingFromLoadedProject` guard and ride the existing job-file, JSON import/export, backup,
+  reset and reload paths; old cards fall back to seeds; `siteAdderRate()` substitutes the seed for
+  any non-finite or negative stored value. Cost editor "Site upcharges" section; Save rejects
+  negative/blank/non-numeric input. Urban/hard-dig % labels, the urban stat row and the PDF urban
+  row read the edited value. No pricing value changed; R15 stays 28692.
+  New `tests/editable-site-adders.spec.js` SA1–SA7 (10 tests): 10/10 red on `7c63be7`, 10/10
+  green. Suite 85 passed / 29 jsPDF-only; matrix 12/12; `git diff --check` clean.
+  Not done (out of scope): F6 job persistence of the upcharge checkboxes; F13/F14; per-run or
+  slope-%-graded adders; the PDF urban row is not test-covered here (jsPDF blocked by cdnjs).
