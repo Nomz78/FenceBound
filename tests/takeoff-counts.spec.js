@@ -7,6 +7,7 @@ const { test, expect } = require('@playwright/test');
 //  - T2: vinyl split-rail rails follow the run's post spacing (F-3).
 //  - T3: concrete is never silently 0 for a hole depth off the footing table (F-9).
 //  - T4: field cattle fence with the Barbed Wire add-on does not double strands (F-8).
+//  - T5: Post-tool posts are counted and priced; a run with no line posts warns (F-14).
 
 async function cleanOpen(page) {
   await page.goto('/index.html');
@@ -109,4 +110,29 @@ test('T4 cattle field fence with the Barbed Wire add-on keeps one set of strands
   const cl = await bomFor(page, 'chainlink', false, `specs.addons.add('barbed-wire');specs.barbStrands=3;`);
   expect(strands(cl)).toEqual([100, 100, 100]);
   expect(cl['Barb Arm vertical']).toBe(9);
+});
+
+test('T5 Post-tool posts count as line posts and a run without line posts warns', async ({ page }) => {
+  await cleanOpen(page);
+  const warnings = () => state(page, `validateProject({includePricing:false,requireClient:false}).warnings.map(w=>w.code)`);
+  // Auto-posts off: the run carries no line posts, which validation now reports.
+  await state(page, seedRunSource('chainlink', false));
+  await state(page, `(()=>{S.elements=S.elements.filter(el=>!(el.type==='post'&&el.auto));S.elements[0].autoPostSpacing=null;return null;})()`);
+  expect(await state(page, `getStats().linePosts`)).toBe(0);
+  expect(await warnings()).toContain('NO_LINE_POSTS');
+  // Three posts placed with the Post tool along the run (as handleDown pushes them),
+  // one on the run end (already the terminal post) and one off the fence.
+  await state(page, `(()=>{[25,50,75,100].forEach(ft=>S.elements.push({type:'post',pos:{x:ft*GRID_FT,y:0},fenceType:'chainlink'}));
+    S.elements.push({type:'post',pos:{x:50*GRID_FT,y:30*GRID_FT},fenceType:'chainlink'});return null;})()`);
+  expect(await state(page, `getStats().linePosts`)).toBe(3);
+  const priced = await state(page, `(()=>{const l=computePricing().matLines.find(x=>/^Line Post/.test(x.name));return [l.qty,l.extC];})()`);
+  expect(priced[0]).toBe(3);
+  expect(priced[1]).toBeGreaterThan(0);
+  const codes = await warnings();
+  expect(codes).not.toContain('NO_LINE_POSTS');
+  expect(codes.filter(c => c === 'POST_NOT_ON_FENCE').length).toBe(1);
+  // A Post-tool post on top of an auto post is that post, not a second one.
+  await state(page, seedRunSource('chainlink', false));
+  await state(page, `(()=>{S.elements.push({type:'post',pos:{x:10*GRID_FT,y:0},fenceType:'chainlink'});return null;})()`);
+  expect(await state(page, `getStats().linePosts`)).toBe(9);
 });

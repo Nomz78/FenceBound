@@ -1796,6 +1796,21 @@ function getStats(){
   S.elements.filter(el=>el.type==='post'&&el.auto).forEach(post=>{
     const row=acc.byRunId[post.runId];if(row)row.lineCt++;
   });
+  // A post placed with the Post tool is a line post of the run it stands on, inside
+  // a fabric section. On a run end, corner, gate post or another post it is that
+  // post, not a second one. Off every run (or in a gate opening) it is not priced;
+  // validateProject reports it.
+  acc.unpricedPosts=[];
+  const placed=S.elements.filter(el=>el.type==='post'&&el.auto&&el.pos).map(el=>el.pos);
+  S.elements.filter(el=>el.type==='post'&&!el.auto).forEach(post=>{
+    const p=post.pos,near=q=>dist(p,q)<=GATE_ON_RUN_TOL;
+    const run=p&&runs.find(r=>runAxis(r)&&ptSegDist(p,r.start,r.end)<=GATE_ON_RUN_TOL);
+    if(!run){acc.unpricedPosts.push(post);return;}
+    if(near(run.start)||near(run.end)||isGatePost(p)||placed.some(near))return;
+    const sv=runAxis(run).along(p);
+    if(!layouts.get(run).sections.some(([a,b])=>sv>a&&sv<b)){acc.unpricedPosts.push(post);return;}
+    placed.push(p);acc.byRunId[run.runId].lineCt++;
+  });
   // A gate that does not lie on its run is neither deducted nor priced;
   // validateProject reports it.
   S.elements.filter(el=>el.type==='gate').forEach(gate=>{
@@ -4471,6 +4486,15 @@ function validateProject(options={}){
 
   posts.filter(p=>p.auto).forEach((post,index)=>{
     if(post.runId&&!fenceRunById(post.runId))warn('ORPHAN_AUTO_POST',`Auto post ${index+1} references a missing run.`,post);
+  });
+
+  const stats=getStats();
+  stats.unpricedPosts.forEach(post=>warn('POST_NOT_ON_FENCE',`Post ${posts.indexOf(post)+1} is not on a fence section; it is not counted or priced.`,post));
+  fences.forEach((run,index)=>{
+    const row=stats.byRunId[run.runId],spacing=+(run.postSpacing||run.autoPostSpacing||0);
+    if(!row||row.lineCt||!(spacing>0))return;
+    const needed=row.sectionFt.reduce((n,f)=>n+Math.max(0,Math.ceil(f/spacing-1e-6)-1),0);
+    if(needed)warn('NO_LINE_POSTS',`Run ${index+1} has no line posts but needs about ${needed} at ${spacing} ft spacing. Turn on auto-posts or place posts.`,run);
   });
 
   if(includePricing){
