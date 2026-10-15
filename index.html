@@ -902,8 +902,25 @@ function migrateRunOwnership(){
   });
 }
 
+// Per-job pricing inputs (estimator audit 2026-10-15, F6): the site-upcharge
+// on/off boxes and the labor-hours override are part of the quote, so they ride
+// with the job record. The rates themselves stay on the company rate card.
+const JOB_UPCHARGE_INPUTS={demo:'uc-demo',slope:'uc-slope',urban:'uc-urban',hardDig:'uc-harddig'};
+function readJobPricingInputs(){
+  const siteUpcharges={};
+  Object.entries(JOB_UPCHARGE_INPUTS).forEach(([k,id])=>{siteUpcharges[k]=!!document.getElementById(id)?.checked;});
+  return{siteUpcharges,laborHours:document.getElementById('labor-hours')?.value||''};
+}
+// Missing fields (older job files, Clear) mean the defaults: all off, hours auto.
+function applyJobPricingInputs(st){
+  const uc=st&&st.siteUpcharges&&typeof st.siteUpcharges==='object'?st.siteUpcharges:{};
+  Object.entries(JOB_UPCHARGE_INPUTS).forEach(([k,id])=>{const el=document.getElementById(id);if(el)el.checked=uc[k]===true;});
+  const h=document.getElementById('labor-hours');
+  if(h)h.value=st&&(typeof st.laborHours==='string'||Number.isFinite(st.laborHours))?String(st.laborHours):'';
+}
 function snapshotState(){
   return{app:'FenceboundCAD',schemaVersion:3,appVersion:APP_VERSION,savedAt:new Date().toISOString(),
+    jobId:S.jobId??null,...readJobPricingInputs(),
     projectName:S.projectName,jobCustomer:S.jobCustomer,jobAddress:S.jobAddress,jobNotes:S.jobNotes||'',
     elements:S.elements.map(el=>({...el,specs:el.specs?serializeRunSpecs(el.specs):undefined,runSpecs:el.runSpecs?serializeRunSpecs(el.runSpecs):undefined})),labels:S.labels,materials:S.materials,
     specs:{...S.specs,addons:[...S.specs.addons]},
@@ -920,6 +937,11 @@ function applyState(st){
     if(!m||typeof m!=='object')return m;const q=coerceNonNegNumber(m.qty);return q===null?m:{...m,qty:q};
   }):[];
   S.projectName=st.projectName||'Untitled Job';
+  // Saved-job identity: Save updates this record in place and never another
+  // job that happens to share the name. Older records carry only `id`.
+  S.jobId=st.jobId!=null?st.jobId:(st.id!=null?st.id:null);
+  applyJobPricingInputs(st);
+  _defaultTypeSpecs={};
   S.jobCustomer=st.jobCustomer||'';S.jobAddress=st.jobAddress||'';S.jobNotes=st.jobNotes||'';
   if(st.footing)mergeFooting(st.footing);
   if(st.postODIn)mergePostOD(st.postODIn);
@@ -1186,6 +1208,7 @@ const S={
   elements:[], labels:[],
   drawing:null, selected:null, editingGate:null,
   moving:null, moveStart:null, moveOrigEl:null,
+  jobId:null,
   pan:{x:80,y:80}, zoom:1, snapFt:1,
   autoPost:true, postSpacing:10,
   isPanning:false, panStart:null,
@@ -1581,6 +1604,24 @@ function reloadSavedCostDB(){
   mergeSavedCostDB(saved.data);
   _pricingFromLoadedProject=false;
   return'loaded';
+}
+// Leave loaded-project pricing (estimator audit F5): a new quote is priced from
+// the company rate card — the saved one, else the shipped defaults, exactly as
+// at boot. Reads the rate card only; never writes it.
+function restoreCompanyRateCard(){
+  if(!_pricingFromLoadedProject)return;
+  if(reloadSavedCostDB()!=='loaded'){
+    COST_DB=JSON.parse(JSON.stringify(DEFAULT_COST_DB));
+    LABOR=JSON.parse(JSON.stringify(DEFAULT_LABOR));
+    MARKUP=JSON.parse(JSON.stringify(DEFAULT_MARKUP));
+    FOOTING=JSON.parse(JSON.stringify(DEFAULT_FOOTING));
+    POST_OD_IN={...DEFAULT_POST_OD_IN};
+    POST_EMBED_IN={...DEFAULT_POST_EMBED_IN};
+    refreshPostDiaDefaults();
+    _pricingFromLoadedProject=false;
+  }
+  refreshSiteAdderLabels();
+  const crl=document.getElementById('crew-rate-lbl');if(crl)crl.textContent=LABOR.crewHourlyRate;
 }
 function saveCostDB(){
   if(_pricingFromLoadedProject)return false;
@@ -2565,10 +2606,24 @@ function updateTypeBar(){
 
 // Centralized fence-type switch: sets type, applies default spacing + height,
 // refreshes specs/type bar. Used by type bar, presets, and material picker.
+// Per-type spec memory (inventory audit F-6): switching type strips the
+// components and add-ons the new type cannot use, so each owner (a run, or the
+// drawing defaults) remembers its specs per type and switching back restores
+// them. Run memory dies with the run object; defaults memory with the job.
+const _runTypeSpecs=new WeakMap();
+let _defaultTypeSpecs={};
+function typeSpecMemory(run){
+  if(!run)return _defaultTypeSpecs;
+  if(!_runTypeSpecs.has(run))_runTypeSpecs.set(run,{});
+  return _runTypeSpecs.get(run);
+}
 function selectFenceType(key){
   const fdef=FENCE_TYPES[key];if(!fdef)return;
   const run=selectedFenceRun();
-  const sp=activeSpecs();
+  let sp=activeSpecs();
+  const prevType=activeFenceType(),mem=typeSpecMemory(run);
+  const remembered=prevType!==key?mem[key]:null;
+  if(prevType!==key)mem[prevType]=serializeRunSpecs(sp);
   if(run){
     pushHistory();
     run.fenceType=key;
@@ -2580,7 +2635,10 @@ function selectFenceType(key){
   const spacing=activePostSpacing();
   const ss=document.getElementById('spacing-slider');if(ss)ss.value=spacing;
   const sv=document.getElementById('spacing-val');if(sv)sv.textContent=spacing+' ft';
-  if(fdef.defaultHeightIn){
+  if(remembered){
+    sp=hydrateRunSpecs(remembered);
+    if(run)run.specs=sp;else S.specs=sp;
+  }else if(fdef.defaultHeightIn){
     sp.heightIn=fdef.defaultHeightIn;
     applyHeightDrivenSpecs({specs:sp});
   }
@@ -2726,8 +2784,21 @@ function updateDrawers(){
     document.getElementById('do-backup').addEventListener('click',exportBackup);
     document.getElementById('do-restore').addEventListener('click',()=>document.getElementById('backup-file-input').click());
     document.getElementById('do-save').addEventListener('click',()=>{
-      const snap={...JSON.parse(JSON.stringify(snapshotState())),id:Date.now(),name:S.projectName,savedAt:new Date().toLocaleString()};
+      // Same name, different job (audit CAD-13): save under the next free
+      // "Name (n)" instead of silently overwriting the other job.
+      const sameName=S.savedJobs.find(j=>j.name===S.projectName);
+      if(sameName&&!(S.jobId!=null&&sameName.id===S.jobId)){
+        const base=S.projectName;let n=2;
+        while(S.savedJobs.some(j=>j.name===`${base} (${n})`))n++;
+        S.projectName=`${base} (${n})`;
+        const jnd=document.getElementById('job-name-display'),jni=document.getElementById('job-name');
+        if(jnd)jnd.textContent=S.projectName;if(jni)jni.value=S.projectName;
+        S.jobId=null;
+      }
+      if(!sameName||S.jobId==null)S.jobId=Date.now();
+      const snap={...JSON.parse(JSON.stringify(snapshotState())),id:S.jobId,name:S.projectName,savedAt:new Date().toLocaleString()};
       S.savedJobs=[snap,...S.savedJobs.filter(j=>j.name!==S.projectName)];
+      scheduleAutosave();
       try{localStorage.setItem(STORAGE_KEY,JSON.stringify(S.savedJobs));S.saveMsg=`Saved "${esc(S.projectName)}"`;}
       catch(err){S.saveMsg='Save failed — storage full or blocked';}
       updateDrawers();
@@ -2736,8 +2807,10 @@ function updateDrawers(){
     jd.querySelectorAll('[data-ji]').forEach(el=>el.addEventListener('click',e=>{
       if(e.target.dataset.jdel!==undefined)return;
       const job=S.savedJobs[+el.dataset.ji];
-      if(S.elements.length||S.labels.length)pushHistory();// loading a job is undoable
       applyState(JSON.parse(JSON.stringify({...job,projectName:job.projectName||job.name})));
+      // History holds drawings only; undoing across a job load would put the
+      // previous job's drawing under this job's name (audit CAD-12).
+      S.history=[];S.future=[];updateUndoButtons();
       S.showJobs=false;
       syncSpecInputs();// keep SPECS tab controls in step with loaded state
       draw();updatePanel();updateMatList();updateDrawers();scheduleAutosave();
@@ -2801,7 +2874,9 @@ function handleDown(e){
       pushHistory();
       S.moving={idx:foundIdx,type:foundType,endpoint:foundEndpoint};
       S.moveStart=pt;
-      S.moveOrigEl=JSON.parse(JSON.stringify(S.elements[foundIdx]));
+      // structuredClone keeps specs.addons a Set; a JSON copy turned it into {}
+      // and Escape then erased the run's add-ons (audit CAD-01).
+      S.moveOrigEl=structuredClone(S.elements[foundIdx]);
       const movingRun=S.elements[foundIdx].type==='fence'?S.elements[foundIdx]:null;
       S.moveCarried=movingRun?S.elements.filter(el=>el.type==='gate'&&gateOwnerRun(el)===movingRun)
         .map(gate=>({gate,start:{...gate.start},end:{...gate.end}})):[];
@@ -3179,7 +3254,7 @@ function init(){
     const el=document.getElementById(id);
     if(!el)return;
     // number inputs: live 'input' only; checkboxes: 'change' — avoids double-firing
-    el.addEventListener(el.type==='number'?'input':'change',()=>{if(S.activeTab==='pricing')updatePricing();});
+    el.addEventListener(el.type==='number'?'input':'change',()=>{if(S.activeTab==='pricing')updatePricing();scheduleAutosave();});
   });
   document.getElementById('btn-gen-estimate').addEventListener('click',exportEstimatePDF);
   document.getElementById('btn-validate-job').addEventListener('click',runValidationReport);
@@ -3203,8 +3278,8 @@ function init(){
         const st=JSON.parse(rd.result);
         if(!st||st.app!=='FenceboundCAD'||!Array.isArray(st.elements))
           throw new Error('not a Fencebound job file');
-        pushHistory();// importing is undoable
         applyState(st);
+        S.history=[];S.future=[];// a new job: no undo back into the previous one (audit CAD-12)
         syncSpecInputs();
         draw();updatePanel();updateMatList();updateDrawers();updateUndoButtons();
         showToast(`Imported "${S.projectName}"`);
@@ -3223,7 +3298,12 @@ function init(){
   document.getElementById('btn-clear').addEventListener('click',()=>{
     if(!confirm('Clear all elements?'))return;
     if(S.elements.length||S.labels.length)pushHistory();// make Clear undoable
-    S.elements=[];S.labels=[];S.selected=null;S.editingGate=null;draw();updatePanel();updateGateEditor();
+    S.elements=[];S.labels=[];S.selected=null;S.editingGate=null;
+    // A cleared canvas starts the next quote (audit F5/F6, CAD-13): per-job
+    // pricing inputs return to defaults, prices from a viewed job give way to
+    // the company rate card, and the next Save is a new job record.
+    applyJobPricingInputs(null);restoreCompanyRateCard();S.jobId=null;
+    draw();updatePanel();updateGateEditor();updatePricing();scheduleAutosave();
   });
   document.getElementById('btn-pdf').addEventListener('click',exportPDF);
   document.getElementById('btn-png').addEventListener('click',()=>{const a=document.createElement('a');a.download=S.projectName.replace(/\s+/g,'_')+'.png';a.href=canvas.toDataURL();a.click();});
@@ -3430,7 +3510,8 @@ function init(){
       if(S.drawing){S.drawing=null;draw();}
       else if(S.moving&&S.moveOrigEl&&S.elements[S.moving.idx]){
         S.elements[S.moving.idx]=S.moveOrigEl;
-        S.moving=null;S.moveStart=null;S.moveOrigEl=null;draw();updatePanel();
+        (S.moveCarried||[]).forEach(c=>{c.gate.start=c.start;c.gate.end=c.end;});
+        S.moving=null;S.moveStart=null;S.moveOrigEl=null;S.moveCarried=null;draw();updatePanel();
       }
     }
     // Delete / Backspace — remove the selected element
