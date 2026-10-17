@@ -652,3 +652,18 @@ for(const malformed of [
     expect(JSON.stringify(exported)).not.toMatch(/NaN|undefined/);
   });
 }
+
+test('R9b a legacy run without an endpoint does not stop the canvas drawing the rest of the job',async({page})=>{
+  // R9 failed intermittently when a canvas resize redrew a live malformed
+  // legacy run during export. Draw directly so the check does not depend on
+  // resize timing.
+  await cleanOpen(page);
+  const legacy=await state(page,'JSON.parse(JSON.stringify(snapshotState()))');
+  legacy.elements=[
+    {type:'fence',start:null,end:{x:400,y:0},fenceType:'chainlink',runId:'run_missing_start',postSpacing:10,autoPostSpacing:10},
+    {type:'fence',start:{x:0,y:100},end:{x:400,y:100},fenceType:'chainlink',runId:'run_valid',postSpacing:10,autoPostSpacing:10}
+  ];
+  await state(page,`applyState(${JSON.stringify(legacy)})`);
+  const drawError=await state(page,'(()=>{try{draw();return null;}catch(error){return error.message;}})()');
+  expect(drawError).toBeNull();
+});

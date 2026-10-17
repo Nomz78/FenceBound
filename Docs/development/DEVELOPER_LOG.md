@@ -727,3 +727,28 @@ closeout; their bytes match the previously reviewed repair checkpoint.
 - Independent task/boundary review found no unresolved blocking finding. State and
   current/archive handoffs now describe this tested branch. Push and initialization
   are verified live after this metadata commit; earlier pending/local status is historical.
+
+## 2026-10-17 — PR #17 pre-merge check and intermittent R9 root cause
+
+- Ran PR #17's pre-merge check in a Claude cloud container on `codex/counting-c0`
+  (`c200ad0`): `npm test` 187/187, persistence matrix 12/12, `git diff --check` PASS.
+  jsPDF 2.5.1 was served from npm through a scratch-only preload (UMD 364463 bytes,
+  SHA-256 `98ccf17a…3df875`, matching the 2026-10-15 record), which also pointed
+  Playwright at the preinstalled Chromium. No repo configuration changed.
+- R9 repeated: 1 failure in 75 runs, and 2 in 12 fresh cold-start runs of the
+  "null start" case. Stack: `resizeCanvas` → `draw` → `drawFenceRun` read `start.x` of
+  the malformed legacy run R9 places in live state. The canvas `ResizeObserver` and the
+  300 ms boot `resizeCanvas` timer decide whether a redraw lands inside the export
+  window, hence the intermittency. Present on `main` too; not introduced by #17.
+- Defect: one legacy run missing an endpoint aborted the whole canvas redraw, so every
+  element after it went undrawn. With two or more runs, `buildCornerSet` in `draw` also threw.
+- Repair: `draw` builds its corner set only from fence runs with both endpoints, and
+  `drawFenceRun` skips a run missing one. Drawing only; takeoff, pricing and validation
+  are untouched (validation still reports the run).
+- Red before: new R9b (`tests/persistence-integrity.spec.js`) loads a missing-start run
+  plus a valid run and calls `draw()` directly; it failed with
+  `Cannot read properties of null (reading 'x')`, first in `drawFenceRun`, then in
+  `buildCornerSet` after the first guard. Green after: R9b passes.
+- After repair: R9 "null start" cold 0/12 failures; R9 ×25 (all variants + R9b) 100/100;
+  `npm test` 188/188; matrix 12/12; `git diff --check` PASS.
+  No price values, golden BOM counts, schema or application version changed.

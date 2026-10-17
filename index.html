@@ -2209,7 +2209,7 @@ function draw(){
   ctx.textAlign='right';
   for(let y=_ly0;y<gb;y+=_labelStep)ctx.fillText(`${(y/GRID_FT).toFixed(0)}'`,-6/S.zoom,y+4/S.zoom);
 
-  const cs=buildCornerSet(S.elements);
+  const cs=buildCornerSet(S.elements.filter(el=>el.type!=='fence'||(el.start&&el.end)));
   S.elements.forEach((el,i)=>{
     const ft=FENCE_TYPES[el.fenceType]||FENCE_TYPES.chainlink,sel=S.selected===i;
     if(el.type==='boundary'){drawBoundary(ctx,el,sel);return;}
@@ -2280,6 +2280,9 @@ function drawBoundary(ctx,el,sel){
 }
 
 function drawFenceRun(ctx,el,ft,sel,cs){
+  // A legacy run missing an endpoint is reported by validation; skip it so one
+  // malformed record cannot abort drawing every element after it.
+  if(!el.start||!el.end)return;
   const dx=el.end.x-el.start.x,dy=el.end.y-el.start.y,len=Math.hypot(dx,dy);
   if(len<1)return;
   const nx=dy/len,ny=-dx/len;
