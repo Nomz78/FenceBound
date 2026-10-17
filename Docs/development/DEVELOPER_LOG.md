@@ -555,3 +555,200 @@ Append one entry for every development session. Preserve prior entries.
   (Merchants Metals, formerly Hudson Fence Supply; Capital Fence Supply; others serving
   Albemarle/Charlotte/Greensboro NC) and commercial-software specs. Owner has no own
   distributor pricing. HANDOFF.md C0 is now a cited hardware spec reference; C0b applies it.
+
+## 2026-10-15 — C0 hardware reference (local, awaiting closeout)
+
+- **Scope:** C0 only, on `codex/counting-c0` from `424750b` on
+  `claude/focused-bell-rirwad`. Added `Docs/reference/HARDWARE_SPEC_REFERENCE.md`;
+  no runtime, tests, golden BOM quantities, price values, or dependencies changed.
+- **Evidence:** Manufacturer/distributor literature and all 142 existing golden BOM rows
+  across 14 types. Product-specific alternatives and existing owner walls remain explicit.
+  Strict C0 completion is not claimed: missing product/SKU and fastening information is
+  labeled unverified rather than fabricated as a match or source disagreement. No C0b/C1 work.
+- **Owner clarification:** Capital Fence Supply is in “Statesville, NC. basically in
+  Charlotte, NC.” Official research found Capitol Wholesale's Charlotte branch and the
+  distinct Merchants Metals Statesville branch; exact intended supplier identity remains
+  unresolved. No supplier contacted and no account/pricing assumptions made.
+- **Initialization:** `session:init` found pre-existing stale HEAD metadata (`ea67c4e`
+  recorded versus `424750b` actual). All three intervening commits were documentation only;
+  no governance/tooling repair included.
+- **Validation:** 2026-10-15, unchanged runtime at `424750b`: `npm test` 172/172,
+  including PDF tests without the prior cloud wrapper; persistence matrix 12/12.
+  Static checks and 14-type/142-line documentation coverage passed. Independent review
+  found three documentation issues, all repaired (hog-panel scope, vinyl cap kit contents,
+  concrete wording); missing evidence remains unresolved.
+- **Closeout:** No commit, push or PR created. Human closeout and the explicit external
+  PR-creation gate remain outstanding; no release or synchronization claim.
+- **Task separation on continuation:** C0's reference and this log addition are now
+  isolated in `/Users/altairus78/Developer/fencebound-c0-review` on `codex/counting-c0`.
+  Reference contents are unchanged. Readiness assessment and software repairs belong
+  to their own branches; neither is a C0 deliverable. No new runtime test run is claimed.
+
+## 2026-10-15 — C0 hardware reference: approved closeout
+
+- Owner approved the three-branch commit/validate/push sequence; no PRs are authorized.
+- Task implementation commit: `0a0f43e585f000734b8304c8cdd572900227c1b7` on `codex/counting-c0`. This entry is in its
+  direct documentation-closeout child. Only the task's own files/log addition were
+  introduced; predecessor work is inherited through the ordered branch stack.
+- Fresh gate: `npm test` 172/172, persistence matrix 12/12,
+  `git diff --check` PASS. Timestamp: `2026-10-15T18:24:44+00:00`. Ordinary HTTP/PDF configuration.
+- Task-specific files, historical red/green evidence where applicable, limitations,
+  and validation artifacts are recorded in `Docs/handoffs/2026-10-15__counting-c0-reference-closeout.md`.
+- Independent task/boundary review found no unresolved blocking finding. State and
+  current/archive handoffs now describe this tested branch. Push and initialization
+  are verified live after this metadata commit; earlier pending/local status is historical.
+
+## 2026-10-15 — Market readiness experiment and completion estimate
+
+- **Owner direction:** Assess the path to a market-ready program, including pricing,
+  inventory/takeoff, autofill and parameters, assuming no further owner field knowledge
+  beyond the repository and public sources. First milestone is a contractor pilot with
+  manual onboarding; the wider applicable repository scope remains the later goal.
+  Owner explicitly confirmed no in-product AI/API pulls: AI is a development tool only.
+- **Deliverable:** `Docs/research/2026-10-15_market-readiness.md`, a research assessment
+  with a weighted capability rubric, current counterexamples, source/field limitations,
+  proposed acceptance gates and cumulative effort ranges. Scope and percentages are
+  planning judgments, not release approval or amendments to field doctrine.
+- **Observed:** Four HTTP browser counterexamples: automatic LF quantities accept a
+  roll price without a mismatch warning; JSON price import can overwrite company prices
+  with loaded-job prices; failed portable import partially changes the active job;
+  sub-cent hardware prices are rounded before extension. Parameter probes also expose
+  panel/bay incompatibility and inherited vinyl ranch height.
+- **Validation:** Unchanged runtime at `424750b`: `npm test` 172/172 (6.7 minutes,
+  ordinary HTTP/PDF configuration); persistence matrix 12/12; additional 140-case
+  consistency experiment 700/700 checks. These passes do not negate the counterexamples
+  or independently establish manufacturer assembly correctness. Scratch probes/logs
+  remain under `/tmp/fencebound-readiness-*` and `/tmp/fencebound-market-readiness-*`.
+- **Review:** Independent review checked scope, evidence qualifications, score and
+  calendar arithmetic. Repaired its schedule finding by making the five-day experiment
+  a ranked timebox rather than a guaranteed complete batch. Estimates remain judgment.
+- **Preservation at assessment completion:** Existing C0 reference and prior developer-log entry preserved.
+  No runtime, test, price, dependency, doctrine or release-state changes; no commit,
+  push, PR or deployment. Existing session-init metadata drift remains explicit.
+- **Task separation on continuation:** The assessment and this log addition are now
+  isolated in `/Users/altairus78/Developer/fencebound-readiness-review` on
+  `codex/market-readiness-assessment`. The report preserves its original pre-repair
+  baseline and forecast. Its C0 evidence is in the predecessor task's worktree;
+  the later repair results and revised forecast belong to the repair checkpoint.
+  No new runtime test run is claimed.
+
+## 2026-10-15 — Market readiness assessment: approved closeout
+
+- Owner approved the three-branch commit/validate/push sequence; no PRs are authorized.
+- Task implementation commit: `089957fce8fcdc0dcfa594c70c2ff85c0f353eb7` on `codex/market-readiness-assessment`. This entry is in its
+  direct documentation-closeout child. Only the task's own files/log addition were
+  introduced; predecessor work is inherited through the ordered branch stack.
+- Fresh gate: `npm test` 172/172, persistence matrix 12/12,
+  `git diff --check` PASS. Timestamp: `2026-10-15T18:44:20+00:00`.
+- Test command: `NODE_OPTIONS=--require=/tmp/fencebound-pinned-jspdf.cjs npm test`. Matrix command: `node scripts/cad-persistence-matrix.js`.
+  Scratch-only verified jsPDF 2.5.1 transport; configuration/assertions unchanged. See handoff for artifact hash and CDN limitation.
+- Validation qualification: The first full run on this same commit passed 171/172; R9's null-start
+export test captured `Cannot read properties of null (reading 'x')`. The unchanged
+case then passed three isolated repeats, and the final full-suite rerun passed
+172/172 with the transport setup described above. An intervening ordinary run was
+stopped after CDN-related page-load timeouts: 84 passed, 2 failed, 1 interrupted,
+85 not run. Direct CDN requests also timed out while the local server returned 200.
+No runtime or test edits were made between attempts. The original R9 failure was
+intermittent in these runs; its trigger was not established or repaired in this
+documentation task. Logs: `/tmp/fencebound-closeout-assessment-tests-first.log`
+and `/tmp/fencebound-closeout-assessment-r9-recheck.log`; interrupted run:
+`/tmp/fencebound-closeout-assessment-tests-cdn-interrupted.log`.
+- Task-specific files, historical red/green evidence where applicable, limitations,
+  and validation artifacts are recorded in `Docs/handoffs/2026-10-15__market-readiness-assessment-closeout.md`.
+- Independent task/boundary review found no unresolved blocking finding. State and
+  current/archive handoffs now describe this tested branch. Push and initialization
+  are verified live after this metadata commit; earlier pending/local status is historical.
+
+## 2026-10-15 — Market-readiness money and import repairs
+
+- **Authorization:** Owner continued the fresh session from the market-readiness
+  assessment's ranked repair experiment. Scope: its four reproduced software defects;
+  no new assembly, field ruling, price value, dependency, or release authorization.
+- **Implementation:** All material lines enforce price-unit compatibility. JSON prices
+  merge onto the persisted company card with borrowed-price confirmation and persistence
+  rollback. Portable imports restore original job/pricing/history references on failure,
+  including failed autosave storage. Material rates extend at supplied decimal precision
+  before half-up cent rounding; customer unit-rate output preserves that precision.
+- **Evidence:** Added 15 focused tests. Initial 11 failed on the original runtime;
+  expanded original-runtime run failed 13 cases with one passing success control.
+  The review follow-up failed before its repair. All 15 then passed. Updated IB3 to
+  accept the new JSON confirmation. R9 now verifies rollback before directly loading
+  malformed legacy state; all original export-warning assertions remain. Its three
+  rollback cases failed against the original runtime; all four updated IB3/R9 cases
+  pass after repair. No numerical baseline or golden BOM changed.
+- **Review:** Independent read-only review found no blocking issue. Repaired its
+  supported finding: a display error after JSON prices commit now reports that prices
+  saved, rather than falsely reporting import failure. Reviewer checked the fix and
+  confirmed that updated existing tests retain their pricing/export safety assertions.
+- **Gate:** Final `npm test` 187/187 (11.0 minutes, ordinary PDF configuration);
+  persistence matrix 12/12; `git diff --check` PASS. The first completed full run
+  had 183 passes and four test-contract failures described above. `session:init`
+  still reports the pre-existing metadata drift, now on the repair branch.
+- **Checkpoint:** `Docs/execution/2026-10-15_market-repairs-checkpoint.md` records the
+  acceptance cases, validation, measured window, forecast, and remaining limitations.
+  Gate labor and demo/slope precision remain outside this material fix. Persistent
+  display errors can leave stale views after model rollback. Market readiness is blocked.
+- **Measurement:** Instrumented preparation-to-validation window: 17:19:51–17:49:27
+  UTC, 29m36s, excluding untimed startup/initial inspection. Four defects repaired;
+  this is a lower bound on effort, not a general engineering velocity. Retiring the
+  completed 3–5-day package leaves a provisional 17–30 engineering days / 102–180
+  focused hours for the pilot, with all other package estimates unchanged.
+- **Repository at repair completion:** Local work on `codex/market-readiness-repairs`, based on `424750b`.
+  Preserved the inherited C0 reference, assessment, and log entries. Canonical handoff
+  metadata remains stale pending approved two-commit closeout. No commit, push or PR.
+- **Task separation on continuation:** This branch now contains only the four repairs,
+  their tests, this log entry, and the repair checkpoint. C0 and the assessment, with
+  their own log additions, are preserved in separate review worktrees named in the
+  checkpoint. Runtime/tests are byte-identical to the prior validated working tree.
+  The unit guard relates to C1 but implements no pack sizes or order quantities;
+  this is not C0b and changes no source-backed BOM counts. Branch stacking and
+  two-commit closeout remain pending; no new runtime validation run is claimed.
+- **Separation verification:** Exact task file sets, isolated log additions, byte
+  preservation, and patch/whitespace checks passed across the three worktrees.
+  Independent read-only review found no blocking issue after path/status clarifications.
+
+## 2026-10-15 — Market-readiness software repairs: approved closeout
+
+- Owner approved the three-branch commit/validate/push sequence; no PRs are authorized.
+- Task implementation commit: `25f0cd917e1b5d3304510921d498630a3939e1a7` on `codex/market-readiness-repairs`. This entry is in its
+  direct documentation-closeout child. Only the task's own files/log addition were
+  introduced; predecessor work is inherited through the ordered branch stack.
+- Fresh gate: `npm test` 187/187, persistence matrix 12/12,
+  `git diff --check` PASS. Timestamp: `2026-10-15T18:51:39+00:00`.
+- Test command: `NODE_OPTIONS=--require=/tmp/fencebound-pinned-jspdf.cjs npm test`. Matrix command: `NODE_OPTIONS=--require=/tmp/fencebound-pinned-jspdf.cjs node scripts/cad-persistence-matrix.js`.
+  Scratch-only verified jsPDF 2.5.1 transport; configuration/assertions unchanged. See handoff for artifact hash and CDN limitation.
+- Validation qualification: The predecessor assessment's initial R9 pageerror and CDN-interrupted run are
+preserved in `Docs/handoffs/2026-10-15__market-readiness-assessment-closeout.md`.
+The current passing gate does not establish that the earlier intermittent error's
+unconfirmed trigger is fixed. No new runtime or test edits were made during this
+closeout; their bytes match the previously reviewed repair checkpoint.
+- Task-specific files, historical red/green evidence where applicable, limitations,
+  and validation artifacts are recorded in `Docs/handoffs/2026-10-15__market-readiness-repairs-closeout.md`.
+- Independent task/boundary review found no unresolved blocking finding. State and
+  current/archive handoffs now describe this tested branch. Push and initialization
+  are verified live after this metadata commit; earlier pending/local status is historical.
+
+## 2026-10-17 — PR #17 pre-merge check and intermittent R9 root cause
+
+- Ran PR #17's pre-merge check in a Claude cloud container on `codex/counting-c0`
+  (`c200ad0`): `npm test` 187/187, persistence matrix 12/12, `git diff --check` PASS.
+  jsPDF 2.5.1 was served from npm through a scratch-only preload (UMD 364463 bytes,
+  SHA-256 `98ccf17a…3df875`, matching the 2026-10-15 record), which also pointed
+  Playwright at the preinstalled Chromium. No repo configuration changed.
+- R9 repeated: 1 failure in 75 runs, and 2 in 12 fresh cold-start runs of the
+  "null start" case. Stack: `resizeCanvas` → `draw` → `drawFenceRun` read `start.x` of
+  the malformed legacy run R9 places in live state. The canvas `ResizeObserver` and the
+  300 ms boot `resizeCanvas` timer decide whether a redraw lands inside the export
+  window, hence the intermittency. Present on `main` too; not introduced by #17.
+- Defect: one legacy run missing an endpoint aborted the whole canvas redraw, so every
+  element after it went undrawn. With two or more runs, `buildCornerSet` in `draw` also threw.
+- Repair: `draw` builds its corner set only from fence runs with both endpoints, and
+  `drawFenceRun` skips a run missing one. Drawing only; takeoff, pricing and validation
+  are untouched (validation still reports the run).
+- Red before: new R9b (`tests/persistence-integrity.spec.js`) loads a missing-start run
+  plus a valid run and calls `draw()` directly; it failed with
+  `Cannot read properties of null (reading 'x')`, first in `drawFenceRun`, then in
+  `buildCornerSet` after the first guard. Green after: R9b passes.
+- After repair: R9 "null start" cold 0/12 failures; R9 ×25 (all variants + R9b) 100/100;
+  `npm test` 188/188; matrix 12/12; `git diff --check` PASS.
+  No price values, golden BOM counts, schema or application version changed.
