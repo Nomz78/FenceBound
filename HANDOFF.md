@@ -1,4 +1,47 @@
-# HANDOFF — Codex: counting accuracy, round 1
+# HANDOFF — counting, round 3 (start here)
+
+## Current state
+- C1 pack sizes: PR #19 (`claude/counting-c1`, `a4fb3fd`), open.
+- C2 waste %: PR #20 (`claude/quirky-tesla-wyxrmc`, `e5938d1`), stacked on #19, open.
+  Gate at C2: `npm test` 197/197, matrix 12/12.
+- Owner answered every C0 question and every open wall on 2026-10-23. Commits `902ab5b`,
+  `a5dae98`, `454a1bb` (docs only, on the C2 branch).
+- Next: **C0b**, one fence type per PR, residential chain link first. Not started.
+
+## Read first (only these)
+1. `Docs/reference/HARDWARE_SPEC_REFERENCE.md` lines 516–end: owner rulings. The table
+   "Final owner answers" (from line 539) overrides anything earlier, including the
+   **confirm** rows. The owner said the questions were "being made way too hard": apply
+   the rules as written; do not reopen them.
+2. Same file lines 85–132 (chain link rules) and 257–280 (chain link BOM comparison).
+3. `index.html`: `DEFAULT_FOOTING`/`DEFAULT_POST_EMBED_IN` (~line 645), `bagsForHole` /
+   `footingBagsForDepth` (~1282), `chainLinkPostCutIn`/`chainLinkPurchaseFt` (~1895),
+   `concreteBagsForPosts` (~1911, line posts currently get 0 bags), `calcAutoMaterials`
+   chain link branch (~1940).
+4. `tests/takeoff-counts.spec.js` chain link golden.
+
+## Steps
+1. **C0b chain link** — branch `claude/counting-c0b-chainlink` from `claude/quirky-tesla-wyxrmc`
+   (owner: branch naming "whatever is easier"). Changes: carriage bolts one per band (30 on
+   the fixture, was 48); top rail swedged (default, 0 sleeves) or plain 21 ft with sleeves;
+   truss/brace at every terminal; Master Halco tie spacing (15 in posts, 24 in rails);
+   post lengths and concrete per "Final owner answers"; 48 in max depth.
+   **Done when:** each moved count has a red-before test citing the reference line, the
+   golden diff lists every value old → new, full gate passes, PR opened against the C2 branch.
+2. Then one PR per remaining type (wood, vinyl, ornamental 6/8 ft panel = spacing default 8,
+   split rail 10'4" centers with 3/4/5 ft heights, cattle with mid-line brace every 200 ft),
+   each branched from the previous. Commercial chain link as its own type is a later PR.
+3. After C0b: C3 (material order export), C4 (house/wall termination) as below.
+
+## Test setup in the cloud
+cdnjs is blocked; serve jsPDF 2.5.1 from npm through a preload in the scratchpad (never in
+the tree). UMD 364463 bytes, SHA-256 `98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875`.
+Playwright wants `/opt/pw-browsers/chromium-1091/chrome-linux/chrome`: symlink it to
+`/opt/pw-browsers/chromium-1194/chrome-linux/chrome`.
+
+---
+
+# Round 1 task list (background; steps above take precedence)
 
 Owner direction, 2026-10-15: *"Prices aren't inputted by the fencing software but by the
 customer; it's more about accurate counting than pricing. Base it on how the other programs
