@@ -798,3 +798,11 @@ closeout; their bytes match the previously reviewed repair checkpoint.
 - Gate: `npm test` 197/197 (193 prior unchanged, all 14 goldens and R15 included),
   persistence matrix 12/12, `git diff --check` PASS. Same scratch-only jsPDF preload as
   C1 (npm UMD 364463 bytes, SHA-256 `98ccf17aa10c…3df875`).
+
+## 2026-10-23 — Owner rulings on the C0 questions (docs only)
+
+- The owner answered the 9 grouped C0 questions and the open handoff walls (2, 3, 4).
+  Recorded verbatim with their application in `Docs/reference/HARDWARE_SPEC_REFERENCE.md`
+  § "Owner rulings — 2026-10-23"; HANDOFF.md open rulings point there. Five applications
+  are marked **confirm** (concrete volume method, ornamental source/default width, 42 in
+  cap reading, cattle terminal rule, 1.5× post stock). No code, golden or price changed.
