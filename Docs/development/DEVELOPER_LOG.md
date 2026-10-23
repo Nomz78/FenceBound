@@ -779,3 +779,33 @@ closeout; their bytes match the previously reviewed repair checkpoint.
   integrity verified), UMD 364463 bytes, SHA-256
   `98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875`, matching the
   2026-10-15 records. HANDOFF.md's copy reads `98ccf17ae10c…`, a one-character typo.
+
+## 2026-10-19 — C2 contractor-editable waste/overage per item (`claude/quirky-tesla-wyxrmc`)
+
+- Task: HANDOFF.md C2, branched from C1 (`claude/counting-c1` `a4fb3fd`, PR #19, unmerged).
+  C0b skipped: it waits on the owner's answers to the C0 questions.
+- Change (`index.html`): a rate-card entry may carry `waste`, a contractor percentage
+  (default 0, a number of 0 or more). It is added to the needed quantity before pack
+  rounding: `order = ceil(needed×(100+waste)/100 / pack) × pack`, per fabric section
+  for LF cut stock and across the job for bulk lines. Any waste above 0 orders whole
+  units even at pack 1. Waste 0 with pack 1 leaves order = needed exactly. Waste saves
+  with the company card and job files the same way as `pack`; `applyState`/imports
+  coerce it and an invalid value blocks FINAL-READY (`INVALID_PRICING_INPUT`). Loading
+  a job never writes the company card. The cost editor gains a waste % box per row; the
+  panel's order tooltip names the waste. No default waste above 0, no price value changed.
+- Red before / green after: new `tests/waste-overage.spec.js` W1–W4 failed 4/4 against
+  C1's `index.html` (W4 on the card reload dropping `waste`) and pass 4/4 after.
+- Gate: `npm test` 197/197 (193 prior unchanged, all 14 goldens and R15 included),
+  persistence matrix 12/12, `git diff --check` PASS. Same scratch-only jsPDF preload as
+  C1 (npm UMD 364463 bytes, SHA-256 `98ccf17aa10c…3df875`).
+
+## 2026-10-23 — Owner rulings on the C0 questions (docs only)
+
+- The owner answered the 9 grouped C0 questions and the open handoff walls (2, 3, 4).
+  Recorded verbatim with their application in `Docs/reference/HARDWARE_SPEC_REFERENCE.md`
+  § "Owner rulings — 2026-10-23"; HANDOFF.md open rulings point there. Five applications
+  are marked **confirm** (concrete volume method, ornamental source/default width, 42 in
+  cap reading, cattle terminal rule, 1.5× post stock). No code, golden or price changed.
+- Same day, ruling 1 refined by the owner: line posts 1 bag below 8 ft, 2 at 8 ft;
+  terminals 2; at 8 ft and when a spec is unclear, +1 bag per extra foot of depth.
+  Replaces the volume-method proposal. Still to confirm: the base depth for "extra foot".

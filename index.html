@@ -1573,6 +1573,7 @@ function sanitizePricingInputs(src){
       const unit=(isObj&&v.unit)||(COST_DB[k]&&COST_DB[k].unit)||'ea';
       out.costs[k]={...(isObj?v:{}),cost:fix(isObj?v.cost:v,`Cost of “${k}”`),unit};
       if(isObj&&v.pack!==undefined){const n=coercePackSize(v.pack);if(n===null)problems.push(`Pack size of “${k}” (${typeof v.pack==='string'?`"${v.pack}"`:String(v.pack)})`);else out.costs[k].pack=n;}
+      if(isObj&&v.waste!==undefined){const n=coerceWastePct(v.waste);if(n===null)problems.push(`Waste % of “${k}” (${typeof v.waste==='string'?`"${v.waste}"`:String(v.waste)})`);else out.costs[k].waste=n;}
     });
   }
   if(src.labor&&typeof src.labor==='object'){
@@ -1594,7 +1595,7 @@ function sanitizePricingInputs(src){
 // Accept both legacy Rate Card bare-number costs and canonical CAD {cost,unit} costs.
 function normalizeImportedCosts(src){
   const out={};
-  Object.entries(sanitizePricingInputs({costs:src}).costs||{}).forEach(([k,v])=>{out[k]={cost:v.cost,unit:v.unit};if(v.pack!==undefined)out[k].pack=v.pack;});
+  Object.entries(sanitizePricingInputs({costs:src}).costs||{}).forEach(([k,v])=>{out[k]={cost:v.cost,unit:v.unit};if(v.pack!==undefined)out[k].pack=v.pack;if(v.waste!==undefined)out[k].waste=v.waste;});
   return out;
 }
 function readSavedCostDB(){
@@ -1712,14 +1713,23 @@ function packSizeOf(costKey){
 // order = needed rounded up to whole packs. Bulk lines round across the whole
 // job. LF stock (cutFt) rounds per fabric section and is never pooled across
 // sections: no offcut reuse is assumed.
-function orderQtyFor(it,pack){
+// Waste/overage (C2): a contractor percentage per entry, default 0, added to the
+// needed quantity before pack rounding (per section for LF stock). Any waste
+// above 0 orders whole units even at pack 1.
+function coerceWastePct(v){return coerceNonNegNumber(v);}
+function wastePctOf(costKey){
+  const e=costKey!==null&&Object.prototype.hasOwnProperty.call(COST_DB,costKey)?COST_DB[costKey]:null;
+  if(!e||typeof e!=='object'||e.waste===undefined)return 0;
+  return coerceWastePct(e.waste)??0; // an invalid waste % is reported by computePricing
+}
+function orderQtyFor(it,pack,waste=0){
   const qty=coerceNonNegNumber(it.qty);
-  if(qty===null||qty===0||pack===1)return qty;
-  const up=x=>Math.round(Math.ceil(x/pack-1e-9)*pack*1e6)/1e6;
+  if(qty===null||qty===0||(pack===1&&!waste))return qty;
+  const up=x=>Math.round(Math.ceil(x*(100+waste)/100/pack-1e-9)*pack*1e6)/1e6;
   if(Array.isArray(it.cutFt)&&it.cutFt.length)return Math.round(it.cutFt.reduce((n,f)=>n+up(f),0)*1e6)/1e6;
   return up(qty);
 }
-function withOrderQty(it){const pack=packSizeOf(costKeyFor(it));return{...it,pack,order:orderQtyFor(it,pack)};}
+function withOrderQty(it){const k=costKeyFor(it),pack=packSizeOf(k),waste=wastePctOf(k);return{...it,pack,waste,order:orderQtyFor(it,pack,waste)};}
 
 // ── HELPERS ────────────────────────────────────────────────────────────────
 const dist=(a,b)=>Math.hypot(b.x-a.x,b.y-a.y);
@@ -2572,7 +2582,7 @@ function updatePanel(preserveSpecs=false){
           <div style="font-size:10px;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.name)}</div>
         </div>
         <span class="mat-need" style="font-size:10px;color:var(--text3);white-space:nowrap;margin-left:6px" title="Needed">need ${m.qty}</span>
-        <span class="mat-order" style="font-size:10px;color:var(--accent);font-weight:700;white-space:nowrap;margin-left:6px" title="Order${m.pack>1?` (packs of ${m.pack} ${m.unit})`:''}">order ${m.order} ${m.unit}</span>
+        <span class="mat-order" style="font-size:10px;color:var(--accent);font-weight:700;white-space:nowrap;margin-left:6px" title="Order${m.waste?` (+${m.waste}% waste)`:''}${m.pack>1?` (packs of ${m.pack} ${m.unit})`:''}">order ${m.order} ${m.unit}</span>
       </div>`).join('');
   }
 }
@@ -3884,6 +3894,7 @@ function computePricing(){
     // in the line's own unit extends the order quantity; a rate in another unit
     // with a pack size above 1 is per pack and extends order ÷ pack packs.
     if(entry&&typeof entry==='object'&&entry.pack!==undefined&&coercePackSize(entry.pack)===null)invalidInputs.push(`Pack size of “${it.name}”`);
+    if(entry&&typeof entry==='object'&&entry.waste!==undefined&&coerceWastePct(entry.waste)===null)invalidInputs.push(`Waste % of “${it.name}”`);
     const pack=packSizeOf(costKey),perPack=rateUnit!==null&&pack>1&&normUnit(it.unit)!==rateUnit;
     if(unit!==null&&rateUnit&&normUnit(it.unit)!==rateUnit&&!perPack){
       unitMismatch.push(`“${it.name}” is entered in ${it.unit||'no unit'} but its rate-card cost is per ${entry.unit}`);
@@ -3895,12 +3906,12 @@ function computePricing(){
     if(badCost)invalidInputs.push(`Cost of “${it.name}”`);
     else if(unit!==null&&badQty)invalidInputs.push(`Quantity of “${it.name}”`);
     if(unit===null||badQty){ if(!badCost&&unit===null)unknown.push(it.name); matLines.push({name:it.name,qty:it.qty,unit:it.unit,source:it.source,costKey,unitCost:null,ext:0,unitCostC:null,extC:0,clientUnitCost:null,clientExt:0,clientUnitCostC:null,clientExtC:0}); return; }
-    const order=orderQtyFor(it,pack);
+    const waste=wastePctOf(costKey),order=orderQtyFor(it,pack,waste);
     const pricedQty=perPack?Math.round(order/pack*1e6)/1e6:order,pricedUnit=perPack?entry.unit:it.unit;
     const unitC=centsOf(unit,1);
     const extC=centsOf(unit,pricedQty);
     matCostC+=extC;
-    matLines.push({name:it.name,qty:it.qty,unit:it.unit,rateUnit,source:it.source,costKey,unitCost:unit,ext:dollars(extC),unitCostC:unitC,extC,sectionQty:it.sectionQty,pack,order,pricedQty,pricedUnit});
+    matLines.push({name:it.name,qty:it.qty,unit:it.unit,rateUnit,source:it.source,costKey,unitCost:unit,ext:dollars(extC),unitCostC:unitC,extC,sectionQty:it.sectionQty,pack,waste,order,pricedQty,pricedUnit});
   });
 
   // ── 2. LABOR COST — $/LF by type (default) OR crew hours override ──
@@ -4402,7 +4413,7 @@ function openCostEditor(){
     `<div class="ce-row"><span style="color:${g.color}">${g.label}</span><input type="number" data-gatelabor="${k}" value="${LABOR.gate[k]??0}" step="5" style="width:70px"/><span style="color:var(--text3);font-size:10px">$/gate</span></div>`
   ).join('');
   const costRows=Object.keys(COST_DB).sort().map(k=>
-    `<div class="ce-row"><span style="font-size:10px;color:var(--text2);flex:1">${k}</span><span style="color:var(--text3);font-size:10px">$</span><input type="number" data-cost="${k}" value="${COST_DB[k].cost}" step="0.05" style="width:78px"/><span style="color:var(--text3);font-size:10px;width:26px">${COST_DB[k].unit}</span><input type="number" data-pack="${k}" value="${COST_DB[k].pack??1}" min="1" step="1" style="width:56px" title="Pack size: line units in one purchasable pack (1 = buy exactly what is needed)"/></div>`
+    `<div class="ce-row"><span style="font-size:10px;color:var(--text2);flex:1">${k}</span><span style="color:var(--text3);font-size:10px">$</span><input type="number" data-cost="${k}" value="${COST_DB[k].cost}" step="0.05" style="width:78px"/><span style="color:var(--text3);font-size:10px;width:26px">${COST_DB[k].unit}</span><input type="number" data-pack="${k}" value="${COST_DB[k].pack??1}" min="1" step="1" style="width:56px" title="Pack size: line units in one purchasable pack (1 = buy exactly what is needed)"/><input type="number" data-waste="${k}" value="${COST_DB[k].waste??0}" min="0" step="1" style="width:48px" title="Waste/overage %: added to the needed quantity before pack rounding (0 = none)"/></div>`
   ).join('');
   ov.innerHTML=`
     <style>
@@ -4444,7 +4455,7 @@ function openCostEditor(){
         ${POST_ROLES.map(role=>`<div class="ce-row"><span>${role[0].toUpperCase()+role.slice(1)} post OD</span><input type="number" data-post-od="${role}" value="${POST_OD_IN[role]}" min="0.1" step="0.001" style="width:70px"/><span style="color:var(--text3);font-size:10px">in</span></div>`).join('')}
         ${POST_ROLES.map(role=>`<div class="ce-row"><span>${role[0].toUpperCase()+role.slice(1)} post embed (6 ft+)</span><input type="number" data-post-embed="${role}" value="${POST_EMBED_IN[role]}" min="0" step="1" style="width:70px"/><span style="color:var(--text3);font-size:10px">in</span></div>`).join('')}
         <div class="ce-sec">Material buy costs</div>
-        <div class="ce-note" style="margin-bottom:6px">Your purchase price per unit. This is the cost basis the whole estimate is built from — keep it honest and current. The last box is the pack size (a 50 ft roll, a 100-count box): order quantities round up to whole packs. 1 orders exactly what is needed.</div>
+        <div class="ce-note" style="margin-bottom:6px">Your purchase price per unit. This is the cost basis the whole estimate is built from — keep it honest and current. The next box is the pack size (a 50 ft roll, a 100-count box): order quantities round up to whole packs. 1 orders exactly what is needed. The last box is a waste/overage % added to the needed quantity before pack rounding; 0 adds none.</div>
         ${costRows}
         <div class="ce-sec" id="ce-add-sec">Add a material</div>
         <div class="ce-note" style="margin-bottom:6px">For materials the app doesn't list yet — name it, price it, and it joins your rate card when you Save.</div>
@@ -4503,11 +4514,13 @@ function openCostEditor(){
     const rateFields=[...ov.querySelectorAll('[data-cost],[data-labor],[data-gatelabor]'),...['#ce-mat-markup','#ce-lab-markup','#ce-crew-rate'].map(sel=>ov.querySelector(sel))];
     if(rateFields.some(i=>coerceNonNegNumber(String(i.value))===null)){showToast('Costs, labor rates and markups must be numbers of 0 or more',true);return;}
     if([...ov.querySelectorAll('[data-pack]')].some(i=>coercePackSize(String(i.value))===null)){showToast('Pack sizes must be numbers of 1 or more',true);return;}
+    if([...ov.querySelectorAll('[data-waste]')].some(i=>coerceWastePct(String(i.value))===null)){showToast('Waste percentages must be numbers of 0 or more',true);return;}
     if(_pricingFromLoadedProject&&!confirm('These displayed prices came from the loaded project. Saving will replace your company rate card with these prices. Continue?'))return;
     LABOR.demoPerLF=adders.demoPerLF;LABOR.slopePerLF=adders.slopePerLF;LABOR.hardDigPct=adders.hardDigPct;MARKUP.urbanPct=adders.urbanPct;
     Object.entries(addedCosts).forEach(([k,e])=>{if(!COST_DB[k])COST_DB[k]={...e};});
     ov.querySelectorAll('[data-cost]').forEach(i=>{const k=i.dataset.cost;const v=parseFloat(i.value);if(Number.isFinite(v)&&COST_DB[k])COST_DB[k].cost=v;});
     ov.querySelectorAll('[data-pack]').forEach(i=>{const k=i.dataset.pack,v=coercePackSize(String(i.value));if(COST_DB[k]&&(v!==1||COST_DB[k].pack!==undefined))COST_DB[k].pack=v;});
+    ov.querySelectorAll('[data-waste]').forEach(i=>{const k=i.dataset.waste,v=coerceWastePct(String(i.value));if(COST_DB[k]&&(v!==0||COST_DB[k].waste!==undefined))COST_DB[k].waste=v;});
     ov.querySelectorAll('[data-labor]').forEach(i=>{const v=parseFloat(i.value);if(Number.isFinite(v))LABOR.perLF[i.dataset.labor]=v;});
     ov.querySelectorAll('[data-gatelabor]').forEach(i=>{const v=parseFloat(i.value);if(Number.isFinite(v))LABOR.gate[i.dataset.gatelabor]=v;});
     const mm=parseFloat(ov.querySelector('#ce-mat-markup').value);if(Number.isFinite(mm))MARKUP.materialPct=mm;

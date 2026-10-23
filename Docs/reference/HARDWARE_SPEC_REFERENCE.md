@@ -512,3 +512,26 @@ The 142 golden-line verdicts are 20 matches, 21 owner choices, three conditional
 mismatches and 98 unverified. Conditional findings are not authorized generic count changes.
 No code or golden values are changed. Commit/push and external PR creation remain subject
 to the user's explicit closeout and external-creation rules.
+
+## Owner rulings — 2026-10-23
+
+The owner answered the C0 questions in the Claude session `FenceBound · counting r2`.
+Each ruling is quoted verbatim, followed by how C0b applies it. Where an application is
+marked **confirm**, C0b asks the owner before changing that count.
+
+| # | Question | Owner's words | How C0b applies it |
+|---|---|---|---|
+| 1 | Concrete per hole (wood, vinyl, ornamental, farm) | "follow specs" — then, 2026-10-23: "use 1 bag for line posts, until 8' heights and then it is 2. 2 for terminals. scale up with 8' there as well by adding a bag per extra foot of depth when youre not sure." | Supersedes the volume (C-Y) idea. Line posts: 1 bag below 8 ft fence height, 2 at 8 ft. Terminals (end, corner, gate): 2 bags. At 8 ft, and whenever a spec is unclear, add 1 bag per extra foot of hole depth. **Confirm:** the depth that extra feet are counted from. |
+| 2 | Chain link top-rail sleeves | "both should be an option, default being swedged" | Rail choice per job: swedged (default, 0 sleeves, CL-R) or plain 21 ft with sleeves at joints (CL-C). |
+| 3 | Carriage bolts | "one bolt per band is correct. gate hardware is indeed separate." | One bolt per tension/rail-end band (CL-R): 30 on the C0 fixture, was 48. Gate hardware bolts counted separately. |
+| 4 | Split-rail rails and posts | "first is my and the companies i worked for's spacing. follow specs though so, 10'4" it is." | Centers 10 ft 4 in (W-S, S14). The app's current 10 ft spacing is the owner's field practice, recorded but not used. |
+| 5 | Ornamental system | "there is both 6' and 8' panel sizes, it depends on the job and the choice to change it quickly is important." | Per-job panel width, 6 ft or 8 ft, quick to switch. Jerith Premier (O-J) gives both: 72½ in centers for 6 ft, 96 in for 8 ft. **Confirm:** source and default width. |
+| 6 | Commercial chain link | "prefer it is its own type etc." | New fence type; height, grade, frame and leaf width drive post OD (CL-S, G-C). |
+| 7 | Trusses / brace rails | "every terminal." | Brace/truss at every terminal fabric connection (CL-C). |
+| 8 | Ties and spacing | "master halco specs." | Fabric ties 15 in on posts, rail/brace ties and hog rings 24 in (CL-C). |
+| 9 | Cantilever gates | "they are custom made so you got that part right but....go with merchants metals." | Merchants Metals Secure-Trac (G-S): single track 3 posts (2 supports, 1 latch) and 2 trucks; dual track at 31–40 ft, 5 posts and 4 trucks; 4 in schedule 40 posts. |
+| W2 | Footing depths past 42 in | "no footing depths below 42." | Read as: depth capped at 42 in, no extrapolation. **Confirm.** |
+| W2 | Split / ranch rail default height | "3 ft with two rail, 4 foot for 3 rail and 5 for 4 rail." | 2 rail 3 ft, 3 rail 4 ft, 4 rail 5 ft (matches S15). Post lengths per S15: 5 ft 4 in, 6 ft 6 in, 7 ft 6 in. |
+| W3 | Straight joint between runs (CAD-06) | "terminals can exist in a straight line on average when theres a grade change, becasue wire has to be cut to grade, some people add one every 200 feet or so, but its ultimately not required unless its cattle fence." | Default: line post. A contractor may mark a straight joint as a terminal (grade change). Cattle fence: terminal required. **Confirm:** cattle rule is at every straight joint, every ~200 ft, or both. |
+| W4 | Line-post concrete | "1 bag of concrete for line posts, follow specs." | See ruling 1: 1 bag below 8 ft fence height, 2 at 8 ft. |
+| W4 | Residential post stock lengths | "6' post standard for 4' residential. ratio stands for other heights too." | Post stock = 1.5 × fence height (4 ft → 6 ft, 6 ft → 9 ft). **Confirm:** 1.5× rather than height + 2 ft. |

@@ -98,10 +98,13 @@ uses the owner-ruled wall hardware (ask if unknown) and no post or concrete.
 ## Open owner rulings (walls — ask, don't guess)
 
 1. ~~Gate parts per non-chain-link type~~ — ruled 2026-10-15: from distributor specs (C0).
-2. Footing depths past 42" (currently extrapolated); vinyl split-rail default height.
-3. Collinear joint between two runs: line post or end post (CAD-06).
-4. Line-post concrete; residential post stock lengths; truss rods, sleeves, carriage bolts;
-   rail ties on mid/bottom rails.
+2. ~~Footing depths past 42"; vinyl split-rail default height~~ — ruled 2026-10-23.
+3. ~~Collinear joint (CAD-06)~~ — ruled 2026-10-23.
+4. ~~Line-post concrete; post stock lengths; trusses, sleeves, carriage bolts; rail ties~~ — ruled 2026-10-23.
+
+All 2026-10-23 rulings, and the C0 owner choices, are in
+`Docs/reference/HARDWARE_SPEC_REFERENCE.md` § "Owner rulings — 2026-10-23". Rows marked
+**confirm** still need the owner's yes before C0b changes that count.
 
 ## Branches
 
