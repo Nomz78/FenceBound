@@ -809,3 +809,6 @@ closeout; their bytes match the previously reviewed repair checkpoint.
 - Same day, ruling 1 refined by the owner: line posts 1 bag below 8 ft, 2 at 8 ft;
   terminals 2; at 8 ft and when a spec is unclear, +1 bag per extra foot of depth.
   Replaces the volume-method proposal. Still to confirm: the base depth for "extra foot".
+- Final owner answers recorded (same section, "Final owner answers"): post length,
+  concrete bags by fence height, depth ratio, 48 in max depth, ornamental 6/8 ft panel =
+  spacing (default 8), cattle brace every 200 ft. All earlier **confirm** rows are closed.

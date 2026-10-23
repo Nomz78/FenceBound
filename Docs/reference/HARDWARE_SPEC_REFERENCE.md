@@ -535,3 +535,27 @@ marked **confirm**, C0b asks the owner before changing that count.
 | W3 | Straight joint between runs (CAD-06) | "terminals can exist in a straight line on average when theres a grade change, becasue wire has to be cut to grade, some people add one every 200 feet or so, but its ultimately not required unless its cattle fence." | Default: line post. A contractor may mark a straight joint as a terminal (grade change). Cattle fence: terminal required. **Confirm:** cattle rule is at every straight joint, every ~200 ft, or both. |
 | W4 | Line-post concrete | "1 bag of concrete for line posts, follow specs." | See ruling 1: 1 bag below 8 ft fence height, 2 at 8 ft. |
 | W4 | Residential post stock lengths | "6' post standard for 4' residential. ratio stands for other heights too." | Post stock = 1.5 × fence height (4 ft → 6 ft, 6 ft → 9 ft). **Confirm:** 1.5× rather than height + 2 ft. |
+
+### Final owner answers — 2026-10-23 (supersede every **confirm** above)
+
+Owner, verbatim: "post length does 1.5 when it gets to 8' heights, for terminals. lines will
+stay at 2' depths. … 4 foot terminal is 2 bags. 5 foot terminal, 6 foot terminal, 2 bags.
+7', 8', 9', 10' 3 bags. … its a relative thing!!!! post hole sizes are variable. just base it
+off the same hole diameter and make it an easy ratio. also being made way too hard here. …
+idc how you do it, whatever is easier for you. ornamental shouldnt be overcomplicated either.
+8' panel is 8'. 2" aluminum posts wont mess up the spacing, by design. that is the norm.
+holes are never deeper than 48, for a correction. cattle fences braces mid line every 200 feet."
+
+Apply these simply; do not reopen them.
+
+| Item | Rule |
+|---|---|
+| Line post depth | Always 2 ft (24 in). Line post length = fence height + 2 ft. |
+| Terminal post length (end, corner, gate) | Fence height + 2 ft below 8 ft (4 ft fence → 6 ft post). At 8 ft and taller: 1.5 × fence height, hole depth capped at 48 in. |
+| Concrete, terminals | 2 bags for 4–6 ft fences; 3 bags for 7–10 ft. |
+| Concrete, line posts | 1 bag below 8 ft; 2 bags at 8 ft and taller. |
+| Concrete, other depths | Same hole diameter, bags in proportion to depth (simple ratio), rounded up. |
+| Max hole depth | 48 in (corrects the earlier 42). |
+| Ornamental | Panel width is the post spacing: 8 ft panel = 8 ft centers, 6 ft panel = 6 ft. Per-job choice, quick to switch; default 8 ft (the norm). |
+| Cattle fence | A brace assembly mid-line every 200 ft. |
+| C0b branches | Owner: "whatever is easier". |
