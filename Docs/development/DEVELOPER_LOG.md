@@ -812,3 +812,32 @@ closeout; their bytes match the previously reviewed repair checkpoint.
 - Final owner answers recorded (same section, "Final owner answers"): post length,
   concrete bags by fence height, depth ratio, 48 in max depth, ornamental 6/8 ft panel =
   spacing (default 8), cattle brace every 200 ft. All earlier **confirm** rows are closed.
+
+## 2026-10-23 — C0b residential chain link (`claude/counting-c0b-chainlink`)
+
+- Task: HANDOFF.md round 3 step 1, branched from C2 (`claude/quirky-tesla-wyxrmc` `6eb7e1e`).
+- Change (`index.html`, chain link branch and chain-link gate posts only): bolts one per
+  band (ruling 3); top rail `topRailJoint` per run, `swedged` default with no sleeves,
+  `plain` = 21 ft sticks with a sleeve per joint per fabric section (ruling 2; new select
+  beside Top Rail); truss at every terminal fabric end when mid rail + truss are on
+  (ruling 7); ties every 15 in on line posts and every 24 in on rails, hog rings every
+  24 in (ruling 8); post length and concrete per "Final owner answers" (new
+  `chainLinkHoleDepthIn`, `chainLinkConcreteBags`, `chainLinkPostLabel`). Chain link
+  runs no longer raise `CONCRETE_DEPTH_OFF_TABLE` (the footing table no longer applies
+  to them). Other fence types are unchanged; their goldens did not move.
+- Red before / green after: `tests/takeoff-counts.spec.js` C0b-1..6 failed 6/6 against
+  `6eb7e1e`, pass 6/6 after.
+- Moved expectations (direct results): chain link golden (posts 9'/10.5' → 6', sleeves
+  9 → none, ties 63 → 66, hog rings 45 → 42, bolts 48 → 30, post concrete 4 → 10, matCost
+  135209 → 137852, clientTotal 310872 → 314441); **R15 28692 → 28287** (−6 bolts, −1
+  sleeve: 300 × 1.35 = 405); 168 LF fixture post stock 10.5'/104" → 8' and gate concrete
+  12 → 8 (supersedes the v5.4.0 supplement's values: recorded conflict, owner ruling
+  governs); fastening test now Master Halco spacing; gate-run-ownership concrete
+  assertion now "one terminal hole fewer"; T3 footing-table test moved to `cattlehog`.
+- Recorded, not reconciled: the reference's comparison row says plain 21 ft rails give
+  "2+1+0=3" sleeves on the fixture; sticks per section are 2/2/1 for 40/26/18 ft, so the
+  code gives 1+1+0 = 2. Known limit: the spec panel's hole-depth fields still show the
+  generic defaults (18/24 in at 4 ft) for chain link; counts use the owner depths unless
+  a depth is edited.
+- Gate: `npm test` 203/203, persistence matrix 12/12, `git diff --check` clean. Same
+  scratch-only jsPDF preload (npm UMD 364463 bytes, SHA-256 `98ccf17aa10c…3df875`).
