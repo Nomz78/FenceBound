@@ -117,7 +117,8 @@ test('2 a gate at a run end, at a corner, or beside another gate shares the post
   expect({ terminal: r.terminal, terminalQty: r.terminalPostQty, gatePosts: r.gatePosts, ends: r.ends })
     .toEqual({ terminal: 1, terminalQty: 1, gatePosts: 2, ends: 2 });
   for (const k of ['bars', 'bands', 'brace', 'bolts', 'railEnds']) expect(r[k], k).toBe(base[k]);
-  expect(r.postConcrete * 2).toBe(base.postConcrete);
+  // One terminal hole (2 bags) fewer; the three line posts keep their 1 bag each (C0b).
+  expect(r.postConcrete).toBe(base.postConcrete - 2);
 
   // Adjacent gates share their common post: 3 gate posts, 2 fabric sections.
   await open(page);

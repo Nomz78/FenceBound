@@ -482,9 +482,15 @@ label{font-size:10px;color:var(--text2);letter-spacing:0.02em;display:block;marg
         <div class="psec">
           <div class="psec-title">Rails &amp; components</div>
           <div style="display:flex;flex-direction:column;gap:5px">
-            <label id="row-top-rail" style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:10px;color:var(--text2)">
-              <input type="checkbox" id="has-top-rail" checked style="width:auto;accent-color:var(--accent)"/> Top Rail
-            </label>
+            <div id="row-top-rail" style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text2)">
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                <input type="checkbox" id="has-top-rail" checked style="width:auto;accent-color:var(--accent)"/> Top Rail
+              </label>
+              <select id="top-rail-joint" title="Top rail joints" style="width:auto;font-size:10px">
+                <option value="swedged">Swedged (no sleeves)</option>
+                <option value="plain">Plain 21 ft + sleeves</option>
+              </select>
+            </div>
             <label id="row-mid-rail" style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:10px;color:var(--text2)">
               <input type="checkbox" id="has-mid-rail" style="width:auto;accent-color:var(--accent)"/> Mid Rail
             </label>
@@ -1021,6 +1027,7 @@ function syncSpecInputs(preserveSpecs=false){
   POST_ROLES.forEach(role=>setV(`spec-post-dia-${role}`,sp.postDiaIn&&sp.postDiaIn[role]));
   POST_ROLES.forEach(role=>setV(`spec-post-embed-${role}`,sp.postEmbedIn&&sp.postEmbedIn[role]));
   setC('has-top-rail',sp.hasTopRail);setC('has-mid-rail',sp.hasMidRail);
+  setV('top-rail-joint',sp.topRailJoint==='plain'?'plain':'swedged');
   const mro=document.getElementById('mid-rail-options');if(mro)mro.style.display=sp.hasMidRail?'':'none';
   setC('has-truss-rod',sp.hasTrussRod);setC('has-bottom-rail',sp.hasBottomRail);setC('has-face-board',sp.hasFaceBoard);
   // Rebuild the addon chips for the active fence type, then sync active states.
@@ -1245,6 +1252,8 @@ const S={
     postHeightIn:78,
     embedDepthIn:30,
     hasTopRail:true,
+    // Owner ruling 2026-10-23: swedged by default; plain 21 ft sticks join with sleeves.
+    topRailJoint:'swedged',
     hasMidRail:false,
     hasTrussRod:false,
     hasBottomRail:false,
@@ -1908,6 +1917,30 @@ function postLengthLabel(role,sp,label){
 // Units of width w (panels, rail spans) needed to fill a run: each fabric section
 // between gates and run ends takes its own partial unit, so units round per section.
 function unitsPerSection(row,w){return row.sectionFt.reduce((n,f)=>n+Math.ceil(f/w-1e-6),0);}
+// Residential chain link posts and concrete, owner final answers 2026-10-23
+// (HARDWARE_SPEC_REFERENCE.md "Final owner answers"). Line holes are 24 in;
+// terminal (end, corner, gate) holes are 24 in below an 8 ft fence and half the
+// fence height from 8 ft (post = 1.5 x height), never deeper than 48 in.
+function chainLinkHoleDepthIn(role,heightIn){
+  return role==='line'||heightIn<96?24:Math.min(heightIn/2,48);
+}
+function chainLinkBagsAtDefaultDepth(role,heightIn){
+  if(role==='line')return heightIn<96?1:2;
+  return heightIn<84?2:3;
+}
+// A per-run depth edit keeps the hole diameter: bags scale with depth, rounded up.
+function chainLinkDepthIn(role,sp){
+  return sp.postEmbedDirty&&sp.postEmbedDirty[role]?Number(sp.postEmbedIn[role]):chainLinkHoleDepthIn(role,sp.heightIn);
+}
+function chainLinkConcreteBags(role,count,sp){
+  if(count<=0)return 0;
+  const base=chainLinkHoleDepthIn(role,sp.heightIn),depth=chainLinkDepthIn(role,sp);
+  if(!(depth>0))return 0;
+  return count*Math.ceil(chainLinkBagsAtDefaultDepth(role,sp.heightIn)*depth/base-1e-9);
+}
+function chainLinkPostLabel(role,sp,label){
+  return `${label} ${+((sp.heightIn+chainLinkDepthIn(role,sp))/12).toFixed(2)}'`;
+}
 function concreteBagsForPosts(role,count,sp){
   if(role==='line'||count<=0)return 0;
   return count*(bagsForHole(role,sp.postDiaIn[role],sp.postEmbedIn[role])||0);
@@ -1939,16 +1972,20 @@ function calcAutoMaterials(){
 
     if(type==='chainlink'){
       const ends=runStats.terminationEnds;
-      const trussAssemblies=sp.hasMidRail&&sp.hasTrussRod?runStats.cornerEndCt+runStats.gateEndCt:0;
+      // Owner ruling 7: a truss at every terminal fabric connection.
+      const trussAssemblies=sp.hasMidRail&&sp.hasTrussRod?ends:0;
       const hasBarbed=sp.addons.has('barbed-wire');
       items.push({name:`Chain Link Fabric (${sp.heightIn}")`,costKey:'chain link fabric',qty:Math.ceil(ft),unit:'lf'});
       if(sp.hasTopRail)items.push({name:`Top Rail 1-5/8"`,costKey:'top rail',qty:Math.ceil(ft),unit:'lf'});
-      items.push({name:postLengthLabel('line',sp,'Line Post'),costKey:'line post',qty:lineCt,unit:'ea'});
-      items.push({name:postLengthLabel('terminal',sp,'Terminal/Corner Post'),costKey:'terminal corner post',qty:termCt,unit:'ea'});
-      items.push({name:postLengthLabel('corner',sp,'Terminal/Corner Post'),costKey:'terminal corner post',qty:cornerCt,unit:'ea'});
+      items.push({name:chainLinkPostLabel('line',sp,'Line Post'),costKey:'line post',qty:lineCt,unit:'ea'});
+      items.push({name:chainLinkPostLabel('terminal',sp,'Terminal/Corner Post'),costKey:'terminal corner post',qty:termCt,unit:'ea'});
+      items.push({name:chainLinkPostLabel('corner',sp,'Terminal/Corner Post'),costKey:'terminal corner post',qty:cornerCt,unit:'ea'});
       items.push({name:'Tension Bar',costKey:'tension bar',qty:ends,unit:'ea'});
-      items.push({name:'Tension Band',costKey:'tension band',qty:ends*Math.max(Math.ceil(sp.heightIn/12)-1,0),unit:'ea'});
-      if(sp.hasTopRail)items.push({name:'Top Rail Sleeve',costKey:'top rail sleeve',qty:Math.ceil(ft/10),unit:'ea'});
+      const tensionBands=ends*Math.max(Math.ceil(sp.heightIn/12)-1,0);
+      items.push({name:'Tension Band',costKey:'tension band',qty:tensionBands,unit:'ea'});
+      // Owner ruling 2: swedged rail joins itself; plain 21 ft sticks take a sleeve
+      // at each joint within a fabric section.
+      if(sp.hasTopRail&&sp.topRailJoint==='plain')items.push({name:'Top Rail Sleeve',costKey:'top rail sleeve',qty:runStats.sectionFt.reduce((n,f)=>n+Math.max(Math.ceil(f/21-1e-6)-1,0),0),unit:'ea'});
       // Termination hardware is per fabric end (owner field specification, v5.4.0
       // supplement and 2026-10-02 rules): each rail (top, mid, bottom) takes one
       // terminal brace band + one rail-end cup; each tension wire (bottom, top) and
@@ -1957,27 +1994,27 @@ function calcAutoMaterials(){
       const rails=(sp.hasTopRail?1:0)+(sp.hasMidRail?1:0)+(sp.hasBottomRail?1:0);
       const wires=(sp.addons.has('bottom-wire')?1:0)+(sp.addons.has('top-wire')?1:0)+(hasBarbed?sp.barbStrands:0);
       items.push({name:'Post Cap',costKey:'post cap',qty:hasBarbed?0:totalPosts,unit:'ea'});
-      items.push({name:'Terminal-size Brace Band',costKey:'terminal size brace band',qty:ends*(rails+wires),unit:'ea'});
-      if(sp.hasMidRail)items.push({name:'Line-size Brace Band',costKey:'line size brace band',qty:ends,unit:'ea'});
+      const braceBands=ends*(rails+wires),lineBraceBands=sp.hasMidRail?ends:0;
+      items.push({name:'Terminal-size Brace Band',costKey:'terminal size brace band',qty:braceBands,unit:'ea'});
+      if(sp.hasMidRail)items.push({name:'Line-size Brace Band',costKey:'line size brace band',qty:lineBraceBands,unit:'ea'});
       items.push({name:'Rail End (Loop Cap)',costKey:'rail end loop cap',qty:ends*(rails+(sp.hasMidRail?1:0)),unit:'ea'});
-      // Fastening (owner rules 2026-10-03): 5 per bay on every horizontal element,
-      // whatever the bay length — wire ties on rails, hog rings on tension wires and
-      // razor ribbon. Line posts take (height ft - 1) ties, like tension bands.
-      // Bays = line posts + fabric sections (each gate splits the run).
-      const bays=lineCt+runStats.sections;
+      // Fastening at Master Halco spacing (owner ruling 8, CL-C): fabric ties every
+      // 15 in on line posts; rail ties and hog rings (tension wires, razor ribbon)
+      // every 24 in along each fabric section.
       const fastenedWires=['bottom-wire','top-wire','tension-wire','razor-ribbon'].filter(a=>sp.addons.has(a)).length;
-      const tiesPerLinePost=Math.max(Math.ceil(sp.heightIn/12)-1,0);
-      items.push({name:'Wire Ties 9ga',costKey:'wire ties',qty:5*bays*rails+lineCt*tiesPerLinePost,unit:'ea'});
-      if(fastenedWires)items.push({name:'Hog Rings',costKey:'hog rings',qty:5*bays*fastenedWires,unit:'ea'});
-      const boltsPer=Math.ceil(sp.heightIn/12)*2;
-      items.push({name:'3/8" Carriage Bolt+Nut',costKey:'carriage bolt nut',qty:ends*boltsPer,unit:'ea'});
+      const per24In=runStats.sectionFt.reduce((n,f)=>n+Math.ceil(f/2-1e-6),0);
+      const tiesPerLinePost=Math.ceil(sp.heightIn/15);
+      items.push({name:'Wire Ties 9ga',costKey:'wire ties',qty:per24In*rails+lineCt*tiesPerLinePost,unit:'ea'});
+      if(fastenedWires)items.push({name:'Hog Rings',costKey:'hog rings',qty:per24In*fastenedWires,unit:'ea'});
+      // Owner ruling 3: one bolt per band; gate hardware bolts are separate.
+      items.push({name:'3/8" Carriage Bolt+Nut',costKey:'carriage bolt nut',qty:tensionBands+braceBands+lineBraceBands,unit:'ea'});
       if(sp.hasMidRail){items.push({name:'Mid Rail 1-5/8"',costKey:'mid rail',qty:Math.ceil(ft),unit:'lf'});}
       if(sp.hasBottomRail){items.push({name:'Bottom Rail 1-5/8"',costKey:'bottom rail',qty:Math.ceil(ft),unit:'lf'});}
       if(trussAssemblies){
         items.push({name:'Truss Rod',costKey:'truss rod w tightener',qty:trussAssemblies,unit:'ea'});
         items.push({name:'Truss Rod Connector (turnbuckle-style, threaded)',costKey:'truss rod connector',qty:trussAssemblies,unit:'ea'});
       }
-      const concrete=concreteBagsForPosts('terminal',termCt,sp)+concreteBagsForPosts('corner',cornerCt,sp);
+      const concrete=chainLinkConcreteBags('line',lineCt,sp)+chainLinkConcreteBags('terminal',termCt,sp)+chainLinkConcreteBags('corner',cornerCt,sp);
       if(concrete)items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concrete,unit:'bag'});
     } else if(mat==='wood'&&style==='privacy'){
       const picketCt=Math.ceil(ft/(3.5/12));
@@ -2093,9 +2130,10 @@ function calcAutoMaterials(){
     const from=items.length; // a gate belongs to its owning run's section
     items.push({name:`${g.label} w/ Hardware`,costKey:GATE_COST_KEYS[gt],qty:1,unit:'ea'});
     if(posts){
-      items.push({name:postLengthLabel('gate',sp,'Gate Post'),costKey:'gate post',qty:posts,unit:'ea'});
+      const cl=owner.fenceType==='chainlink';
+      items.push({name:cl?chainLinkPostLabel('gate',sp,'Gate Post'):postLengthLabel('gate',sp,'Gate Post'),costKey:'gate post',qty:posts,unit:'ea'});
       if(owner.fenceType==='chainlink'&&!sp.addons.has('barbed-wire'))items.push({name:'Post Cap',costKey:'post cap',qty:posts,unit:'ea'});
-      items.push({name:`Gate Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('gate',posts,sp),unit:'bag'});
+      items.push({name:`Gate Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:cl?chainLinkConcreteBags('gate',posts,sp):concreteBagsForPosts('gate',posts,sp),unit:'bag'});
     }
     for(let i=from;i<items.length;i++)items[i].section=owner.fenceType;
   });
@@ -3572,6 +3610,7 @@ function init(){
   }));
   // Rails
   document.getElementById('has-top-rail').addEventListener('change',e=>{activeSpecs().hasTopRail=e.target.checked;updatePanel();});
+  document.getElementById('top-rail-joint').addEventListener('change',e=>{activeSpecs().topRailJoint=e.target.value;updatePanel();});
   document.getElementById('has-mid-rail').addEventListener('change',e=>{
     // 8'+ mandates mid rail — block turning it off and tell the user why.
     if(!e.target.checked && midRailMandatory(activeSpecs().heightIn)){
@@ -4641,7 +4680,7 @@ function validateProject(options={}){
     if(!Number.isFinite(spacing)||spacing<=0)err('POST_SPACING',`${label} has no valid post spacing.`,run);
     else if(spacing>20)warn('POST_SPACING_HIGH',`${label} post spacing exceeds 20 ft.`,run);
     if(!(sp.addons instanceof Set))err('ADDON_STATE',`${label} add-ons are malformed.`,run);
-    ['terminal','corner','gate'].forEach(role=>{
+    if(run.fenceType!=='chainlink')['terminal','corner','gate'].forEach(role=>{
       const depth=Number(sp.postEmbedIn?.[role]);
       if(depth>0&&!footingDepthOnTable(depth))warn('CONCRETE_DEPTH_OFF_TABLE',
         `${label} ${role} hole depth ${depth}" is not on the footing schedule; its concrete is estimated at ${footingBagsForDepth(depth)} bag(s) per post. Verify.`,run);

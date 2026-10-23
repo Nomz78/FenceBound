@@ -487,8 +487,11 @@ test('R15 zero manual rows preserve the pre-fix estimate total exactly',async({p
   // bags were priced from the wood 'post' key ($11) through the fuzzy name
   // fallback; they now price from 'post concrete bag' ($6.50):
   // 4 x (1100 - 650) x 1.35 = 2430 cents (31122 -> 28692 cents).
-  expect(totals.cents).toBe(28692);
-  expect(totals.dollars).toBe('286.92');
+  // C0b chain link (owner rulings 2026-10-23, HARDWARE_SPEC_REFERENCE.md): one bolt
+  // per band (2 ends x 8 = 16 -> 6 tension + 4 brace bands = 10) and swedged top
+  // rail by default (1 sleeve -> 0): (6 x 40 + 60) x 1.35 = 405 cents (28692 -> 28287).
+  expect(totals.cents).toBe(28287);
+  expect(totals.dollars).toBe('282.87');
 });
 
 test('R16 manual material is visible on the estimate PDF',async({page})=>{

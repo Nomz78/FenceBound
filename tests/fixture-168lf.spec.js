@@ -113,10 +113,10 @@ test('168 LF house-terminated reference job matches the authoritative takeoff', 
       barbArms:sum(row=>/^Barb Arm/.test(row.name)),
       postCaps:exact('Post Cap'),
       lineBraceBands:exact('Line-size Brace Band'),
-      terminalPost105:sum(row=>row.name.startsWith("Terminal/Corner Post 10.5'")&&row.name.includes('104" cut')),
-      gatePost105:sum(row=>row.name.startsWith("Gate Post 10.5'")&&row.name.includes('104" cut')),
-      linePost9Cut87:sum(row=>row.name.startsWith("Line Post 9'")&&row.name.includes('87" cut')),
-      wrongLinePostLength:sum(row=>/^Line Post (?!9')/.test(row.name)),
+      terminalPost8:sum(row=>row.name==="Terminal/Corner Post 8'"),
+      gatePost8:sum(row=>row.name==="Gate Post 8'"),
+      linePost8:exact("Line Post 8'"),
+      wrongLinePostLength:sum(row=>/^Line Post (?!8')/.test(row.name)),
       postConcrete60:exact('Post Concrete (60lb bag)'),
       gateConcrete60:exact('Gate Post Concrete (60lb bag)'),
       concrete80:sum(row=>/Concrete \(80lb bag\)/.test(row.name)),
@@ -130,15 +130,19 @@ test('168 LF house-terminated reference job matches the authoritative takeoff', 
   // per barbed strand; 1 line-size band + 1 rail-end cup for the mid rail.
   // 6-plus-1 carries zero post caps. Items the supplement does not list are
   // logged, not asserted.
+  // C0b (owner final answers 2026-10-23, HARDWARE_SPEC_REFERENCE.md) supersedes the
+  // supplement's post stock and gate concrete: every post on a 6 ft fence is
+  // height + 2 ft = 8 ft (was 10.5 ft / 104" cut terminals and gates, 9 ft line),
+  // and terminal holes take 2 bags at 4-6 ft (gate concrete 12 -> 8).
   const expected={
     terminalPosts:2,cornerPosts:2,gatePosts:4,tensionBars:10,tensionBands:50,
     terminalBraceBands:60,lineBraceBands:10,railEndCups:30,postCaps:0,
     fabric:152,topRail:152,midRail:152,bottomWire:152,barbedWire:456,
-    terminalPost105:4,gatePost105:4,wrongLinePostLength:0,
-    gateConcrete60:12,concrete80:0
+    terminalPost8:4,gatePost8:4,wrongLinePostLength:0,
+    gateConcrete60:8,concrete80:0
   };
   console.log('FIXTURE_168LF_UNASSERTED',JSON.stringify({linePosts:actual.linePosts,trussRods:actual.trussRods,
-    trussConnectors:actual.trussConnectors,barbArms:actual.barbArms,wireTies:actual.wireTies,hogRings:actual.hogRings,linePost9Cut87:actual.linePost9Cut87,postConcrete60:actual.postConcrete60}));
+    trussConnectors:actual.trussConnectors,barbArms:actual.barbArms,wireTies:actual.wireTies,hogRings:actual.hogRings,linePost8:actual.linePost8,postConcrete60:actual.postConcrete60}));
   const deltas=Object.keys(expected).map(item=>({item,expected:expected[item],actual:actual[item],delta:actual[item]-expected[item]}));
   console.log('FIXTURE_168LF_DELTAS',JSON.stringify(deltas.filter(row=>row.delta!==0)));
   for(const row of deltas)expect.soft(row.actual,`${row.item}: expected ${row.expected}, actual ${row.actual}, delta ${row.delta>=0?'+':''}${row.delta}`).toBe(row.expected);
@@ -201,10 +205,10 @@ test('every rail gets a band and cup per end; every tension wire gets a band per
   expect({terminalBands:bare.terminalBands/2,cups:bare.cups,topRail:bare.topRail}).toEqual({terminalBands:1,cups:0,topRail:0});
 });
 
-// Owner fastening rules (2026-10-03): 5 fasteners per bay (post-to-post span)
-// on every horizontal element the fabric is fastened to, regardless of
-// spacing: wire ties on rails, hog rings on tension wire and razor ribbon.
-// Line posts take (height ft - 1) ties, matching the tension-band rule.
+// Fastening at Master Halco spacing (owner ruling 8, 2026-10-23; supersedes the
+// 2026-10-03 5-per-bay rule): wire ties every 24 in on each rail and hog rings
+// every 24 in on each tension wire or razor ribbon, per fabric section; fabric
+// ties every 15 in on line posts (ceil(48/15) = 4 at 4 ft).
 async function fastening(page, mutate, gates=[]) {
   return state(page, `(()=>{
     const specs=cloneRunSpecs(S.specs);(${mutate})(specs);
@@ -220,23 +224,22 @@ async function fastening(page, mutate, gates=[]) {
   })()`);
 }
 
-test('wire ties and hog rings follow the per-bay and per-line-post rules', async ({ page }) => {
+test('wire ties and hog rings follow Master Halco spacing per section and line post', async ({ page }) => {
   await cleanOpen(page);
-  // Default 4 ft: top rail + bottom wire. 40 LF at 10 ft = 3 line posts, 4 bays.
+  // Default 4 ft: top rail + bottom wire. 40 LF at 10 ft = 3 line posts.
   const base=await fastening(page,'s=>{}');
   expect(base.linePosts).toBe(3);
-  expect(base.ties).toBe(5*4 + 3*3);     // top rail 5/bay + 3 ties per line post
-  expect(base.hogRings).toBe(5*4);       // bottom wire 5/bay
+  expect(base.ties).toBe(40/2 + 3*4);    // top rail every 24 in + 4 ties per line post
+  expect(base.hogRings).toBe(40/2);      // bottom wire every 24 in
   expect(base.hogCost).not.toBeNull();   // priceable, so the job can validate
   // Mid rail adds a tied rail; razor ribbon adds a fastened element.
   const more=await fastening(page,`s=>{s.hasMidRail=true;s.addons.add('razor-ribbon');}`);
-  expect(more.ties).toBe(2*5*4 + 3*3);
-  expect(more.hogRings).toBe(2*5*4);
-  // A gate splits the run into two fabric sections: bays = line posts + sections.
+  expect(more.ties).toBe(2*20 + 3*4);
+  expect(more.hogRings).toBe(2*20);
+  // A gate splits the run into two 18 ft fabric sections: 9 + 9 per element.
   const gated=await fastening(page,'s=>{}',[[18,22]]);
-  const bays=gated.linePosts+2;
-  expect(gated.ties).toBe(5*bays + gated.linePosts*3);
-  expect(gated.hogRings).toBe(5*bays);
+  expect(gated.ties).toBe(18 + gated.linePosts*4);
+  expect(gated.hogRings).toBe(18);
 });
 
 // Owner field hole depths (2026-10-03), realistic field numbers rather than

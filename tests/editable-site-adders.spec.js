@@ -67,7 +67,7 @@ test('SA1 seeds equal the former hardcoded rates and the default job prices iden
   const seeds = await state(page, `({demoPerLF:LABOR.demoPerLF,slopePerLF:LABOR.slopePerLF,hardDigPct:LABOR.hardDigPct,urbanPct:MARKUP.urbanPct})`);
   expect(seeds).toEqual(SEEDS);
   const total = await state(page, `(()=>{S.materials=[];return computePricing().cents.clientTotal;})()`);
-  expect(total).toBe(28692);
+  expect(total).toBe(28287); // C0b chain link: was 28692 (persistence-integrity R15)
   const d = await upchargeDeltas(page);
   expect(d.ft).toBeGreaterThan(0);
   expect(d.demoC).toBe(Math.round(d.ft * 300));
