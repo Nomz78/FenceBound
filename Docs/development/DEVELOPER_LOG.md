@@ -806,3 +806,6 @@ closeout; their bytes match the previously reviewed repair checkpoint.
   § "Owner rulings — 2026-10-23"; HANDOFF.md open rulings point there. Five applications
   are marked **confirm** (concrete volume method, ornamental source/default width, 42 in
   cap reading, cattle terminal rule, 1.5× post stock). No code, golden or price changed.
+- Same day, ruling 1 refined by the owner: line posts 1 bag below 8 ft, 2 at 8 ft;
+  terminals 2; at 8 ft and when a spec is unclear, +1 bag per extra foot of depth.
+  Replaces the volume-method proposal. Still to confirm: the base depth for "extra foot".

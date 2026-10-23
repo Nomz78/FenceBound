@@ -521,7 +521,7 @@ marked **confirm**, C0b asks the owner before changing that count.
 
 | # | Question | Owner's words | How C0b applies it |
 |---|---|---|---|
-| 1 | Concrete per hole (wood, vinyl, ornamental, farm) | "follow specs" | Footing per the selected system's spec (W-P, V-H, V-R, O-M/O-J, F-B). Where a spec gives hole size and depth, bags come from that volume (C-Y method). Where a spec is silent, the C-O depth table stays. **Confirm:** volume method. |
+| 1 | Concrete per hole (wood, vinyl, ornamental, farm) | "follow specs" — then, 2026-10-23: "use 1 bag for line posts, until 8' heights and then it is 2. 2 for terminals. scale up with 8' there as well by adding a bag per extra foot of depth when youre not sure." | Supersedes the volume (C-Y) idea. Line posts: 1 bag below 8 ft fence height, 2 at 8 ft. Terminals (end, corner, gate): 2 bags. At 8 ft, and whenever a spec is unclear, add 1 bag per extra foot of hole depth. **Confirm:** the depth that extra feet are counted from. |
 | 2 | Chain link top-rail sleeves | "both should be an option, default being swedged" | Rail choice per job: swedged (default, 0 sleeves, CL-R) or plain 21 ft with sleeves at joints (CL-C). |
 | 3 | Carriage bolts | "one bolt per band is correct. gate hardware is indeed separate." | One bolt per tension/rail-end band (CL-R): 30 on the C0 fixture, was 48. Gate hardware bolts counted separately. |
 | 4 | Split-rail rails and posts | "first is my and the companies i worked for's spacing. follow specs though so, 10'4" it is." | Centers 10 ft 4 in (W-S, S14). The app's current 10 ft spacing is the owner's field practice, recorded but not used. |
@@ -533,5 +533,5 @@ marked **confirm**, C0b asks the owner before changing that count.
 | W2 | Footing depths past 42 in | "no footing depths below 42." | Read as: depth capped at 42 in, no extrapolation. **Confirm.** |
 | W2 | Split / ranch rail default height | "3 ft with two rail, 4 foot for 3 rail and 5 for 4 rail." | 2 rail 3 ft, 3 rail 4 ft, 4 rail 5 ft (matches S15). Post lengths per S15: 5 ft 4 in, 6 ft 6 in, 7 ft 6 in. |
 | W3 | Straight joint between runs (CAD-06) | "terminals can exist in a straight line on average when theres a grade change, becasue wire has to be cut to grade, some people add one every 200 feet or so, but its ultimately not required unless its cattle fence." | Default: line post. A contractor may mark a straight joint as a terminal (grade change). Cattle fence: terminal required. **Confirm:** cattle rule is at every straight joint, every ~200 ft, or both. |
-| W4 | Line-post concrete | "1 bag of concrete for line posts, follow specs." | 1 bag per line post unless the selected system's spec gives a footing. |
+| W4 | Line-post concrete | "1 bag of concrete for line posts, follow specs." | See ruling 1: 1 bag below 8 ft fence height, 2 at 8 ft. |
 | W4 | Residential post stock lengths | "6' post standard for 4' residential. ratio stands for other heights too." | Post stock = 1.5 × fence height (4 ft → 6 ft, 6 ft → 9 ft). **Confirm:** 1.5× rather than height + 2 ft. |
