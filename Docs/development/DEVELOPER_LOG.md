@@ -752,3 +752,30 @@ closeout; their bytes match the previously reviewed repair checkpoint.
 - After repair: R9 "null start" cold 0/12 failures; R9 ×25 (all variants + R9b) 100/100;
   `npm test` 188/188; matrix 12/12; `git diff --check` PASS.
   No price values, golden BOM counts, schema or application version changed.
+
+## 2026-10-17 — C1 order quantities in purchasable units (`claude/counting-c1`)
+
+- Task: HANDOFF.md C1, branched from `main` `f7a2c59`. Owner direction: "merged, begin c1".
+- Change (`index.html`): a rate-card entry may carry a contractor `pack` (line units
+  per purchasable pack, default 1, must be a number of 1 or more). Every automatic line
+  gains `pack` and `order`; `qty` stays the needed count. Bulk lines round across the
+  whole job (`ceil(needed/pack)×pack`). LF lines carry their fabric-section lengths
+  (`cutFt`) and round per section, never pooled; no offcut reuse is assumed.
+  Pricing extends `order` when the rate is in the line's unit, or `order/pack` packs
+  when the rate is in another unit and the pack is above 1. With pack 1 a different
+  unit is still `UNIT_MISMATCH`. Pack sizes save with the company card (the card
+  reload previously dropped any extra field, now keeps `pack`) and ride along in job
+  files. `applyState` and imports coerce them; an invalid one blocks FINAL-READY
+  (`INVALID_PRICING_INPUT`). Loading a job never writes the company card (D-1 guard
+  unchanged). Cost editor gains a pack-size box per row. The materials panel shows
+  "need N" and "order N unit". No default pack above 1, no price value changed.
+- Red before / green after: new `tests/order-quantities.spec.js` O1–O5 failed 5/5
+  against `main`'s `index.html` (O4 on the real defect: a reloaded card returned
+  `pack` undefined) and pass 5/5 after.
+- Gate: `npm test` 193/193 (188 prior unchanged, all 14 goldens and R15 included),
+  persistence matrix 12/12, `git diff --check` PASS.
+- Test command: `NODE_OPTIONS=--require=<scratch>/preload.cjs npx playwright test`,
+  scratch-only preload outside the repo. jsPDF 2.5.1 from npm (registry sha512
+  integrity verified), UMD 364463 bytes, SHA-256
+  `98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875`, matching the
+  2026-10-15 records. HANDOFF.md's copy reads `98ccf17ae10c…`, a one-character typo.
