@@ -901,3 +901,18 @@ closeout; their bytes match the previously reviewed repair checkpoint.
 - This direct documentation child refreshes state/current handoff and archives
   `Docs/handoffs/2026-10-24__counting-c0b-wood-closeout.md`. Push target remains
   `origin/claude/counting-c0b-wood`, PR base `claude/counting-c0b-chainlink`; stop after PR.
+
+### 2026-10-24 — C0b vinyl privacy
+
+- Owner request: "Start vinyl as the next C0b PR". Branch `claude/admiring-thompson-589ghg`
+  from `bd60cc2` (chainlink with wood #22 merged). Scope: `vinylprivacy6`/`vinylprivacy8` only.
+- Added both to `OWNER_POST_RULE_TYPES`; vinyl posts split by role (line/terminal/corner)
+  with owner-rule lengths and concrete. Gate posts keep `Gate Post` / `gate post` at
+  owner-rule length; vinyl gate-post material is unverified in the reference.
+- Red: four new takeoff tests (140-layout sweep, edited depths) fail on `bd60cc2`. Green after.
+- Goldens: privacy6 `Vinyl Post 9'` -> `8'` (11), bags 33 -> 13, gate `10.5' (104" cut)` -> `8'`,
+  gate bags 12 -> 8, cents 338244/624030 -> 322644/602970. Privacy8 `Vinyl Post 11'` 11 ->
+  `10'` 9 + `12'` 2, bags 33 -> 24, gate `11' (128" cut)` -> `12'`, gate bags 12, cents
+  338244/650070 -> 332394/642172. Concrete is the only money change; no rate value changed.
+- Gate on `a194c16`: `npm test` 212/212, persistence matrix 12/12, diff check PASS.
+  Handoff: `Docs/execution/C0B_VINYL_HANDOFF_2026-10-24.md`.

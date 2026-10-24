@@ -11,8 +11,12 @@
   cover 140 default layouts and edited line/end/corner/gate depths. Golden changes and
   evidence: `Docs/execution/C0B_WOOD_HANDOFF_2026-10-24.md`; final gate and tested commit:
   `Docs/CURRENT_HANDOFF.md`.
-- This round ends after opening the wood PR against `claude/counting-c0b-chainlink`.
-  No next product task is active. Vinyl, ornamental, split rail and cattle are later PRs.
+- Wood PR #22 merged into `claude/counting-c0b-chainlink` (`bd60cc2`).
+- C0b vinyl privacy (owner: "Start vinyl as the next C0b PR", 2026-10-24) is implemented on
+  `claude/admiring-thompson-589ghg` (`a194c16`, from `bd60cc2`); PR against
+  `claude/counting-c0b-chainlink`. Evidence and goldens: `Docs/execution/C0B_VINYL_HANDOFF_2026-10-24.md`.
+  Vinyl split rail is left for the split-rail PR. Vinyl gate-post material stays generic (unverified).
+- Next (needs owner go-ahead): ornamental, split rail (wood + vinyl), cattle, each its own PR.
 
 ## Wood plan (step 2; implemented this round)
 Owner direction 2026-10-24: test rules across many heights/lengths, not one sample job.
