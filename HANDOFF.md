@@ -1,17 +1,28 @@
-# HANDOFF — counting, after round 6 (C0b complete)
+# HANDOFF — counting, C3 material order
 
 ## Current state
-- Stack (each PR based on the one before): chain link #21, wood #22 (merged into chain link),
-  vinyl #23 (`claude/admiring-thompson-589ghg`), ornamental #24
-  (`claude/counting-c0b-ornamental`, `6336cc7`), split rail #25
-  (`claude/counting-c0b-splitrail`, `8be571b`), **cattle #26**
-  (`claude/counting-c0b-cattle`, `485325a`, plus a docs commit). All open.
-- C0b is done for every type. Cattle: mid-line brace every 200 ft (`ceil(len/200) - 1` per
-  fabric section), owner post rules; see `Docs/execution/C0B_CATTLE_HANDOFF_2026-10-24.md`.
-- Gate on cattle head: `npm test` 222 passed, persistence matrix 12 pass.
-- Next (each needs the owner's go-ahead): owner review/merge of the stack, then C3 (material
-  order export) and C4 (house/wall termination) under "Steps" below; commercial chain link
-  as its own type is a later PR. Start from `claude/counting-c0b-cattle`.
+- Owner authorized **C3 material-order CSV/PDF export** on 2026-10-24. Branch:
+  `codex/counting-c3`, based on cattle documentation HEAD `2ddeccd`; cattle implementation
+  `485325a` and its recorded 222/222 + 12/12 gate are historical evidence, not reruns.
+- Materials tab now exports counts-only CSV and paginated PDF. Orders reuse existing
+  pack/waste calculations; manual items display need/order and participate in export.
+  Matching item/unit/pack/waste rows sum existing orders without rerounding.
+- Task evidence and validation: `Docs/execution/C3_MATERIAL_ORDER_HANDOFF_2026-10-24.md`.
+  Read that file and `tests/material-order-export.spec.js` before continuing C3.
+  Fresh local gate: full suite 230/230, persistence 12/12, diff check PASS. Eight new
+  tests are red on the original runtime. Independent review has no remaining finding.
+- Live GitHub check on 2026-10-24: #21 merged into C2, #22 merged into chain link;
+  vinyl #23, ornamental #24, split rail #25 and cattle #26 are open. These stacked
+  merges do not establish integration into main. Cattle #26 has no reported reviews/CI.
+- Startup audit: `Docs/CURRENT_HANDOFF.md` and `CURRENT_STATE.json` still describe the
+  wood closeout. Cattle HEAD is clean, matches origin, and differs from `485325a` only
+  in its handoff/log documentation. Refresh current status during approved C3 closeout;
+  do not rewrite cattle history or treat its recorded gate as fresh evidence.
+- Owner approved two-commit closeout and push on 2026-10-24. The committed gate and
+  final synchronization boundary belong in `Docs/CURRENT_HANDOFF.md` and `CURRENT_STATE.json`.
+  Next: finish that closeout if still pending, then stop for PR creation approval. Proposed PR base:
+  `claude/counting-c0b-cattle`. PR creation requires its separate explicit approval.
+  C4, commercial chain link, and merging remain separate owner tasks.
 
 ## Wood plan (step 2; implemented round 4)
 Owner direction 2026-10-24: test rules across many heights/lengths, not one sample job.

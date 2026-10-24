@@ -941,3 +941,49 @@ closeout; their bytes match the previously reviewed repair checkpoint.
 - Goldens: gate posts `10.5' (74" cut)` -> `6'` for both; counts and cents unchanged.
 - Gate: `npm test` 222 passed, persistence matrix 12/12.
   Handoff: `Docs/execution/C0B_CATTLE_HANDOFF_2026-10-24.md`.
+
+### 2026-10-24 — C3 material-order CSV/PDF export
+
+- Owner selected “Start C3 material-order export.” Branch `codex/counting-c3` from
+  cattle documentation HEAD `2ddeccd`. Cattle implementation `485325a` and recorded
+  PASS were verified as handoff facts; they were not represented as fresh tests.
+- Materials tab gains counts-only Order CSV/PDF. Automatic orders reuse the existing
+  per-section pack/waste calculation; manual items show needed/order and use the
+  same existing helper. Matching name/unit/pack/waste groups sum already-rounded
+  orders. No price value, golden count, pricing formula, dependency or schema change.
+- Layout errors/warnings appear in both exports. Missing prices do not suppress items
+  or change estimate-readiness status. Invalid quantities/packs/waste block export.
+  CSV safely quotes names; PDF wraps/paginates items, identity and layout notes.
+- Eight real-download regressions fail against original cattle runtime. Initial focused
+  C3/C1/C2 run passed 15/15. Review repaired PDF identity placement, then a same-name
+  fixture error was corrected to use distinct real cost keys. Final export suite 8/8.
+  Visual inspection repaired divider spacing; final PDF and Materials panel inspected.
+- Final fresh working-tree gate at `2026-10-24T13:25:52Z`: full suite **230/230**,
+  persistence **12/12**, `git diff --check` PASS. All existing goldens unchanged.
+  First full attempt stopped at 132 pass/one failed fixture/one interrupted/96 not run;
+  the corrected fixture passed before the final full rerun. Independent read-only
+  review found no remaining supported finding. Evidence and runtime hash:
+  `Docs/execution/C3_MATERIAL_ORDER_HANDOFF_2026-10-24.md`.
+- Startup `session:init` correctly reports inherited wood metadata drift. Live cattle
+  Git was clean and equal to origin; only three documentation files differ from its
+  implementation parent. Live PRs #23–26 are open; #21/#22 merged into their stacked
+  bases, which does not establish integration into main. C3 closeout will refresh
+  current state in the approved two-commit sequence; no cattle history rewrite.
+- Local implementation awaits closeout approval. PR creation requires separate
+  high-attention approval; proposed base is `claude/counting-c0b-cattle`. C4, commercial
+  chain link and merging remain outside this task.
+
+### 2026-10-24 — C3 approved two-commit closeout
+
+- Owner approved implementation commit, committed gate, documentation child and push to
+  `origin/codex/counting-c3`. PR creation remains separately gated.
+- Implementation: `fe6fca7768f605831c9c68a962a1b659f5393f53`. Fresh committed gate at `2026-10-24T14:04:20+00:00`:
+  full suite 230/230, persistence matrix 12/12, diff check PASS. Normal browser/CDN setup;
+  runtime SHA-256 `77bf37447e3b0985eb6cb0d602219b476d1f6b7fbd06d51f3dd3fd7d5a877887`.
+- Independent implementation review has no remaining findings; no source/test changes
+  after reviewed validation. Current state/handoff replace inherited wood metadata.
+- This direct documentation child changes only CURRENT_STATE.json, current/archive
+  handoffs and this log. Archive: `Docs/handoffs/2026-10-24__c3-material-order-closeout.md`.
+  Live clean/upstream equality is verified after the authorized push; no merge or PR creation
+  is inferred from synchronization. Logs: `/tmp/fencebound-c3-committed-tests.log`,
+  `/tmp/fencebound-c3-committed-matrix.log`.
