@@ -929,3 +929,15 @@ closeout; their bytes match the previously reviewed repair checkpoint.
 - Red-before sweeps for both; gates 214 and 220 passed, matrix 12/12 each.
 - Session hit the handoff break-even after split rail; cattle moved to round 6.
   Handoffs: `Docs/execution/C0B_ORNAMENTAL_HANDOFF_2026-10-24.md`, `C0B_SPLITRAIL_HANDOFF_2026-10-24.md`.
+
+### 2026-10-24 — C0b cattle (round 6)
+
+- Owner: "Go ahead with cattle r6." Branch `claude/counting-c0b-cattle` from `80856d8`,
+  commit `485325a`, PR #26 (base split rail branch). Last C0b type.
+- Cattle field/hog on owner post rules; mid-line brace every 200 ft (`ceil(len/200) - 1`
+  per fabric section; round 5's "floor" would brace a terminal at exactly 200 ft). Each
+  brace = 1 wood brace post + 2 brace wire + terminal concrete. T-posts unchanged.
+- Red-before: 32-layout sweep per type. T3 moved from cattle hog to temporary fence.
+- Goldens: gate posts `10.5' (74" cut)` -> `6'` for both; counts and cents unchanged.
+- Gate: `npm test` 222 passed, persistence matrix 12/12.
+  Handoff: `Docs/execution/C0B_CATTLE_HANDOFF_2026-10-24.md`.

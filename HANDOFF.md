@@ -1,38 +1,17 @@
-# HANDOFF — counting, round 6
+# HANDOFF — counting, after round 6 (C0b complete)
 
 ## Current state
 - Stack (each PR based on the one before): chain link #21, wood #22 (merged into chain link),
-  vinyl #23 (`claude/admiring-thompson-589ghg`), **ornamental #24**
-  (`claude/counting-c0b-ornamental`, `6336cc7`), **split rail #25**
-  (`claude/counting-c0b-splitrail`, `8be571b`, plus this docs commit). All open.
-- Owner go-ahead 2026-10-24 for all remaining C0b types: "i want to give the go ahead on all
-  of them. lets get this done today". Only **cattle** is left.
-- Rules: `Docs/reference/HARDWARE_SPEC_REFERENCE.md:539-560` (Final owner answers); apply
-  simply, do not re-ask.
-- Evidence/goldens: `Docs/execution/C0B_ORNAMENTAL_HANDOFF_2026-10-24.md`,
-  `Docs/execution/C0B_SPLITRAIL_HANDOFF_2026-10-24.md`; log entry in `DEVELOPER_LOG.md`.
-- Gate on split rail head: `npm test` 220 passed, persistence matrix 12 pass.
-
-## Round 6 plan: cattle
-Read first: `git show 8be571b -- index.html` (pattern), `index.html` cattle branch in
-`calcAutoMaterials` (search `mat==='cattle'`; T-posts on line, `Wood Corner/Brace Post`
-at terminals, brace wire 2 per terminal, concrete only on terminals/corners via
-`concreteBagsForPosts`), `FENCE_TYPES.cattlefield/cattlehog` (spacing 12, embed 24),
-`tests/takeoff-counts.spec.js` split-rail sweep (search `C0b-splitrail`) as the test pattern.
-1. Branch `claude/counting-c0b-cattle` from `claude/counting-c0b-splitrail`; PR base the
-   split-rail branch. Types `cattlefield`, `cattlehog`.
-2. Brace assembly mid-line every 200 ft of run, one at each 200 ft point strictly inside a
-   fabric section: count = `ceil(len/200) - 1` per section (199 -> 0, 200 -> 0, 201 -> 1,
-   400 -> 1, 401 -> 2, 650 -> 3). The round 5 note "floor(len/200)" would put a brace on
-   the terminal at exactly 200 ft, which the same note excludes; use the ceil form. Each
-   brace adds what a terminal brace carries today (wood brace post, 2 brace wire) at the
-   owner terminal rules. Keep it simple; state the assembly contents in the PR.
-3. Posts/concrete: wood corner/brace posts are terminals → owner terminal length and bags
-   (they set in concrete today). T-posts are driven, no concrete; leave them alone.
-4. **Done when:** sweep (lengths 150/199/200/201/399/400/401/650 ft, gated/ungated, both
-   types) red then green; goldens old -> new; full gate (`npm test` + matrix); push; PR.
-5. Then: execution handoff `Docs/execution/C0B_CATTLE_HANDOFF_2026-10-24.md`, a
-   DEVELOPER_LOG entry, update this file; stop. Hand off to r7 if over break-even.
+  vinyl #23 (`claude/admiring-thompson-589ghg`), ornamental #24
+  (`claude/counting-c0b-ornamental`, `6336cc7`), split rail #25
+  (`claude/counting-c0b-splitrail`, `8be571b`), **cattle #26**
+  (`claude/counting-c0b-cattle`, `485325a`, plus a docs commit). All open.
+- C0b is done for every type. Cattle: mid-line brace every 200 ft (`ceil(len/200) - 1` per
+  fabric section), owner post rules; see `Docs/execution/C0B_CATTLE_HANDOFF_2026-10-24.md`.
+- Gate on cattle head: `npm test` 222 passed, persistence matrix 12 pass.
+- Next (each needs the owner's go-ahead): owner review/merge of the stack, then C3 (material
+  order export) and C4 (house/wall termination) under "Steps" below; commercial chain link
+  as its own type is a later PR. Start from `claude/counting-c0b-cattle`.
 
 ## Wood plan (step 2; implemented round 4)
 Owner direction 2026-10-24: test rules across many heights/lengths, not one sample job.
