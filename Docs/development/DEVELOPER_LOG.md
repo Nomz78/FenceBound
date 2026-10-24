@@ -972,3 +972,18 @@ closeout; their bytes match the previously reviewed repair checkpoint.
 - Local implementation awaits closeout approval. PR creation requires separate
   high-attention approval; proposed base is `claude/counting-c0b-cattle`. C4, commercial
   chain link and merging remain outside this task.
+
+### 2026-10-24 — C3 approved two-commit closeout
+
+- Owner approved implementation commit, committed gate, documentation child and push to
+  `origin/codex/counting-c3`. PR creation remains separately gated.
+- Implementation: `fe6fca7768f605831c9c68a962a1b659f5393f53`. Fresh committed gate at `2026-10-24T14:04:20+00:00`:
+  full suite 230/230, persistence matrix 12/12, diff check PASS. Normal browser/CDN setup;
+  runtime SHA-256 `77bf37447e3b0985eb6cb0d602219b476d1f6b7fbd06d51f3dd3fd7d5a877887`.
+- Independent implementation review has no remaining findings; no source/test changes
+  after reviewed validation. Current state/handoff replace inherited wood metadata.
+- This direct documentation child changes only CURRENT_STATE.json, current/archive
+  handoffs and this log. Archive: `Docs/handoffs/2026-10-24__c3-material-order-closeout.md`.
+  Live clean/upstream equality is verified after the authorized push; no merge or PR creation
+  is inferred from synchronization. Logs: `/tmp/fencebound-c3-committed-tests.log`,
+  `/tmp/fencebound-c3-committed-matrix.log`.
