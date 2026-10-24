@@ -1015,3 +1015,23 @@ closeout; their bytes match the previously reviewed repair checkpoint.
 - Implementation awaits the human closeout gate; no C4 commit, push or PR yet. Live #26
   is merged into split rail, cattle remains `c15954c`, and main integration is outstanding.
   Select the PR base from the live stack at the separately approved creation step.
+
+### 2026-10-24 — C4 approved two-commit closeout
+
+- Owner approved implementation commit, committed gate, documentation child and push to
+  `origin/codex/counting-c4`. Separate PR creation approval remains required.
+- Implementation: `184db3bffe564ef7b7d4d915340eca5d74c22f59`. Fresh committed gate at `2026-10-24T18:13:59+00:00`:
+  **235/235 tests**, **12/12 persistence routes**, diff check PASS. Worktree stayed clean
+  during validation; normal browser/CDN setup, including PDF tests.
+- Runtime SHA-256: `fc4e8a7fd23ccef80878aad5db56d997099e45f7e1f3ff55025066c15abb8a32`.
+- Independent review and evidence review have no remaining supported findings. No source
+  or test changes followed the reviewed repair. Current state/handoff replace C3 metadata;
+  historical execution wording remains preserved as checkpoint evidence.
+- This direct documentation child changes only state, current/archive handoffs and this
+  log. Archive: `Docs/handoffs/2026-10-24__c4-house-end-closeout.md`.
+- Live #27 is merged into cattle; #26 merged an older cattle snapshot into split rail,
+  which does not contain C3 merge `c15954c`. #23–25 remain open. Main integration remains
+  outstanding. Propose C4 PR against cattle to isolate C4, subject to separate approval.
+  Verify clean/upstream equality after the authorized push; no merge or next task is implied.
+- Committed logs: `/tmp/fencebound-c4-committed-tests.log`,
+  `/tmp/fencebound-c4-committed-matrix.log`.
