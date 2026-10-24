@@ -852,3 +852,30 @@ closeout; their bytes match the previously reviewed repair checkpoint.
   rail sleeves) checked on 49 straight runs, heights 3–10 ft × lengths 12–250 ft, with
   expected counts written from the rules. Red on `6eb7e1e` (321 mismatches), green now.
 - Old-job behaviour dropped from the open items. Gate: `npm test` 204/204, matrix 12/12.
+
+## 2026-10-24 — C0b wood privacy/shadowbox (counting r4)
+
+- Owner scope: wood plan only, on `claude/counting-c0b-wood` from `dd5f49d`; PR base
+  `claude/counting-c0b-chainlink`, stop after PR. Final owner answers at
+  `HARDWARE_SPEC_REFERENCE.md:539` apply directly; no field questions reopened.
+- Shared owner helpers now serve chain link and privacy/shadowbox wood. Wood 4x4 posts
+  use role-specific lengths; gate posts use cost key `post`. Lines take 1 bag (2 from
+  8 ft); ends/corners/gates take 2 (3 from 7 ft). Edited depths use a rounded-up ratio.
+  Old table warnings are skipped for these types. Other wood materials and split rail
+  are unchanged. Existing price values are unchanged.
+- Red: all four new tests fail against `dd5f49d`; strengthened 31-in gate warning cases
+  also fail. Green: takeoff suite 34/34, including 140 swept layouts, edited-depth
+  corners/gates and all 14 type goldens. Raw logs under `/tmp/fencebound-wood-*.log`.
+- Both wood goldens: posts 4x4x9' -> 4x4x8' (11); post bags 33 -> 13; gate post
+  10.5' (104" cut) -> 4x4x8' (4), key `gate post` -> `post`; gate bags 12 -> 8.
+  Privacy matCost/clientTotal: 271435 -> 250635 / 520818 -> 492738 cents.
+  Shadowbox: 267145 -> 246345 / 528047 -> 499967 cents. Every other golden unchanged.
+- Full gate, tested commit and independent review result are recorded in the subsequent
+  documentation closeout. Standalone evidence: `Docs/execution/C0B_WOOD_HANDOFF_2026-10-24.md`.
+- Startup drift audited: old state/current handoff describe the market-readiness branch,
+  while owner instructions and `HANDOFF.md` select this wood branch and scope. Git is
+  clean at start; chainlink is an ancestor with one wood-plan documentation commit.
+  Live GitHub shows #19 merged to main, #20 to C1 and #21 to C2 (not open as inherited
+  handoff claimed). No final-main integration claim is inferred for #20/#21.
+- Carried limit: the spec panel shows generic default depths; owner-rule calculations
+  apply unless depths are edited. Old saved jobs remain out of scope as owner directed.

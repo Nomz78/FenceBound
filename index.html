@@ -1917,29 +1917,34 @@ function postLengthLabel(role,sp,label){
 // Units of width w (panels, rail spans) needed to fill a run: each fabric section
 // between gates and run ends takes its own partial unit, so units round per section.
 function unitsPerSection(row,w){return row.sectionFt.reduce((n,f)=>n+Math.ceil(f/w-1e-6),0);}
-// Residential chain link posts and concrete, owner final answers 2026-10-23
+// Post rules shared by residential chain link and privacy/shadowbox wood,
+// owner final answers 2026-10-23
 // (HARDWARE_SPEC_REFERENCE.md "Final owner answers"). Line holes are 24 in;
 // terminal (end, corner, gate) holes are 24 in below an 8 ft fence and half the
 // fence height from 8 ft (post = 1.5 x height), never deeper than 48 in.
-function chainLinkHoleDepthIn(role,heightIn){
+const OWNER_POST_RULE_TYPES=new Set(['chainlink','woodprivacy','woodshadowbox']);
+function ownerPostHoleDepthIn(role,heightIn){
   return role==='line'||heightIn<96?24:Math.min(heightIn/2,48);
 }
-function chainLinkBagsAtDefaultDepth(role,heightIn){
+function ownerPostBagsAtDefaultDepth(role,heightIn){
   if(role==='line')return heightIn<96?1:2;
   return heightIn<84?2:3;
 }
 // A per-run depth edit keeps the hole diameter: bags scale with depth, rounded up.
-function chainLinkDepthIn(role,sp){
-  return sp.postEmbedDirty&&sp.postEmbedDirty[role]?Number(sp.postEmbedIn[role]):chainLinkHoleDepthIn(role,sp.heightIn);
+function ownerPostDepthIn(role,sp){
+  return sp.postEmbedDirty&&sp.postEmbedDirty[role]?Number(sp.postEmbedIn[role]):ownerPostHoleDepthIn(role,sp.heightIn);
 }
-function chainLinkConcreteBags(role,count,sp){
+function ownerPostConcreteBags(role,count,sp){
   if(count<=0)return 0;
-  const base=chainLinkHoleDepthIn(role,sp.heightIn),depth=chainLinkDepthIn(role,sp);
+  const base=ownerPostHoleDepthIn(role,sp.heightIn),depth=ownerPostDepthIn(role,sp);
   if(!(depth>0))return 0;
-  return count*Math.ceil(chainLinkBagsAtDefaultDepth(role,sp.heightIn)*depth/base-1e-9);
+  return count*Math.ceil(ownerPostBagsAtDefaultDepth(role,sp.heightIn)*depth/base-1e-9);
+}
+function ownerPostLengthFt(role,sp){
+  return +((sp.heightIn+ownerPostDepthIn(role,sp))/12).toFixed(2);
 }
 function chainLinkPostLabel(role,sp,label){
-  return `${label} ${+((sp.heightIn+chainLinkDepthIn(role,sp))/12).toFixed(2)}'`;
+  return `${label} ${ownerPostLengthFt(role,sp)}'`;
 }
 function concreteBagsForPosts(role,count,sp){
   if(role==='line'||count<=0)return 0;
@@ -2014,13 +2019,15 @@ function calcAutoMaterials(){
         items.push({name:'Truss Rod',costKey:'truss rod w tightener',qty:trussAssemblies,unit:'ea'});
         items.push({name:'Truss Rod Connector (turnbuckle-style, threaded)',costKey:'truss rod connector',qty:trussAssemblies,unit:'ea'});
       }
-      const concrete=chainLinkConcreteBags('line',lineCt,sp)+chainLinkConcreteBags('terminal',termCt,sp)+chainLinkConcreteBags('corner',cornerCt,sp);
+      const concrete=ownerPostConcreteBags('line',lineCt,sp)+ownerPostConcreteBags('terminal',termCt,sp)+ownerPostConcreteBags('corner',cornerCt,sp);
       if(concrete)items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concrete,unit:'bag'});
     } else if(mat==='wood'&&style==='privacy'){
       const picketCt=Math.ceil(ft/(3.5/12));
       const railCt=2+(sp.hasMidRail?1:0);
       items.push({name:`Dog-Ear Picket 1x4x${sp.heightIn/12}'`,costKey:'dog ear picket',qty:picketCt,unit:'ea'});
-      items.push({name:`Post 4x4x${postLen}`,costKey:'post',qty:typePostCount,unit:'ea'});
+      items.push({name:`Post 4x4x${ownerPostLengthFt('line',sp)}'`,costKey:'post',qty:lineCt,unit:'ea'});
+      items.push({name:`Post 4x4x${ownerPostLengthFt('terminal',sp)}'`,costKey:'post',qty:termCt,unit:'ea'});
+      items.push({name:`Post 4x4x${ownerPostLengthFt('corner',sp)}'`,costKey:'post',qty:cornerCt,unit:'ea'});
       items.push({name:'2x4 Top Rail',costKey:'wood top rail',qty:Math.ceil(ft),unit:'lf'});
       items.push({name:'2x4 Bottom Rail',costKey:'wood bottom rail',qty:Math.ceil(ft),unit:'lf'});
       if(sp.hasMidRail)items.push({name:'2x4 Mid Rail',costKey:'wood mid rail',qty:Math.ceil(ft),unit:'lf'});
@@ -2028,13 +2035,15 @@ function calcAutoMaterials(){
       // v5.3 fastener respec: 2 screws per frame board per post + 9 per picket.
       items.push({name:'Exterior Screws (rails)',costKey:'exterior screws',qty:railCt*typePostCount*2,unit:'ea'});
       items.push({name:'Exterior Screws (pickets)',costKey:'exterior screws',qty:picketCt*9,unit:'ea'});
-      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
+      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:ownerPostConcreteBags('line',lineCt,sp)+ownerPostConcreteBags('terminal',termCt,sp)+ownerPostConcreteBags('corner',cornerCt,sp),unit:'bag'});
     } else if(mat==='wood'&&style==='shadowbox'){
       // Shadowbox: pickets alternate front/back — ~1.5x picket count vs solid privacy
       const picketCt=Math.ceil(ft/(5.5/12)*1.5);
       const railCt=2+(sp.hasMidRail?1:0);
       items.push({name:`Dog-Ear Picket 1x6x${sp.heightIn/12}'`,costKey:'dog ear picket',qty:picketCt,unit:'ea'});
-      items.push({name:`Post 4x4x${postLen}`,costKey:'post',qty:typePostCount,unit:'ea'});
+      items.push({name:`Post 4x4x${ownerPostLengthFt('line',sp)}'`,costKey:'post',qty:lineCt,unit:'ea'});
+      items.push({name:`Post 4x4x${ownerPostLengthFt('terminal',sp)}'`,costKey:'post',qty:termCt,unit:'ea'});
+      items.push({name:`Post 4x4x${ownerPostLengthFt('corner',sp)}'`,costKey:'post',qty:cornerCt,unit:'ea'});
       items.push({name:'2x4 Top Rail',costKey:'wood top rail',qty:Math.ceil(ft),unit:'lf'});
       items.push({name:'2x4 Bottom Rail',costKey:'wood bottom rail',qty:Math.ceil(ft),unit:'lf'});
       if(sp.hasMidRail)items.push({name:'2x4 Mid Rail',costKey:'wood mid rail',qty:Math.ceil(ft),unit:'lf'});
@@ -2042,7 +2051,7 @@ function calcAutoMaterials(){
       // v5.3 fastener respec: same rule as privacy — 2/frame board/post + 9/picket.
       items.push({name:'Exterior Screws (rails)',costKey:'exterior screws',qty:railCt*typePostCount*2,unit:'ea'});
       items.push({name:'Exterior Screws (pickets)',costKey:'exterior screws',qty:picketCt*9,unit:'ea'});
-      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
+      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:ownerPostConcreteBags('line',lineCt,sp)+ownerPostConcreteBags('terminal',termCt,sp)+ownerPostConcreteBags('corner',cornerCt,sp),unit:'bag'});
     } else if(mat==='vinyl'&&(style==='privacy6'||style==='privacy8')){
       const panelCt=unitsPerSection(runStats,8);
       items.push({name:`Vinyl Privacy Panel ${sp.heightIn}"`,costKey:'vinyl privacy panel',qty:panelCt,unit:'ea'});
@@ -2130,10 +2139,13 @@ function calcAutoMaterials(){
     const from=items.length; // a gate belongs to its owning run's section
     items.push({name:`${g.label} w/ Hardware`,costKey:GATE_COST_KEYS[gt],qty:1,unit:'ea'});
     if(posts){
-      const cl=owner.fenceType==='chainlink';
-      items.push({name:cl?chainLinkPostLabel('gate',sp,'Gate Post'):postLengthLabel('gate',sp,'Gate Post'),costKey:'gate post',qty:posts,unit:'ea'});
+      const ownerRules=OWNER_POST_RULE_TYPES.has(owner.fenceType);
+      const wood=ownerRules&&owner.fenceType!=='chainlink';
+      const name=wood?`Gate Post 4x4x${ownerPostLengthFt('gate',sp)}'`
+        :ownerRules?chainLinkPostLabel('gate',sp,'Gate Post'):postLengthLabel('gate',sp,'Gate Post');
+      items.push({name,costKey:wood?'post':'gate post',qty:posts,unit:'ea'});
       if(owner.fenceType==='chainlink'&&!sp.addons.has('barbed-wire'))items.push({name:'Post Cap',costKey:'post cap',qty:posts,unit:'ea'});
-      items.push({name:`Gate Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:cl?chainLinkConcreteBags('gate',posts,sp):concreteBagsForPosts('gate',posts,sp),unit:'bag'});
+      items.push({name:`Gate Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:ownerRules?ownerPostConcreteBags('gate',posts,sp):concreteBagsForPosts('gate',posts,sp),unit:'bag'});
     }
     for(let i=from;i<items.length;i++)items[i].section=owner.fenceType;
   });
@@ -4680,7 +4692,7 @@ function validateProject(options={}){
     if(!Number.isFinite(spacing)||spacing<=0)err('POST_SPACING',`${label} has no valid post spacing.`,run);
     else if(spacing>20)warn('POST_SPACING_HIGH',`${label} post spacing exceeds 20 ft.`,run);
     if(!(sp.addons instanceof Set))err('ADDON_STATE',`${label} add-ons are malformed.`,run);
-    if(run.fenceType!=='chainlink')['terminal','corner','gate'].forEach(role=>{
+    if(!OWNER_POST_RULE_TYPES.has(run.fenceType))['terminal','corner','gate'].forEach(role=>{
       const depth=Number(sp.postEmbedIn?.[role]);
       if(depth>0&&!footingDepthOnTable(depth))warn('CONCRETE_DEPTH_OFF_TABLE',
         `${label} ${role} hole depth ${depth}" is not on the footing schedule; its concrete is estimated at ${footingBagsForDepth(depth)} bag(s) per post. Verify.`,run);
@@ -5057,6 +5069,7 @@ init();
   <div class="fb-dev-box"><h3>Current Status</h3><div>v5.4.0 includes CSV price import, company profile, and full backup/restore. September 6 takeoff changes are implemented, but the passing 168 LF fixture disagrees with the authoritative field specification; pricing correctness is not fully established. The September 18 automatic-post repair is a local candidate pending closeout.</div></div>
 
   <div class="fb-dev-box"><h3>Takeoff — Implemented and Unresolved</h3><ul>
+   <li><b>C0b wood (24 October 2026):</b> Privacy/shadowbox 4x4 line, end, corner and gate lengths and concrete follow the final 23 October owner rules. Gate posts use the wood post rate key. Other wood materials and split rail retain their existing rules.</li>
    <li><b>D1/D2</b> Statistics and materials share per-run post tallies; linear materials and per-LF labour exclude gate widths.</li>
    <li><b>D3/D5 unresolved authority conflict:</b> the closed-loop fixture expects 12 tension bars, 60 tension bands, 24 terminal brace bands, 16 line brace bands, 24 rail-end cups and 8 caps. The house-terminated reference specifies 10, 50, 60, 10, 30 and 0 respectively. Passing that fixture is not field-specification approval.</li>
    <li><b>D4</b> Role-specific lengths, embed settings and 60-pound concrete quantities are implemented. Current driven-line-post defaults also differ from the August field record; owner reconciliation remains pending.</li>

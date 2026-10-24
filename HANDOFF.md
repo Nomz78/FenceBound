@@ -1,18 +1,20 @@
-# HANDOFF — counting, round 3 (start here)
+# HANDOFF — counting, round 4
 
 ## Current state
-- C1 pack sizes: PR #19 (`claude/counting-c1`, `a4fb3fd`), open.
-- C2 waste %: PR #20 (`claude/quirky-tesla-wyxrmc`, `e5938d1`), stacked on #19, open.
-  Gate at C2: `npm test` 197/197, matrix 12/12.
-- Owner answered every C0 question and every open wall on 2026-10-23. Commits `902ab5b`,
-  `a5dae98`, `454a1bb` (docs only, on the C2 branch).
-- C0b chain link: branch `claude/counting-c0b-chainlink` (from the C2 branch), PR open.
-  Gate 204/204, matrix 12/12. R15 28692 → 28287, owner approved 2026-10-24. Details:
-  `Docs/execution/C0B_CHAINLINK_HANDOFF_2026-10-23.md`.
-- Next: step 2, wood (privacy + shadowbox only; split rail is its own later PR). Branch
-  `claude/counting-c0b-wood` exists, created from `claude/counting-c0b-chainlink`. No code yet.
+- C1 pack sizes: PR #19 (`claude/counting-c1`, `a4fb3fd`) merged into `main`.
+- C2 waste %: PR #20 (`claude/quirky-tesla-wyxrmc`, `e5938d1`) merged into C1.
+- C0b chain link: PR #21 merged into C2. These are the live GitHub base/merge states
+  checked this round; downstream merges are not a claim of final integration into main.
+- Owner final answers remain in `Docs/reference/HARDWARE_SPEC_REFERENCE.md:539`.
+- C0b wood privacy/shadowbox is implemented on `claude/counting-c0b-wood`, starting
+  at `dd5f49d` (based on `claude/counting-c0b-chainlink`). Four red-before regressions
+  cover 140 default layouts and edited line/end/corner/gate depths. Golden changes and
+  evidence: `Docs/execution/C0B_WOOD_HANDOFF_2026-10-24.md`; final gate and tested commit:
+  `Docs/CURRENT_HANDOFF.md`.
+- This round ends after opening the wood PR against `claude/counting-c0b-chainlink`.
+  No next product task is active. Vinyl, ornamental, split rail and cattle are later PRs.
 
-## Wood plan (step 2)
+## Wood plan (step 2; implemented this round)
 Owner direction 2026-10-24: test rules across many heights/lengths, not one sample job.
 Old saved jobs are out of scope.
 1. In `index.html` rename the generic chain-link helpers so wood can share them:

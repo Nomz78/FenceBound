@@ -306,16 +306,100 @@ test('C0b-7 chain link rules hold across heights 3-10 ft and run lengths 12-250 
   expect(failures, `${REF} Final owner answers, rulings 2/3/8`).toEqual([]);
 });
 
-// Golden BOMs at seed prices and default specs. Every non-chain-link type still
-// gets chain-link pipe gate posts, gate concrete and one flat kit per gate type
-// (audit F-5): recorded as an owner question, deliberately locked here so any
-// change to it is visible.
+// Wood plan, HARDWARE_SPEC_REFERENCE.md:539-559 (Final owner answers),
+// W-G at :141-146 (4x4 gate posts). Expectations use field rules and geometry,
+// never the implementation's post/concrete helpers or reported post counts.
+for (const type of ['woodprivacy', 'woodshadowbox']) {
+  test(`C0b-wood ${type} sweeps heights 4-8 ft, seven lengths, with and without gates`, async ({ page }) => {
+    await cleanOpen(page);
+    const failures = [];
+    for (const height of [4, 5, 6, 7, 8]) {
+      for (const length of [8, 9, 16, 17, 40, 100, 163]) {
+        for (const gated of [false, true]) {
+          const result = await state(page, `(()=>{
+            S.elements=[];S.materials=[];S.selected=null;selectFenceType('${type}');
+            const specs=cloneRunSpecs(S.specs);specs.heightIn=${height * 12};applyHeightDrivenSpecs({specs});
+            const run={type:'fence',start:{x:0,y:0},end:{x:${length}*GRID_FT,y:0},
+              fenceType:'${type}',runId:'wood_sweep',specs,postSpacing:8,autoPostSpacing:8};
+            S.elements=[run];
+            if(${gated})S.elements.push(attachGateToRun({type:'gate',
+              start:{x:${(length - 4) / 2}*GRID_FT,y:0},end:{x:${(length + 4) / 2}*GRID_FT,y:0},
+              gateType:'walk',hinge:'start',swingDir:1},run));
+            rebuildRunAutoPosts(run);
+            return calcAutoMaterials().filter(r=>r.costKey==='post'||r.costKey==='gate post'||r.costKey==='post concrete bag')
+              .map(({name,qty,costKey,unit})=>({name,qty,costKey,unit}));
+          })()`);
+          const sections = gated ? [(length - 4) / 2, (length - 4) / 2] : [length];
+          const lines = sections.reduce((n, feet) => n + Math.max(0, Math.ceil(feet / 8) - 1), 0);
+          const lineLength = height + 2, terminalLength = height < 8 ? height + 2 : height * 1.5;
+          const lineBags = height < 8 ? 1 : 2, terminalBags = height < 7 ? 2 : 3;
+          const expected = {};
+          expected[`Post 4x4x${lineLength}'`] = { qty: lines, costKey: 'post', unit: 'ea' };
+          const terminalName = `Post 4x4x${terminalLength}'`;
+          expected[terminalName] = { qty: (expected[terminalName]?.qty || 0) + 2, costKey: 'post', unit: 'ea' };
+          expected['Post Concrete (60lb bag)'] = { qty: lines * lineBags + 2 * terminalBags, costKey: 'post concrete bag', unit: 'bag' };
+          if (gated) {
+            expected[`Gate Post 4x4x${terminalLength}'`] = { qty: 2, costKey: 'post', unit: 'ea' };
+            expected['Gate Post Concrete (60lb bag)'] = { qty: 2 * terminalBags, costKey: 'post concrete bag', unit: 'bag' };
+          }
+          const actual = Object.fromEntries(result.filter(r=>r.qty).map(({name,...r})=>[name,r]));
+          for (const [name, row] of Object.entries(expected)) {
+            if (!row.qty) delete expected[name];
+          }
+          // Sort keys so the comparison is independent of BOM row ordering.
+          const sorted = rows => Object.entries(rows).sort(([a],[b])=>a.localeCompare(b));
+          if (JSON.stringify(sorted(actual)) !== JSON.stringify(sorted(expected))) {
+            failures.push({height,length,gated,expected,actual});
+          }
+        }
+      }
+    }
+    expect(failures, `${REF}:539 Final owner answers; 70 cases per style`).toEqual([]);
+  });
+
+  test(`C0b-wood ${type} edited depths scale line, terminal, corner and gate concrete`, async ({ page }) => {
+    await cleanOpen(page);
+    for (const [height, concrete, gateConcrete] of [[6, 16, 6], [8, 18, 4]]) {
+      const result = await state(page, `(()=>{
+        S.elements=[];S.materials=[];S.selected=null;selectFenceType('${type}');
+        const specs=cloneRunSpecs(S.specs);specs.heightIn=${height * 12};applyHeightDrivenSpecs({specs});
+        specs.postEmbedIn={line:30,terminal:36,corner:42,gate:31};
+        specs.postEmbedDirty={line:true,terminal:true,corner:true,gate:true};
+        const a={type:'fence',start:{x:0,y:0},end:{x:24*GRID_FT,y:0},
+          fenceType:'${type}',runId:'wood_a',specs,postSpacing:8,autoPostSpacing:8};
+        const b={...a,start:{...a.end},end:{x:24*GRID_FT,y:24*GRID_FT},runId:'wood_b',specs:cloneRunSpecs(specs)};
+        S.elements=[a,b,attachGateToRun({type:'gate',start:{x:8*GRID_FT,y:0},end:{x:12*GRID_FT,y:0},
+          gateType:'walk',hinge:'start',swingDir:1},a)];
+        rebuildRunAutoPosts(a);rebuildRunAutoPosts(b);
+        const bom={};calcAutoMaterials().filter(r=>r.costKey==='post'||r.costKey==='gate post'||r.costKey==='post concrete bag')
+          .forEach(r=>{if(r.qty)bom[r.name]=r.qty;});
+        return {bom,offTable:validateProject({includePricing:false,requireClient:false}).warnings
+          .filter(w=>w.code==='CONCRETE_DEPTH_OFF_TABLE').length};
+      })()`);
+      // Three lines, two ends, one shared corner, two gate posts. Per-hole bags
+      // are rounded up before multiplying; 8 ft terminal baseline is 48 in.
+      // Gate depth 31 in is off the legacy table but valid under the ratio rule.
+      expect(result, `${REF}:539 Final owner answers, ${height} ft edited depths`).toEqual({bom:{
+        [`Post 4x4x${height + 2.5}'`]:3,
+        [`Post 4x4x${height + 3}'`]:2,
+        [`Post 4x4x${height + 3.5}'`]:1,
+        'Post Concrete (60lb bag)':concrete,
+        [`Gate Post 4x4x${height + 2.58}'`]:2,
+        'Gate Post Concrete (60lb bag)':gateConcrete,
+      },offTable:0});
+    }
+  });
+}
+
+// Golden BOMs at seed prices and default specs. Wood privacy/shadowbox now
+// use 4x4 gate posts per the wood plan. Other non-chain-link types still carry
+// the legacy gate-post rules; their later C0b tasks remain separate.
 const GOLDEN = {
   // C0b (owner rulings 2026-10-23): posts 9'/10.5' -> 6', sleeves 9 -> none (swedged),
   // ties 63 -> 66, hog rings 45 -> 42, bolts 48 -> 30, post concrete 4 -> 10.
   chainlink: { matCost: 137852, clientTotal: 314441, bom: { "Chain Link Fabric (48\")": 84, "Top Rail 1-5/8\"": 84, "Line Post 6'": 6, "Terminal/Corner Post 6'": 2, "Tension Bar": 6, "Tension Band": 18, "Post Cap": 12, "Terminal-size Brace Band": 12, "Rail End (Loop Cap)": 6, "Wire Ties 9ga": 66, "Hog Rings": 42, "3/8\" Carriage Bolt+Nut": 30, "Post Concrete (60lb bag)": 10, "Bottom Tension Wire 9ga": 84, "Walk Gate w/ Hardware": 1, "Gate Post 6'": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
-  woodprivacy: { matCost: 271435, clientTotal: 520818, bom: { "Dog-Ear Picket 1x4x6'": 288, "Post 4x4x9'": 11, "2x4 Top Rail": 84, "2x4 Bottom Rail": 84, "2x4 Mid Rail": 84, "Post Cap / Finial": 11, "Exterior Screws (rails)": 66, "Exterior Screws (pickets)": 2592, "Post Concrete (60lb bag)": 33, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (104\" cut)": 4, "Gate Post Concrete (60lb bag)": 12, "Dbl Drive w/ Hardware": 1 } },
-  woodshadowbox: { matCost: 267145, clientTotal: 528047, bom: { "Dog-Ear Picket 1x6x6'": 275, "Post 4x4x9'": 11, "2x4 Top Rail": 84, "2x4 Bottom Rail": 84, "2x4 Mid Rail": 84, "Post Cap / Finial": 11, "Exterior Screws (rails)": 66, "Exterior Screws (pickets)": 2475, "Post Concrete (60lb bag)": 33, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (104\" cut)": 4, "Gate Post Concrete (60lb bag)": 12, "Dbl Drive w/ Hardware": 1 } },
+  woodprivacy: { matCost: 250635, clientTotal: 492738, bom: { "Dog-Ear Picket 1x4x6'": 288, "Post 4x4x8'": 11, "2x4 Top Rail": 84, "2x4 Bottom Rail": 84, "2x4 Mid Rail": 84, "Post Cap / Finial": 11, "Exterior Screws (rails)": 66, "Exterior Screws (pickets)": 2592, "Post Concrete (60lb bag)": 13, "Walk Gate w/ Hardware": 1, "Gate Post 4x4x8'": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
+  woodshadowbox: { matCost: 246345, clientTotal: 499967, bom: { "Dog-Ear Picket 1x6x6'": 275, "Post 4x4x8'": 11, "2x4 Top Rail": 84, "2x4 Bottom Rail": 84, "2x4 Mid Rail": 84, "Post Cap / Finial": 11, "Exterior Screws (rails)": 66, "Exterior Screws (pickets)": 2475, "Post Concrete (60lb bag)": 13, "Walk Gate w/ Hardware": 1, "Gate Post 4x4x8'": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
   woodsplit2: { matCost: 98700, clientTotal: 235545, bom: { "Split Rail 11ft Rail": 18, "Split Rail Post 6'": 8, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
   woodsplit3: { matCost: 106800, clientTotal: 259500, bom: { "Split Rail 11ft Rail": 27, "Split Rail Post 6'": 8, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
   woodsplit3fb: { matCost: 118560, clientTotal: 288396, bom: { "Split Rail 11ft Rail": 27, "Split Rail Post 6'": 8, "1x6 Face Board": 84, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
