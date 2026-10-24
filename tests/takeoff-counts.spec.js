@@ -391,9 +391,95 @@ for (const type of ['woodprivacy', 'woodshadowbox']) {
   });
 }
 
+// Vinyl privacy plan, HARDWARE_SPEC_REFERENCE.md:539-559 (Final owner answers).
+// Gate-post material is unverified for vinyl (reference vinylprivacy rows), so
+// gate posts keep the generic `gate post` key; only their length and concrete
+// follow the owner rules. Expectations use field rules and geometry, never the
+// implementation's post/concrete helpers or reported post counts.
+const vinylRows = r => r.costKey === 'vinyl post' || r.costKey === 'gate post' || r.costKey === 'post concrete bag';
+for (const type of ['vinylprivacy6', 'vinylprivacy8']) {
+  test(`C0b-vinyl ${type} sweeps heights 4-8 ft, seven lengths, with and without gates`, async ({ page }) => {
+    await cleanOpen(page);
+    const failures = [];
+    for (const height of [4, 5, 6, 7, 8]) {
+      for (const length of [8, 9, 16, 17, 40, 100, 163]) {
+        for (const gated of [false, true]) {
+          const result = await state(page, `(()=>{
+            S.elements=[];S.materials=[];S.selected=null;selectFenceType('${type}');
+            const specs=cloneRunSpecs(S.specs);specs.heightIn=${height * 12};applyHeightDrivenSpecs({specs});
+            const run={type:'fence',start:{x:0,y:0},end:{x:${length}*GRID_FT,y:0},
+              fenceType:'${type}',runId:'vinyl_sweep',specs,postSpacing:8,autoPostSpacing:8};
+            S.elements=[run];
+            if(${gated})S.elements.push(attachGateToRun({type:'gate',
+              start:{x:${(length - 4) / 2}*GRID_FT,y:0},end:{x:${(length + 4) / 2}*GRID_FT,y:0},
+              gateType:'walk',hinge:'start',swingDir:1},run));
+            rebuildRunAutoPosts(run);
+            return calcAutoMaterials().filter(${vinylRows})
+              .map(({name,qty,costKey,unit})=>({name,qty,costKey,unit}));
+          })()`);
+          const sections = gated ? [(length - 4) / 2, (length - 4) / 2] : [length];
+          const lines = sections.reduce((n, feet) => n + Math.max(0, Math.ceil(feet / 8) - 1), 0);
+          const lineLength = height + 2, terminalLength = height < 8 ? height + 2 : height * 1.5;
+          const lineBags = height < 8 ? 1 : 2, terminalBags = height < 7 ? 2 : 3;
+          const expected = {};
+          expected[`Vinyl Post ${lineLength}'`] = { qty: lines, costKey: 'vinyl post', unit: 'ea' };
+          const terminalName = `Vinyl Post ${terminalLength}'`;
+          expected[terminalName] = { qty: (expected[terminalName]?.qty || 0) + 2, costKey: 'vinyl post', unit: 'ea' };
+          expected['Post Concrete (60lb bag)'] = { qty: lines * lineBags + 2 * terminalBags, costKey: 'post concrete bag', unit: 'bag' };
+          if (gated) {
+            expected[`Gate Post ${terminalLength}'`] = { qty: 2, costKey: 'gate post', unit: 'ea' };
+            expected['Gate Post Concrete (60lb bag)'] = { qty: 2 * terminalBags, costKey: 'post concrete bag', unit: 'bag' };
+          }
+          const actual = Object.fromEntries(result.filter(r=>r.qty).map(({name,...r})=>[name,r]));
+          for (const [name, row] of Object.entries(expected)) {
+            if (!row.qty) delete expected[name];
+          }
+          const sorted = rows => Object.entries(rows).sort(([a],[b])=>a.localeCompare(b));
+          if (JSON.stringify(sorted(actual)) !== JSON.stringify(sorted(expected))) {
+            failures.push({height,length,gated,expected,actual});
+          }
+        }
+      }
+    }
+    expect(failures, `${REF}:539 Final owner answers; 70 cases per type`).toEqual([]);
+  });
+
+  test(`C0b-vinyl ${type} edited depths scale line, terminal, corner and gate concrete`, async ({ page }) => {
+    await cleanOpen(page);
+    for (const [height, concrete, gateConcrete] of [[6, 16, 6], [8, 18, 4]]) {
+      const result = await state(page, `(()=>{
+        S.elements=[];S.materials=[];S.selected=null;selectFenceType('${type}');
+        const specs=cloneRunSpecs(S.specs);specs.heightIn=${height * 12};applyHeightDrivenSpecs({specs});
+        specs.postEmbedIn={line:30,terminal:36,corner:42,gate:31};
+        specs.postEmbedDirty={line:true,terminal:true,corner:true,gate:true};
+        const a={type:'fence',start:{x:0,y:0},end:{x:24*GRID_FT,y:0},
+          fenceType:'${type}',runId:'vinyl_a',specs,postSpacing:8,autoPostSpacing:8};
+        const b={...a,start:{...a.end},end:{x:24*GRID_FT,y:24*GRID_FT},runId:'vinyl_b',specs:cloneRunSpecs(specs)};
+        S.elements=[a,b,attachGateToRun({type:'gate',start:{x:8*GRID_FT,y:0},end:{x:12*GRID_FT,y:0},
+          gateType:'walk',hinge:'start',swingDir:1},a)];
+        rebuildRunAutoPosts(a);rebuildRunAutoPosts(b);
+        const bom={};calcAutoMaterials().filter(${vinylRows}).forEach(r=>{if(r.qty)bom[r.name]=r.qty;});
+        return {bom,offTable:validateProject({includePricing:false,requireClient:false}).warnings
+          .filter(w=>w.code==='CONCRETE_DEPTH_OFF_TABLE').length};
+      })()`);
+      // Same layout and arithmetic as the wood edited-depth test: three lines,
+      // two ends, one shared corner, two gate posts; per-hole bags round up.
+      expect(result, `${REF}:539 Final owner answers, ${height} ft edited depths`).toEqual({bom:{
+        [`Vinyl Post ${height + 2.5}'`]:3,
+        [`Vinyl Post ${height + 3}'`]:2,
+        [`Vinyl Post ${height + 3.5}'`]:1,
+        'Post Concrete (60lb bag)':concrete,
+        [`Gate Post ${height + 2.58}'`]:2,
+        'Gate Post Concrete (60lb bag)':gateConcrete,
+      },offTable:0});
+    }
+  });
+}
+
 // Golden BOMs at seed prices and default specs. Wood privacy/shadowbox now
-// use 4x4 gate posts per the wood plan. Other non-chain-link types still carry
-// the legacy gate-post rules; their later C0b tasks remain separate.
+// use 4x4 gate posts per the wood plan; vinyl privacy keeps generic gate posts
+// at owner-rule length. Other non-chain-link types still carry the legacy
+// gate-post rules; their later C0b tasks remain separate.
 const GOLDEN = {
   // C0b (owner rulings 2026-10-23): posts 9'/10.5' -> 6', sleeves 9 -> none (swedged),
   // ties 63 -> 66, hog rings 45 -> 42, bolts 48 -> 30, post concrete 4 -> 10.
@@ -403,8 +489,8 @@ const GOLDEN = {
   woodsplit2: { matCost: 98700, clientTotal: 235545, bom: { "Split Rail 11ft Rail": 18, "Split Rail Post 6'": 8, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
   woodsplit3: { matCost: 106800, clientTotal: 259500, bom: { "Split Rail 11ft Rail": 27, "Split Rail Post 6'": 8, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
   woodsplit3fb: { matCost: 118560, clientTotal: 288396, bom: { "Split Rail 11ft Rail": 27, "Split Rail Post 6'": 8, "1x6 Face Board": 84, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
-  vinylprivacy6: { matCost: 338244, clientTotal: 624030, bom: { "Vinyl Privacy Panel 72\"": 12, "Vinyl Post 9'": 11, "Vinyl Top Rail": 84, "Vinyl Bottom Rail": 84, "Vinyl Mid Rail": 84, "Post Cap Vinyl": 11, "Stainless Screws": 12, "Post Concrete (60lb bag)": 33, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (104\" cut)": 4, "Gate Post Concrete (60lb bag)": 12, "Dbl Drive w/ Hardware": 1 } },
-  vinylprivacy8: { matCost: 338244, clientTotal: 650070, bom: { "Vinyl Privacy Panel 96\"": 12, "Vinyl Post 11'": 11, "Vinyl Top Rail": 84, "Vinyl Bottom Rail": 84, "Vinyl Mid Rail": 84, "Post Cap Vinyl": 11, "Stainless Screws": 12, "Post Concrete (60lb bag)": 33, "Walk Gate w/ Hardware": 1, "Gate Post 11' (128\" cut)": 4, "Gate Post Concrete (60lb bag)": 12, "Dbl Drive w/ Hardware": 1 } },
+  vinylprivacy6: { matCost: 322644, clientTotal: 602970, bom: { "Vinyl Privacy Panel 72\"": 12, "Vinyl Post 8'": 11, "Vinyl Top Rail": 84, "Vinyl Bottom Rail": 84, "Vinyl Mid Rail": 84, "Post Cap Vinyl": 11, "Stainless Screws": 12, "Post Concrete (60lb bag)": 13, "Walk Gate w/ Hardware": 1, "Gate Post 8'": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
+  vinylprivacy8: { matCost: 332394, clientTotal: 642172, bom: { "Vinyl Privacy Panel 96\"": 12, "Vinyl Post 10'": 9, "Vinyl Post 12'": 2, "Vinyl Top Rail": 84, "Vinyl Bottom Rail": 84, "Vinyl Mid Rail": 84, "Post Cap Vinyl": 11, "Stainless Screws": 12, "Post Concrete (60lb bag)": 24, "Walk Gate w/ Hardware": 1, "Gate Post 12'": 4, "Gate Post Concrete (60lb bag)": 12, "Dbl Drive w/ Hardware": 1 } },
   vinylsplit2: { matCost: 129700, clientTotal: 290415, bom: { "Vinyl Split Rail": 18, "Vinyl Split Rail Post 6'": 8, "Post Cap Vinyl": 8, "Post Concrete (60lb bag)": 16, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
   vinylsplit3: { matCost: 142300, clientTotal: 320445, bom: { "Vinyl Split Rail": 27, "Vinyl Split Rail Post 6'": 8, "Post Cap Vinyl": 8, "Post Concrete (60lb bag)": 16, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
   ornamental: { matCost: 233850, clientTotal: 496118, bom: { "Ornamental Panel 60\"": 15, "Ornamental Post 7'": 14, "Post Concrete (60lb bag)": 28, "Panel Bracket Kit": 15, "Self-Tapping Screws": 60, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (86\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },

@@ -1,4 +1,4 @@
-# HANDOFF — counting, round 4
+# HANDOFF — counting, round 5
 
 ## Current state
 - C1 pack sizes: PR #19 (`claude/counting-c1`, `a4fb3fd`) merged into `main`.
@@ -11,10 +11,43 @@
   cover 140 default layouts and edited line/end/corner/gate depths. Golden changes and
   evidence: `Docs/execution/C0B_WOOD_HANDOFF_2026-10-24.md`; final gate and tested commit:
   `Docs/CURRENT_HANDOFF.md`.
-- This round ends after opening the wood PR against `claude/counting-c0b-chainlink`.
-  No next product task is active. Vinyl, ornamental, split rail and cattle are later PRs.
+- Wood PR #22 merged into `claude/counting-c0b-chainlink` (`bd60cc2`).
+- C0b vinyl privacy (owner: "Start vinyl as the next C0b PR", 2026-10-24) is implemented on
+  `claude/admiring-thompson-589ghg` (`a194c16`, from `bd60cc2`); PR against
+  `claude/counting-c0b-chainlink`. Evidence and goldens: `Docs/execution/C0B_VINYL_HANDOFF_2026-10-24.md`.
+  Vinyl split rail is left for the split-rail PR. Vinyl gate-post material stays generic (unverified).
+- Vinyl PR: #23 (`claude/admiring-thompson-589ghg` -> `claude/counting-c0b-chainlink`), open.
+- **Owner go-ahead 2026-10-24 for all remaining C0b types: "i want to give the go ahead on all
+  of them. lets get this done today".** Round 5 does them below, one PR each, stacked.
 
-## Wood plan (step 2; implemented this round)
+## Round 5 plan: ornamental, split rail, cattle
+Same method as wood/vinyl: red-before sweep test (expected counts from geometry and the
+rules, never from app helpers), then the change, goldens old -> new, full gate, push, PR.
+Read the vinyl diff first as the pattern: `git show a194c16` (index.html + tests).
+Rules: `Docs/reference/HARDWARE_SPEC_REFERENCE.md:539-560`; apply simply, do not re-ask.
+Leave pickets/rails/caps/screws/kits/rates alone unless a rule below names them.
+
+1. **Ornamental** (`ornamental`, index.html ~1124; branch `claude/counting-c0b-ornamental`
+   from `claude/admiring-thompson-589ghg`, PR base the vinyl branch). Add to
+   `OWNER_POST_RULE_TYPES`: posts by role with owner-rule lengths, owner concrete.
+   Panel width = post spacing; default spacing 8 ft (currently 6 ft); 6 ft stays selectable
+   through run spacing (no new UI). Panels per section at the run's spacing.
+   **Done when:** sweep (heights 4-8, both 6 and 8 ft spacing, gated/ungated) red then green;
+   ornamental golden old -> new; full gate; PR.
+2. **Split rail** (`woodsplit2/3/3fb`, `vinylsplit2/3`; branch `claude/counting-c0b-splitrail`
+   from the ornamental branch). Post centers 10 ft 4 in (ruling 4). Default heights 3 ft
+   (2 rail), 4 ft (3 rail), per ruling W2. Posts/concrete per Final owner answers (line =
+   height + 2 ft; the S15 lengths in W2 are superseded). Rails per bay at 10'4" centers.
+   **Done when:** sweep across all five types red then green; five goldens old -> new; gate; PR.
+3. **Cattle** (`cattlefield`, `cattlehog`; branch `claude/counting-c0b-cattle` from the
+   split-rail branch). A brace assembly mid-line every 200 ft of run (count =
+   floor of section length / 200 per section, no brace at exactly a terminal); posts and
+   concrete per the owner rules where these types set posts in concrete (check source).
+   **Done when:** sweep (lengths below/at/over 200, 400, 650 ft) red then green; goldens; gate; PR.
+4. After the three PRs: update this file, `Docs/development/DEVELOPER_LOG.md`, one
+   `Docs/execution/C0B_<TYPE>_HANDOFF_2026-10-24.md` per type; stop.
+
+## Wood plan (step 2; implemented round 4)
 Owner direction 2026-10-24: test rules across many heights/lengths, not one sample job.
 Old saved jobs are out of scope.
 1. In `index.html` rename the generic chain-link helpers so wood can share them:
@@ -62,10 +95,14 @@ counts written from the rules) passes; goldens updated old → new; full gate gr
 3. After C0b: C3 (material order export), C4 (house/wall termination) as below.
 
 ## Test setup in the cloud
-cdnjs is blocked; serve jsPDF 2.5.1 from npm through a preload in the scratchpad (never in
-the tree). UMD 364463 bytes, SHA-256 `98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875`.
-Playwright wants `/opt/pw-browsers/chromium-1091/chrome-linux/chrome`: symlink it to
-`/opt/pw-browsers/chromium-1194/chrome-linux/chrome`.
+`npm ci`. Playwright 1.40.1 wants chromium-1091: `mkdir -p /opt/pw-browsers/chromium-1091/chrome-linux
+&& ln -sf /opt/pw-browsers/chromium-1243/chrome-linux64/chrome /opt/pw-browsers/chromium-1091/chrome-linux/chrome`.
+cdnjs is blocked: `npm pack jspdf@2.5.1` into the scratchpad, verify `dist/jspdf.umd.min.js` is
+364463 bytes, SHA-256 `98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875`, then a
+scratch `preload.cjs` that wraps `require('<repo>/node_modules/playwright-core/lib/client/browser.js').Browser.prototype.newContext`
+to `ctx.route(/cdnjs.*jspdf\/2\.5\.1\/jspdf\.umd\.min\.js/, r=>r.fulfill({status:200,contentType:'application/javascript',body}))`.
+Gate: `NODE_OPTIONS=--require=<scratch>/preload.cjs npm test` (~3 min, 212 at vinyl) and the same
+for `node scripts/cad-persistence-matrix.js` (12 PASS). Never put the preload in the tree.
 
 ---
 
