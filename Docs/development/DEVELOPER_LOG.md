@@ -916,3 +916,28 @@ closeout; their bytes match the previously reviewed repair checkpoint.
   338244/650070 -> 332394/642172. Concrete is the only money change; no rate value changed.
 - Gate on `a194c16`: `npm test` 212/212, persistence matrix 12/12, diff check PASS.
   Handoff: `Docs/execution/C0B_VINYL_HANDOFF_2026-10-24.md`.
+
+### 2026-10-24 — C0b ornamental and split rail (round 5)
+
+- Owner go-ahead for all remaining C0b types. Ornamental: `6336cc7` on
+  `claude/counting-c0b-ornamental`, PR #24 (base vinyl branch). Split rail: `8be571b` on
+  `claude/counting-c0b-splitrail`, PR #25 (base ornamental branch).
+- Ornamental: owner post/concrete rules; panels at run spacing; default spacing 6 -> 8 ft.
+  Golden: panels 15 -> 12, posts 14 -> 11, bags 28 -> 13, cents 233850/496118 -> 194670/443225.
+- Split rail (5 types): 10 ft 4 in centers, 3/4 ft default heights, owner post/concrete
+  rules, wood split gains post concrete. Goldens in `Docs/execution/C0B_SPLITRAIL_HANDOFF_2026-10-24.md`.
+- Red-before sweeps for both; gates 214 and 220 passed, matrix 12/12 each.
+- Session hit the handoff break-even after split rail; cattle moved to round 6.
+  Handoffs: `Docs/execution/C0B_ORNAMENTAL_HANDOFF_2026-10-24.md`, `C0B_SPLITRAIL_HANDOFF_2026-10-24.md`.
+
+### 2026-10-24 — C0b cattle (round 6)
+
+- Owner: "Go ahead with cattle r6." Branch `claude/counting-c0b-cattle` from `80856d8`,
+  commit `485325a`, PR #26 (base split rail branch). Last C0b type.
+- Cattle field/hog on owner post rules; mid-line brace every 200 ft (`ceil(len/200) - 1`
+  per fabric section; round 5's "floor" would brace a terminal at exactly 200 ft). Each
+  brace = 1 wood brace post + 2 brace wire + terminal concrete. T-posts unchanged.
+- Red-before: 32-layout sweep per type. T3 moved from cattle hog to temporary fence.
+- Goldens: gate posts `10.5' (74" cut)` -> `6'` for both; counts and cents unchanged.
+- Gate: `npm test` 222 passed, persistence matrix 12/12.
+  Handoff: `Docs/execution/C0B_CATTLE_HANDOFF_2026-10-24.md`.

@@ -397,9 +397,9 @@ label{font-size:10px;color:var(--text2);letter-spacing:0.02em;display:block;marg
             <button class="chip" data-qp="vinylprivacy6" data-spacing="8">Vinyl Privacy 6' — 8' spacing</button>
             <button class="chip" data-qp="vinylprivacy8" data-spacing="8">Vinyl Privacy 8' — 8' spacing</button>
             <button class="chip" data-qp="woodshadowbox" data-spacing="8">Shadowbox Wood — 8' spacing</button>
-            <button class="chip" data-qp="woodsplit2" data-spacing="10">Wood Split Rail 2 — 10'</button>
-            <button class="chip" data-qp="woodsplit3" data-spacing="10">Wood Split Rail 3 — 10'</button>
-            <button class="chip" data-qp="vinylsplit2" data-spacing="10">Vinyl Split Rail 2 — 10'</button>
+            <button class="chip" data-qp="woodsplit2" data-spacing="type">Wood Split Rail 2 — 10'4"</button>
+            <button class="chip" data-qp="woodsplit3" data-spacing="type">Wood Split Rail 3 — 10'4"</button>
+            <button class="chip" data-qp="vinylsplit2" data-spacing="type">Vinyl Split Rail 2 — 10'4"</button>
             <button class="chip" data-qp="cattlefield" data-spacing="12">Cattle Field — 12' spacing</button>
             <button class="chip" data-qp="cattlefield" data-spacing="20">Cattle Field — 20' spacing</button>
             <button class="chip" data-qp="cattlehog" data-spacing="12">Hog Wire — 12' spacing</button>
@@ -856,6 +856,11 @@ function activeSpecs(preserveSpecs=false){
   if(run){if(preserveSpecs===true)return run.specs||S.specs;run.specs=hydrateRunSpecs(run.specs||S.specs);return run.specs;}
   return S.specs;
 }
+// 10.333 ft reads as "10 ft 4 in"; whole feet read as before.
+function spacingText(ft){
+  const inches=Math.round(ft*12);
+  return inches%12?`${Math.floor(inches/12)} ft ${inches%12} in`:`${inches/12} ft`;
+}
 function activePostSpacing(){
   const run=selectedFenceRun();
   return run?(run.postSpacing||run.autoPostSpacing||S.postSpacing):S.postSpacing;
@@ -880,7 +885,7 @@ function syncSelectedRunToPanel(){
     run.specs=hydrateRunSpecs(run.specs||S.specs);
     const spacing=activePostSpacing();
     const slider=document.getElementById('spacing-slider'),label=document.getElementById('spacing-val');
-    if(slider)slider.value=spacing;if(label)label.textContent=spacing+' ft';
+    if(slider)slider.value=spacing;if(label)label.textContent=spacingText(spacing);
     document.querySelectorAll('.chip[data-ps]').forEach(b=>b.classList.toggle('active',+b.dataset.ps===spacing));
   }
   syncSpecInputs();updateTypeBar();updateHint();
@@ -1047,6 +1052,8 @@ function syncSpecInputs(preserveSpecs=false){
 // simple, but each carries `material` and `style` so the type bar can present
 // them as two rows: pick material, then pick style under it. Types without a
 // style (chain link, ornamental) have material===key and style omitted.
+// Split rail post centers 10 ft 4 in (owner ruling 4, HARDWARE_SPEC_REFERENCE.md W-S/S14).
+const SPLIT_RAIL_CENTERS_FT=124/12;
 const FENCE_TYPES={
   chainlink:{
     label:'Chain Link',color:'#4DB87A',postColor:'#2d7a52',lw:3,
@@ -1073,21 +1080,21 @@ const FENCE_TYPES={
   woodsplit2:{
     label:'Split Rail 2',color:'#A0785A',postColor:'#7a5438',lw:4,
     material:'wood',style:'split2',
-    defaultSpacing:10,
+    defaultSpacing:SPLIT_RAIL_CENTERS_FT,
     drawFn:'splitrail2',postShape:'circle',
-    autoEmbedIn:24,defaultHeightIn:48
+    autoEmbedIn:24,defaultHeightIn:36
   },
   woodsplit3:{
     label:'Split Rail 3',color:'#8B6347',postColor:'#6b4a30',lw:4,
     material:'wood',style:'split3',
-    defaultSpacing:10,
+    defaultSpacing:SPLIT_RAIL_CENTERS_FT,
     drawFn:'splitrail3',postShape:'circle',
     autoEmbedIn:24,defaultHeightIn:48
   },
   woodsplit3fb:{
     label:'Split + Face Board',color:'#9B7355',postColor:'#7a5438',lw:4,
     material:'wood',style:'split3fb',
-    defaultSpacing:10,
+    defaultSpacing:SPLIT_RAIL_CENTERS_FT,
     drawFn:'splitrail3fb',postShape:'circle',
     autoEmbedIn:24,defaultHeightIn:48
   },
@@ -1109,16 +1116,16 @@ const FENCE_TYPES={
   vinylsplit2:{
     label:'Split Rail 2',color:'#C8DCF0',postColor:'#8ab0d8',lw:4,
     material:'vinyl',style:'split2',
-    defaultSpacing:10,
+    defaultSpacing:SPLIT_RAIL_CENTERS_FT,
     drawFn:'splitrail2',postShape:'square',
-    autoEmbedIn:24
+    autoEmbedIn:24,defaultHeightIn:36
   },
   vinylsplit3:{
     label:'Split Rail 3',color:'#B0CCEC',postColor:'#7aa0cc',lw:4,
     material:'vinyl',style:'split3',
-    defaultSpacing:10,
+    defaultSpacing:SPLIT_RAIL_CENTERS_FT,
     drawFn:'splitrail3',postShape:'square',
-    autoEmbedIn:24
+    autoEmbedIn:24,defaultHeightIn:48
   },
   // ── ORNAMENTAL ──
   ornamental:{
@@ -1919,11 +1926,16 @@ function postLengthLabel(role,sp,label){
 // between gates and run ends takes its own partial unit, so units round per section.
 function unitsPerSection(row,w){return row.sectionFt.reduce((n,f)=>n+Math.ceil(f/w-1e-6),0);}
 // Post rules shared by residential chain link, privacy/shadowbox wood,
-// vinyl privacy and ornamental, owner final answers 2026-10-23
+// vinyl privacy, ornamental, split rail and cattle, owner final answers 2026-10-23
 // (HARDWARE_SPEC_REFERENCE.md "Final owner answers"). Line holes are 24 in;
 // terminal (end, corner, gate) holes are 24 in below an 8 ft fence and half the
 // fence height from 8 ft (post = 1.5 x height), never deeper than 48 in.
-const OWNER_POST_RULE_TYPES=new Set(['chainlink','woodprivacy','woodshadowbox','vinylprivacy6','vinylprivacy8','ornamental']);
+const OWNER_POST_RULE_TYPES=new Set(['chainlink','woodprivacy','woodshadowbox','vinylprivacy6','vinylprivacy8','ornamental',
+  'woodsplit2','woodsplit3','woodsplit3fb','vinylsplit2','vinylsplit3','cattlefield','cattlehog']);
+// Owner 2026-10-23: cattle fence takes a brace assembly mid-line every 200 ft, one at
+// each 200 ft point strictly inside a fabric section.
+const CATTLE_BRACE_EVERY_FT=200;
+function cattleMidBraces(row){return row.sectionFt.reduce((n,f)=>n+Math.max(0,Math.ceil(f/CATTLE_BRACE_EVERY_FT-1e-6)-1),0);}
 function ownerPostHoleDepthIn(role,heightIn){
   return role==='line'||heightIn<96?24:Math.min(heightIn/2,48);
 }
@@ -2072,9 +2084,11 @@ function calcAutoMaterials(){
       // One rail per rail line per bay; bays follow the run's actual post spacing.
       const railSpans=unitsPerSection(runStats,spacingFt);
       items.push({name:'Vinyl Split Rail',costKey:'vinyl split rail',qty:railSpans*rails,unit:'ea'});
-      items.push({name:`Vinyl Split Rail Post ${postLen}`,costKey:'vinyl split rail post',qty:typePostCount,unit:'ea'});
+      items.push({name:`Vinyl Split Rail Post ${ownerPostLengthFt('line',sp)}'`,costKey:'vinyl split rail post',qty:lineCt,unit:'ea'});
+      items.push({name:`Vinyl Split Rail Post ${ownerPostLengthFt('terminal',sp)}'`,costKey:'vinyl split rail post',qty:termCt,unit:'ea'});
+      items.push({name:`Vinyl Split Rail Post ${ownerPostLengthFt('corner',sp)}'`,costKey:'vinyl split rail post',qty:cornerCt,unit:'ea'});
       items.push({name:'Post Cap Vinyl',costKey:'post cap vinyl',qty:typePostCount,unit:'ea'});
-      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
+      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:ownerPostConcreteBags('line',lineCt,sp)+ownerPostConcreteBags('terminal',termCt,sp)+ownerPostConcreteBags('corner',cornerCt,sp),unit:'bag'});
     } else if(type==='ornamental'){
       // Owner 2026-10-23: panel width is the post spacing (8 ft panel = 8 ft centers).
       const panelCt=unitsPerSection(runStats,spacingFt);
@@ -2089,16 +2103,24 @@ function calcAutoMaterials(){
       items.push({name:'Self-Tapping Screws',costKey:'self tapping screws',qty:panelCt*4,unit:'ea'});
     } else if(mat==='wood'&&(style==='split2'||style==='split3'||style==='split3fb')){
       const rails=style==='split2'?2:3;
-      // Split rail: 11ft rails at 10ft post spacing (rails protrude past posts via hole inserts)
-      const railSpans=unitsPerSection(runStats,10);
+      // Split rail: 11ft rails at the run's post spacing, 10 ft 4 in centers by
+      // default (rails protrude past posts via hole inserts)
+      const railSpans=unitsPerSection(runStats,spacingFt);
       items.push({name:`Split Rail 11ft Rail`,costKey:'split rail rail',qty:railSpans*rails,unit:'ea'});
-      items.push({name:`Split Rail Post ${postLen}`,costKey:'split rail post',qty:typePostCount,unit:'ea'});
+      items.push({name:`Split Rail Post ${ownerPostLengthFt('line',sp)}'`,costKey:'split rail post',qty:lineCt,unit:'ea'});
+      items.push({name:`Split Rail Post ${ownerPostLengthFt('terminal',sp)}'`,costKey:'split rail post',qty:termCt,unit:'ea'});
+      items.push({name:`Split Rail Post ${ownerPostLengthFt('corner',sp)}'`,costKey:'split rail post',qty:cornerCt,unit:'ea'});
+      // Owner ruling 1: concrete per hole for wood, vinyl, ornamental and farm posts.
+      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:ownerPostConcreteBags('line',lineCt,sp)+ownerPostConcreteBags('terminal',termCt,sp)+ownerPostConcreteBags('corner',cornerCt,sp),unit:'bag'});
       if(style==='split3fb'&&sp.hasFaceBoard)items.push({name:'1x6 Face Board',costKey:'face board',qty:Math.ceil(ft),unit:'lf'});
     } else if(mat==='cattle'){
-      // T-posts on line, wood corner/brace posts at terminals.
+      // T-posts on line (driven, no concrete), wood corner/brace posts at terminals and
+      // at each mid-line brace; a mid-line brace carries what a terminal brace does.
+      const braceCt=cattleMidBraces(runStats);
       items.push({name:'T-Post 6ft',costKey:'t post',qty:lineCt,unit:'ea'});
-      items.push({name:`Wood Corner/Brace Post ${postLen}`,costKey:'wood corner brace post',qty:termCt+cornerCt,unit:'ea'});
-      items.push({name:'Brace Wire',costKey:'brace wire',qty:(termCt+cornerCt)*2,unit:'ea'});
+      items.push({name:`Wood Corner/Brace Post ${ownerPostLengthFt('terminal',sp)}'`,costKey:'wood corner brace post',qty:termCt+braceCt,unit:'ea'});
+      items.push({name:`Wood Corner/Brace Post ${ownerPostLengthFt('corner',sp)}'`,costKey:'wood corner brace post',qty:cornerCt,unit:'ea'});
+      items.push({name:'Brace Wire',costKey:'brace wire',qty:(termCt+cornerCt+braceCt)*2,unit:'ea'});
       items.push({name:'T-Post Clips',costKey:'t post clips',qty:Math.ceil(ft*0.6),unit:'ea'});
       if(style==='field'){
         const strands=sp.barbStrands||4;
@@ -2106,7 +2128,7 @@ function calcAutoMaterials(){
       }else{
         items.push({name:'Hog Wire Welded Panel (red-top)',costKey:'hog wire welded panel',qty:Math.ceil(ft),unit:'lf'});
       }
-      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',termCt,sp)+concreteBagsForPosts('corner',cornerCt,sp),unit:'bag'});
+      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:ownerPostConcreteBags('terminal',termCt+braceCt,sp)+ownerPostConcreteBags('corner',cornerCt,sp),unit:'bag'});
     } else if(type==='temporary'){
       // Each fabric section is its own line of panels: a coupler joins each pair of
       // neighbouring panels and a stand sits at every panel joint and section end.
@@ -2146,7 +2168,7 @@ function calcAutoMaterials(){
     items.push({name:`${g.label} w/ Hardware`,costKey:GATE_COST_KEYS[gt],qty:1,unit:'ea'});
     if(posts){
       const ownerRules=OWNER_POST_RULE_TYPES.has(owner.fenceType);
-      // Vinyl and ornamental gate-post material is unverified: generic gate post, owner-rule length.
+      // Vinyl, ornamental, split rail and cattle gate-post material is unverified: generic gate post, owner-rule length.
       const wood=owner.fenceType==='woodprivacy'||owner.fenceType==='woodshadowbox';
       const name=wood?`Gate Post 4x4x${ownerPostLengthFt('gate',sp)}'`
         :ownerRules?chainLinkPostLabel('gate',sp,'Gate Post'):postLengthLabel('gate',sp,'Gate Post');
@@ -2818,7 +2840,7 @@ function selectFenceType(key){
   }
   const spacing=activePostSpacing();
   const ss=document.getElementById('spacing-slider');if(ss)ss.value=spacing;
-  const sv=document.getElementById('spacing-val');if(sv)sv.textContent=spacing+' ft';
+  const sv=document.getElementById('spacing-val');if(sv)sv.textContent=spacingText(spacing);
   if(remembered){
     sp=hydrateRunSpecs(remembered);
     if(run)run.specs=sp;else S.specs=sp;
@@ -2835,7 +2857,7 @@ function selectFenceType(key){
 
 function updateHint(){
   const hints={
-    fence:`Draw fence · ${S.autoPost?`Auto-posts every ${S.postSpacing}'`:'Posts off'} · ${(FENCE_TYPES[S.fenceType]||{label:''}).label}${S.angleLock?' · ∠45° locked':''}`,
+    fence:`Draw fence · ${S.autoPost?`Auto-posts every ${spacingText(S.postSpacing)}`:'Posts off'} · ${(FENCE_TYPES[S.fenceType]||{label:''}).label}${S.angleLock?' · ∠45° locked':''}`,
     boundary:`Draw property boundary (dashed, no posts)${S.angleLock?' · ∠45° locked':''}`,
     gate:`Draw gate · Type: ${(GATE_TYPES[S.gateType]||{label:''}).label}`,
     post:'Tap to place post',
@@ -3564,12 +3586,12 @@ function init(){
   // Quick presets
   document.querySelectorAll('[data-qp]').forEach(b=>{
     b.addEventListener('click',()=>{
-      const ft=b.dataset.qp,sp=+b.dataset.spacing;
+      const ft=b.dataset.qp,sp=b.dataset.spacing==='type'?FENCE_TYPES[ft].defaultSpacing:+b.dataset.spacing;
       S.selected=null;S.editingGate=null; // quick presets define the next run, never rewrite a selected run
       selectFenceType(ft);            // applies type defaults (height, etc.)
       setActivePostSpacing(sp);        // preset's explicit spacing wins over type default
       document.getElementById('spacing-slider').value=sp;
-      document.getElementById('spacing-val').textContent=sp+' ft';
+      document.getElementById('spacing-val').textContent=spacingText(sp);
       // Switch to fence tool
       S.tool='fence';document.querySelectorAll('[data-tool]').forEach(x=>x.classList.remove('active'));
       document.querySelector('[data-tool=fence]').classList.add('active');
@@ -3841,7 +3863,7 @@ function init(){
   }
 
   // Reflect (possibly restored) state in the draw-tab controls
-  slider.value=S.postSpacing;spacingVal.textContent=S.postSpacing+' ft';
+  slider.value=S.postSpacing;spacingVal.textContent=spacingText(S.postSpacing);
   pr.querySelectorAll('.chip').forEach(x=>x.classList.toggle('active',+x.dataset.ps===S.postSpacing));
   if(!S.autoPost){
     const b=document.getElementById('btn-autopost');
@@ -4750,7 +4772,7 @@ function validateProject(options={}){
     const row=stats.byRunId[run.runId],spacing=+(run.postSpacing||run.autoPostSpacing||0);
     if(!row||row.lineCt||!(spacing>0))return;
     const needed=row.sectionFt.reduce((n,f)=>n+Math.max(0,Math.ceil(f/spacing-1e-6)-1),0);
-    if(needed)warn('NO_LINE_POSTS',`Run ${index+1} has no line posts but needs about ${needed} at ${spacing} ft spacing. Turn on auto-posts or place posts.`,run);
+    if(needed)warn('NO_LINE_POSTS',`Run ${index+1} has no line posts but needs about ${needed} at ${spacingText(spacing)} spacing. Turn on auto-posts or place posts.`,run);
   });
 
   if(includePricing){
