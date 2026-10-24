@@ -1124,7 +1124,7 @@ const FENCE_TYPES={
   ornamental:{
     label:'Ornamental',color:'#5B9BD5',postColor:'#2d5f9a',lw:3,
     material:'ornamental',
-    defaultSpacing:6,
+    defaultSpacing:8, // owner 2026-10-23: 8 ft panel is the norm; 6 ft per job via spacing
     drawFn:'ornamental',postShape:'square',
     autoEmbedIn:30,defaultHeightIn:60
   },
@@ -1918,12 +1918,12 @@ function postLengthLabel(role,sp,label){
 // Units of width w (panels, rail spans) needed to fill a run: each fabric section
 // between gates and run ends takes its own partial unit, so units round per section.
 function unitsPerSection(row,w){return row.sectionFt.reduce((n,f)=>n+Math.ceil(f/w-1e-6),0);}
-// Post rules shared by residential chain link, privacy/shadowbox wood and
-// vinyl privacy, owner final answers 2026-10-23
+// Post rules shared by residential chain link, privacy/shadowbox wood,
+// vinyl privacy and ornamental, owner final answers 2026-10-23
 // (HARDWARE_SPEC_REFERENCE.md "Final owner answers"). Line holes are 24 in;
 // terminal (end, corner, gate) holes are 24 in below an 8 ft fence and half the
 // fence height from 8 ft (post = 1.5 x height), never deeper than 48 in.
-const OWNER_POST_RULE_TYPES=new Set(['chainlink','woodprivacy','woodshadowbox','vinylprivacy6','vinylprivacy8']);
+const OWNER_POST_RULE_TYPES=new Set(['chainlink','woodprivacy','woodshadowbox','vinylprivacy6','vinylprivacy8','ornamental']);
 function ownerPostHoleDepthIn(role,heightIn){
   return role==='line'||heightIn<96?24:Math.min(heightIn/2,48);
 }
@@ -2076,10 +2076,13 @@ function calcAutoMaterials(){
       items.push({name:'Post Cap Vinyl',costKey:'post cap vinyl',qty:typePostCount,unit:'ea'});
       items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
     } else if(type==='ornamental'){
-      const panelCt=unitsPerSection(runStats,6);
+      // Owner 2026-10-23: panel width is the post spacing (8 ft panel = 8 ft centers).
+      const panelCt=unitsPerSection(runStats,spacingFt);
       items.push({name:`Ornamental Panel ${sp.heightIn}"`,costKey:'ornamental panel',qty:panelCt,unit:'ea'});
-      items.push({name:`Ornamental Post ${postLen}`,costKey:'ornamental post',qty:typePostCount,unit:'ea'});
-      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:concreteBagsForPosts('terminal',typePostCount,sp),unit:'bag'});
+      items.push({name:`Ornamental Post ${ownerPostLengthFt('line',sp)}'`,costKey:'ornamental post',qty:lineCt,unit:'ea'});
+      items.push({name:`Ornamental Post ${ownerPostLengthFt('terminal',sp)}'`,costKey:'ornamental post',qty:termCt,unit:'ea'});
+      items.push({name:`Ornamental Post ${ownerPostLengthFt('corner',sp)}'`,costKey:'ornamental post',qty:cornerCt,unit:'ea'});
+      items.push({name:`Post Concrete (${FOOTING.bagWeightLb}lb bag)`,costKey:'post concrete bag',qty:ownerPostConcreteBags('line',lineCt,sp)+ownerPostConcreteBags('terminal',termCt,sp)+ownerPostConcreteBags('corner',cornerCt,sp),unit:'bag'});
       items.push({name:'Panel Bracket Kit',costKey:'panel bracket kit',qty:panelCt,unit:'ea'});
       // v5.3 fastener respec: every panel connects with screws.
       // ASSUMED 4 per panel (2 brackets x 2 screws) — pending Justin sign-off.
@@ -2143,7 +2146,7 @@ function calcAutoMaterials(){
     items.push({name:`${g.label} w/ Hardware`,costKey:GATE_COST_KEYS[gt],qty:1,unit:'ea'});
     if(posts){
       const ownerRules=OWNER_POST_RULE_TYPES.has(owner.fenceType);
-      // Vinyl gate-post material is unverified: generic gate post, owner-rule length.
+      // Vinyl and ornamental gate-post material is unverified: generic gate post, owner-rule length.
       const wood=owner.fenceType==='woodprivacy'||owner.fenceType==='woodshadowbox';
       const name=wood?`Gate Post 4x4x${ownerPostLengthFt('gate',sp)}'`
         :ownerRules?chainLinkPostLabel('gate',sp,'Gate Post'):postLengthLabel('gate',sp,'Gate Post');
