@@ -1459,6 +1459,7 @@ const GATE_COST_KEYS={walk:'walk gate w hardware',doubledrive:'dbl drive w hardw
 // calcAutoMaterials costKey for that line). Used to map a supplier CSV row that
 // carries a BOM line name onto the same key that line is priced from.
 const BOM_NAME_COST_KEYS=[
+  [/^gate post 4x4x\d+(?:\.\d+)?'$/i,'post'],
   [/^2x4 top rail$/i,'wood top rail'],
   [/^2x4 mid rail$/i,'wood mid rail'],
   [/^2x4 bottom rail$/i,'wood bottom rail'],

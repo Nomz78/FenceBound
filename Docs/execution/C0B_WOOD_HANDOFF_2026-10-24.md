@@ -52,7 +52,13 @@ from the $24 pipe key to the $11 wood key. At existing 35% markup, client totals
   absence of the obsolete footing-table warning.
 - Focused gate: `npx playwright test tests/takeoff-counts.spec.js --output /tmp/fencebound-wood-takeoff-results`:
   34/34 passed, including all 14 type goldens. Log `/tmp/fencebound-wood-takeoff.log`.
-- Required full gate on the implementation commit: `npm test` and
+- Initial full gate on `ae159a3` exposed E6/E8: the legacy price oracle assumed pipe
+  gate posts, and CSV import mapped the new wood gate label to `gate post`. Stopped
+  after 71 passes, two failures and one interrupted test (134 not run); raw evidence
+  `/tmp/fencebound-wood-first-gate.log`. Added an exact wood-gate name mapping to `post`
+  and updated E6 to assert the customized wood rate (no skipped wood assertions).
+  E6/E8 then passed 2/2: `/tmp/fencebound-wood-mapping.log`.
+- Required full gate on the final implementation commit: `npm test` and
   `node scripts/cad-persistence-matrix.js`; final outcomes in `Docs/CURRENT_HANDOFF.md`.
 
 ## Review and closeout

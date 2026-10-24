@@ -221,7 +221,9 @@ test('E6 an upgraded saved rate card keeps every customised line price', async (
       computePricing().matLines.forEach(l=>{
         if(/Concrete/.test(l.name))return; // concrete was mispriced; its change is the defect repair
         lines++;
-        const before=legacy(l.name,old);
+        // C0b wood owner plan: 4x4 gate posts now intentionally use the wood
+        // post key; preserve its customised value, not the former pipe-post rate.
+        const before=/^Gate Post 4x4x/.test(l.name)?old.post.cost:legacy(l.name,old);
         if(before!==l.unitCost)diffs.push(type+': '+l.name+' '+before+' -> '+l.unitCost);
       });
     }

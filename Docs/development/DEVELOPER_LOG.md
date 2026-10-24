@@ -879,3 +879,15 @@ closeout; their bytes match the previously reviewed repair checkpoint.
   handoff claimed). No final-main integration claim is inferred for #20/#21.
 - Carried limit: the spec panel shows generic default depths; owner-rule calculations
   apply unless depths are edited. Old saved jobs remain out of scope as owner directed.
+
+### Wood gate-name pricing follow-up
+
+- Initial full gate on `ae159a3` found E6/E8 mismatches introduced by the planned
+  wood gate label/key change. Stopped at 71 passed, two failed, one interrupted and
+  134 not run; log `/tmp/fencebound-wood-first-gate.log`.
+- Added the exact `Gate Post 4x4x<len>'` CSV mapping to `post`. E6 now expects the
+  saved customized wood-post rate for that label instead of the old pipe rate; its
+  wood assertions remain active. E6/E8 pass 2/2 after: `/tmp/fencebound-wood-mapping.log`.
+- This is directly required by the authorized wood gate-post key change. No default
+  price values or unrelated mappings changed. Final full gate will use the follow-up
+  implementation commit; earlier failed gate is retained as evidence.
