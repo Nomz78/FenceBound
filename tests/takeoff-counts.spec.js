@@ -87,8 +87,10 @@ test('T2 vinyl split-rail rails equal bays at the run post spacing times rails p
 
 test('T3 concrete for an off-table hole depth rounds up to the next table depth and warns', async ({ page }) => {
   await cleanOpen(page);
+  // Hog-wire cattle fence still uses the footing table; chain link follows the
+  // owner's per-post bag rule since C0b (see C0b-6).
   const concrete = async extra => {
-    const bom = await bomFor(page, 'chainlink', true, extra);
+    const bom = await bomFor(page, 'cattlehog', true, extra);
     const codes = await state(page, `validateProject({includePricing:false,requireClient:false}).warnings.filter(w=>w.code==='CONCRETE_DEPTH_OFF_TABLE').length`);
     return [bom['Post Concrete (60lb bag)'] || 0, bom['Gate Post Concrete (60lb bag)'] || 0, codes];
   };
@@ -194,12 +196,87 @@ test('T8 a legacy or unknown fence type is a validation error and never FINAL-RE
   expect(await state(page, `computePricing().isFinalReady`)).toBe(true);
 });
 
+// C0b residential chain link (Docs/reference/HARDWARE_SPEC_REFERENCE.md). Each count
+// cites its reference line. Fixture: 100 LF, 4 ft, sections 40/26/18 ft, six line
+// posts, two end terminals, four gate posts, six fabric ends.
+const REF = 'Docs/reference/HARDWARE_SPEC_REFERENCE.md';
+test('C0b-1 carriage bolts: one per band (owner ruling 3, CL-R)', async ({ page }) => {
+  await cleanOpen(page);
+  const bom = await bomFor(page, 'chainlink', true);
+  // 18 tension bands + 12 terminal brace bands = 30 bolts, not 6 ends x 8 = 48.
+  expect(bom['3/8" Carriage Bolt+Nut'], `${REF} ruling 3`).toBe(bom['Tension Band'] + bom['Terminal-size Brace Band']);
+  expect(bom['3/8" Carriage Bolt+Nut']).toBe(30);
+  // A mid rail adds its terminal and line-size bands, one bolt each.
+  const mid = await bomFor(page, 'chainlink', true, 'specs.hasMidRail=true;specs.midRailUserSet=true;');
+  expect(mid['3/8" Carriage Bolt+Nut']).toBe(mid['Tension Band'] + mid['Terminal-size Brace Band'] + mid['Line-size Brace Band']);
+});
+
+test('C0b-2 top rail: swedged by default (no sleeves), plain 21 ft sticks sleeved per joint (ruling 2)', async ({ page }) => {
+  await cleanOpen(page);
+  const swedged = await bomFor(page, 'chainlink', true);
+  expect(await state(page, 'S.specs.topRailJoint')).toBe('swedged');
+  expect(swedged['Top Rail Sleeve'], `${REF} ruling 2`).toBeUndefined();
+  // Plain: sections 40/26/18 ft take 2/2/1 sticks of 21 ft, so 1 + 1 + 0 sleeves.
+  const plain = await bomFor(page, 'chainlink', true, `specs.topRailJoint='plain';`);
+  expect(plain['Top Rail Sleeve']).toBe(2);
+  const plainOpen = await bomFor(page, 'chainlink', false, `specs.topRailJoint='plain';`);
+  expect(plainOpen['Top Rail Sleeve']).toBe(4); // 100 ft = 5 sticks, 4 joints
+});
+
+test('C0b-3 truss rods at every terminal fabric connection (ruling 7)', async ({ page }) => {
+  await cleanOpen(page);
+  const bom = await bomFor(page, 'chainlink', true, 'specs.hasMidRail=true;specs.midRailUserSet=true;specs.hasTrussRod=true;');
+  // Two end terminals + four gate-post ends = 6, not corners and gates only (4).
+  expect(bom['Truss Rod'], `${REF} ruling 7`).toBe(6);
+  expect(bom['Truss Rod Connector (turnbuckle-style, threaded)']).toBe(6);
+});
+
+test('C0b-4 ties and hog rings at Master Halco spacing: 15 in on posts, 24 in on rails and wires (ruling 8)', async ({ page }) => {
+  await cleanOpen(page);
+  const bom = await bomFor(page, 'chainlink', true);
+  // Rail: ceil(40/2)+ceil(26/2)+ceil(18/2) = 42; line posts: 6 x ceil(48/15) = 24.
+  expect(bom['Wire Ties 9ga'], `${REF} ruling 8 / CL-C`).toBe(42 + 24);
+  expect(bom['Hog Rings']).toBe(42);
+});
+
+test('C0b-5 post lengths: line = height + 2 ft; terminals 1.5 x height from 8 ft, hole capped at 48 in', async ({ page }) => {
+  await cleanOpen(page);
+  const at4 = await bomFor(page, 'chainlink', true);
+  expect(at4["Line Post 6'"], `${REF} Final owner answers`).toBe(6);
+  expect(at4["Terminal/Corner Post 6'"]).toBe(2);
+  expect(at4["Gate Post 6'"]).toBe(4);
+  const at8 = await bomFor(page, 'chainlink', true, 'specs.heightIn=96;applyHeightDrivenSpecs({specs});');
+  expect([at8["Line Post 10'"], at8["Terminal/Corner Post 12'"], at8["Gate Post 12'"]]).toEqual([6, 2, 4]);
+  // 10 ft: 1.5 x 10 = 15 ft would bury 60 in; capped at 48 in -> 14 ft.
+  const at10 = await bomFor(page, 'chainlink', true, 'specs.heightIn=120;applyHeightDrivenSpecs({specs});');
+  expect([at10["Line Post 12'"], at10["Terminal/Corner Post 14'"], at10["Gate Post 14'"]]).toEqual([6, 2, 4]);
+});
+
+test('C0b-6 concrete: line posts 1 bag (2 from 8 ft), terminals 2 bags (3 from 7 ft), other depths by ratio', async ({ page }) => {
+  await cleanOpen(page);
+  const bags = async extra => {
+    const bom = await bomFor(page, 'chainlink', true, extra);
+    return [bom['Post Concrete (60lb bag)'], bom['Gate Post Concrete (60lb bag)']];
+  };
+  // 4 ft: 6 line x 1 + 2 terminals x 2 = 10; 4 gate posts x 2 = 8.
+  expect(await bags(''), `${REF} Final owner answers`).toEqual([10, 8]);
+  expect(await bags('specs.heightIn=84;applyHeightDrivenSpecs({specs});')).toEqual([6 + 6, 12]);
+  expect(await bags('specs.heightIn=96;applyHeightDrivenSpecs({specs});')).toEqual([12 + 6, 12]);
+  // Edited depths keep the hole diameter: bags scale with depth, rounded up.
+  // Line 36 in: ceil(1 x 36/24) = 2; gate 30 in: ceil(2 x 30/24) = 3.
+  expect(await bags('specs.postEmbedIn.line=36;specs.postEmbedDirty.line=true;specs.postEmbedIn.gate=30;specs.postEmbedDirty.gate=true;'))
+    .toEqual([12 + 4, 12]);
+  expect(await state(page, `validateProject({includePricing:false,requireClient:false}).warnings.filter(w=>w.code==='CONCRETE_DEPTH_OFF_TABLE').length`)).toBe(0);
+});
+
 // Golden BOMs at seed prices and default specs. Every non-chain-link type still
 // gets chain-link pipe gate posts, gate concrete and one flat kit per gate type
 // (audit F-5): recorded as an owner question, deliberately locked here so any
 // change to it is visible.
 const GOLDEN = {
-  chainlink: { matCost: 135209, clientTotal: 310872, bom: { "Chain Link Fabric (48\")": 84, "Top Rail 1-5/8\"": 84, "Line Post 9' (63\" cut)": 6, "Terminal/Corner Post 10.5' (74\" cut)": 2, "Tension Bar": 6, "Tension Band": 18, "Top Rail Sleeve": 9, "Post Cap": 12, "Terminal-size Brace Band": 12, "Rail End (Loop Cap)": 6, "Wire Ties 9ga": 63, "Hog Rings": 45, "3/8\" Carriage Bolt+Nut": 48, "Post Concrete (60lb bag)": 4, "Bottom Tension Wire 9ga": 84, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
+  // C0b (owner rulings 2026-10-23): posts 9'/10.5' -> 6', sleeves 9 -> none (swedged),
+  // ties 63 -> 66, hog rings 45 -> 42, bolts 48 -> 30, post concrete 4 -> 10.
+  chainlink: { matCost: 137852, clientTotal: 314441, bom: { "Chain Link Fabric (48\")": 84, "Top Rail 1-5/8\"": 84, "Line Post 6'": 6, "Terminal/Corner Post 6'": 2, "Tension Bar": 6, "Tension Band": 18, "Post Cap": 12, "Terminal-size Brace Band": 12, "Rail End (Loop Cap)": 6, "Wire Ties 9ga": 66, "Hog Rings": 42, "3/8\" Carriage Bolt+Nut": 30, "Post Concrete (60lb bag)": 10, "Bottom Tension Wire 9ga": 84, "Walk Gate w/ Hardware": 1, "Gate Post 6'": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
   woodprivacy: { matCost: 271435, clientTotal: 520818, bom: { "Dog-Ear Picket 1x4x6'": 288, "Post 4x4x9'": 11, "2x4 Top Rail": 84, "2x4 Bottom Rail": 84, "2x4 Mid Rail": 84, "Post Cap / Finial": 11, "Exterior Screws (rails)": 66, "Exterior Screws (pickets)": 2592, "Post Concrete (60lb bag)": 33, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (104\" cut)": 4, "Gate Post Concrete (60lb bag)": 12, "Dbl Drive w/ Hardware": 1 } },
   woodshadowbox: { matCost: 267145, clientTotal: 528047, bom: { "Dog-Ear Picket 1x6x6'": 275, "Post 4x4x9'": 11, "2x4 Top Rail": 84, "2x4 Bottom Rail": 84, "2x4 Mid Rail": 84, "Post Cap / Finial": 11, "Exterior Screws (rails)": 66, "Exterior Screws (pickets)": 2475, "Post Concrete (60lb bag)": 33, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (104\" cut)": 4, "Gate Post Concrete (60lb bag)": 12, "Dbl Drive w/ Hardware": 1 } },
   woodsplit2: { matCost: 98700, clientTotal: 235545, bom: { "Split Rail 11ft Rail": 18, "Split Rail Post 6'": 8, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },

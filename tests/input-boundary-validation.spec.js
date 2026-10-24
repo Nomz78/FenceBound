@@ -7,7 +7,7 @@ const { test, expect } = require('@playwright/test');
 // One coercion rule applies at every boundary: finite numbers >= 0 pass, plain
 // decimal strings coerce to numbers, anything else is rejected and reported.
 
-const R15_CENTS = 28692;
+const R15_CENTS = 28287; // C0b chain link: was 28692 (persistence-integrity R15)
 
 async function cleanOpen(page) {
   await page.goto('/index.html');
