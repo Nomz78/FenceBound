@@ -21,11 +21,12 @@ at terminals, brace wire 2 per terminal, concrete only on terminals/corners via
 `tests/takeoff-counts.spec.js` split-rail sweep (search `C0b-splitrail`) as the test pattern.
 1. Branch `claude/counting-c0b-cattle` from `claude/counting-c0b-splitrail`; PR base the
    split-rail branch. Types `cattlefield`, `cattlehog`.
-2. Brace assembly mid-line every 200 ft of run: count = floor(section length / 200) per
-   fabric section; none at exactly a terminal (a 200 ft section adds 0... decide: floor
-   counts 1 at exactly 200 ft, so use `ceil(len/200)-1`, i.e. one per full 200 ft *inside*
-   the section). Each brace adds what a terminal brace carries (wood brace post(s), brace
-   wire) at the owner terminal rules. Keep it simple; state the assembly contents in the PR.
+2. Brace assembly mid-line every 200 ft of run, one at each 200 ft point strictly inside a
+   fabric section: count = `ceil(len/200) - 1` per section (199 -> 0, 200 -> 0, 201 -> 1,
+   400 -> 1, 401 -> 2, 650 -> 3). The round 5 note "floor(len/200)" would put a brace on
+   the terminal at exactly 200 ft, which the same note excludes; use the ceil form. Each
+   brace adds what a terminal brace carries today (wood brace post, 2 brace wire) at the
+   owner terminal rules. Keep it simple; state the assembly contents in the PR.
 3. Posts/concrete: wood corner/brace posts are terminals → owner terminal length and bags
    (they set in concrete today). T-posts are driven, no concrete; leave them alone.
 4. **Done when:** sweep (lengths 150/199/200/201/399/400/401/650 ft, gated/ungated, both
