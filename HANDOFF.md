@@ -9,7 +9,30 @@
 - C0b chain link: branch `claude/counting-c0b-chainlink` (from the C2 branch), PR open.
   Gate 204/204, matrix 12/12. R15 28692 → 28287, owner approved 2026-10-24. Details:
   `Docs/execution/C0B_CHAINLINK_HANDOFF_2026-10-23.md`.
-- Next: step 2, wood, branched from `claude/counting-c0b-chainlink`.
+- Next: step 2, wood (privacy + shadowbox only; split rail is its own later PR). Branch
+  `claude/counting-c0b-wood` exists, created from `claude/counting-c0b-chainlink`. No code yet.
+
+## Wood plan (step 2)
+Owner direction 2026-10-24: test rules across many heights/lengths, not one sample job.
+Old saved jobs are out of scope.
+1. In `index.html` rename the generic chain-link helpers so wood can share them:
+   `chainLinkHoleDepthIn`, `chainLinkBagsAtDefaultDepth`, `chainLinkDepthIn`,
+   `chainLinkConcreteBags` (they already hold the owner rules, not chain-link specifics).
+2. Wood privacy/shadowbox branches in `calcAutoMaterials`: posts `Post 4x4x<len>'` with
+   line len = height + 2 ft, terminals per "Final owner answers" (one row when lengths match,
+   two rows when they differ, at 8 ft+). Concrete: line 1 bag (2 at 8 ft+), terminals 2
+   (3 at 7 ft+), replacing `concreteBagsForPosts('terminal',typePostCount,sp)`.
+3. Gate posts on wood runs: 4x4 at terminal length (W-G illustrations use 4x4),
+   `Gate Post 4x4x<len>'`, costKey `post`; gate concrete per the terminal rule. Change the
+   `cl` check in the gate loop and the `CONCRETE_DEPTH_OFF_TABLE` skip to a shared list of
+   types on the owner post rules.
+4. Leave pickets, rails, screws, caps alone (reference labels them unverified, not bugs).
+5. Fixture (6 ft, 8 ft spacing: 9 line + 2 terminal): `Post 4x4x8'` 11 (was `4x4x9'`),
+   Post Concrete 33 → 13, `Gate Post 10.5' (104" cut)` → `Gate Post 4x4x8'` 4, gate concrete
+   12 → 8. matCost/clientTotal will move (gate post key `gate post` $24 → `post` $11).
+**Done when:** a red-before sweep test (heights 4–8 ft × several lengths, both styles, expected
+counts written from the rules) passes; goldens updated old → new; full gate green; PR against
+`claude/counting-c0b-chainlink`.
 
 ## Read first (only these)
 1. `Docs/reference/HARDWARE_SPEC_REFERENCE.md` lines 516–end: owner rulings. The table
