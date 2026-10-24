@@ -559,3 +559,11 @@ Apply these simply; do not reopen them.
 | Ornamental | Panel width is the post spacing: 8 ft panel = 8 ft centers, 6 ft panel = 6 ft. Per-job choice, quick to switch; default 8 ft (the norm). |
 | Cattle fence | A brace assembly mid-line every 200 ft. |
 | C0b branches | Owner: "whatever is easier". |
+
+### House/wall ends — owner correction, 2026-10-24
+
+The owner clarified: "no its still a post, just set within 3\" of the wall, as thats code."
+Record the 3-inch placement instruction as an owner field rule. A house/wall end retains
+its post, concrete and ordinary terminal hardware; no wall-attachment assembly is specified.
+This supersedes HANDOFF.md's former C4 proposal to remove posts/concrete, not the older
+authoritative fixture: its two house terminal posts and existing hardware counts remain.
