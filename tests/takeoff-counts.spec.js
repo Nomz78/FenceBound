@@ -543,9 +543,76 @@ test('C0b-ornamental sweeps heights 4-8 ft, 6 and 8 ft spacing, seven lengths, w
   expect(failures, `${REF}:539 Final owner answers; 140 cases`).toEqual([]);
 });
 
+// Split rail plan, HARDWARE_SPEC_REFERENCE.md:527 (ruling 4, 10 ft 4 in centers),
+// :534 (W2 default heights 3 ft two rail, 4 ft three rail) and :539-559 (Final
+// owner answers: posts and concrete; they supersede the S15 lengths in W2).
+// Gate-post material is unverified for split rail, so gate posts keep the
+// generic `gate post` key at owner-rule length.
+const SPLIT_TYPES = {
+  woodsplit2: { rails: 2, heightFt: 3, post: 'Split Rail Post', postKey: 'split rail post', rail: 'Split Rail 11ft Rail', railKey: 'split rail rail' },
+  woodsplit3: { rails: 3, heightFt: 4, post: 'Split Rail Post', postKey: 'split rail post', rail: 'Split Rail 11ft Rail', railKey: 'split rail rail' },
+  woodsplit3fb: { rails: 3, heightFt: 4, post: 'Split Rail Post', postKey: 'split rail post', rail: 'Split Rail 11ft Rail', railKey: 'split rail rail' },
+  vinylsplit2: { rails: 2, heightFt: 3, post: 'Vinyl Split Rail Post', postKey: 'vinyl split rail post', rail: 'Vinyl Split Rail', railKey: 'vinyl split rail', caps: true },
+  vinylsplit3: { rails: 3, heightFt: 4, post: 'Vinyl Split Rail Post', postKey: 'vinyl split rail post', rail: 'Vinyl Split Rail', railKey: 'vinyl split rail', caps: true },
+};
+const SPLIT_CENTERS_FT = 10 + 4 / 12;
+test('C0b-splitrail defaults: 10 ft 4 in centers, 3 ft two rail, 4 ft three rail', async ({ page }) => {
+  await cleanOpen(page);
+  for (const [type, t] of Object.entries(SPLIT_TYPES)) {
+    expect(await state(page, `(()=>{selectFenceType('${type}');
+      return {spacingIn:Math.round(S.postSpacing*12),heightIn:S.specs.heightIn,label:document.getElementById('spacing-val').textContent};})()`),
+      `${REF}:527 ruling 4, :534 W2 (${type})`).toEqual({ spacingIn: 124, heightIn: t.heightFt * 12, label: '10 ft 4 in' });
+  }
+});
+
+for (const [type, t] of Object.entries(SPLIT_TYPES)) {
+  test(`C0b-splitrail ${type} sweeps heights 3-5 ft, seven lengths, with and without gates`, async ({ page }) => {
+    await cleanOpen(page);
+    const failures = [];
+    for (const height of [3, 4, 5]) {
+      for (const length of [10, 11, 20, 31, 62, 100, 163]) {
+        for (const gated of [false, true]) {
+          const result = await state(page, `(()=>{
+            S.elements=[];S.materials=[];S.selected=null;selectFenceType('${type}');
+            const specs=cloneRunSpecs(S.specs);specs.heightIn=${height * 12};applyHeightDrivenSpecs({specs});
+            const run={type:'fence',start:{x:0,y:0},end:{x:${length}*GRID_FT,y:0},
+              fenceType:'${type}',runId:'split_sweep',specs,postSpacing:S.postSpacing,autoPostSpacing:S.postSpacing};
+            S.elements=[run];
+            if(${gated})S.elements.push(attachGateToRun({type:'gate',
+              start:{x:${(length - 4) / 2}*GRID_FT,y:0},end:{x:${(length + 4) / 2}*GRID_FT,y:0},
+              gateType:'walk',hinge:'start',swingDir:1},run));
+            rebuildRunAutoPosts(run);
+            return calcAutoMaterials().filter(r=>['${t.postKey}','${t.railKey}','gate post','post concrete bag','post cap vinyl'].includes(r.costKey))
+              .map(({name,qty,costKey,unit})=>({name,qty,costKey,unit}));
+          })()`);
+          const sections = gated ? [(length - 4) / 2, (length - 4) / 2] : [length];
+          const bays = sections.reduce((n, feet) => n + Math.ceil(feet / SPLIT_CENTERS_FT - 1e-9), 0);
+          const lines = bays - sections.length;
+          const postLength = height + 2; // below 8 ft, line and terminal lengths agree
+          const expected = {};
+          expected[t.rail] = { qty: bays * t.rails, costKey: t.railKey, unit: 'ea' };
+          expected[`${t.post} ${postLength}'`] = { qty: lines + 2, costKey: t.postKey, unit: 'ea' };
+          if (t.caps) expected['Post Cap Vinyl'] = { qty: lines + 2, costKey: 'post cap vinyl', unit: 'ea' };
+          expected['Post Concrete (60lb bag)'] = { qty: lines * 1 + 2 * 2, costKey: 'post concrete bag', unit: 'bag' };
+          if (gated) {
+            expected[`Gate Post ${postLength}'`] = { qty: 2, costKey: 'gate post', unit: 'ea' };
+            expected['Gate Post Concrete (60lb bag)'] = { qty: 2 * 2, costKey: 'post concrete bag', unit: 'bag' };
+          }
+          const actual = Object.fromEntries(result.filter(r=>r.qty).map(({name,...r})=>[name,r]));
+          const sorted = rows => Object.entries(rows).sort(([a],[b])=>a.localeCompare(b));
+          if (JSON.stringify(sorted(actual)) !== JSON.stringify(sorted(expected))) {
+            failures.push({height,length,gated,expected,actual});
+          }
+        }
+      }
+    }
+    expect(failures, `${REF}:527/:539 split rail; 42 cases`).toEqual([]);
+  });
+}
+
 // Golden BOMs at seed prices and default specs. Wood privacy/shadowbox now
 // use 4x4 gate posts per the wood plan; vinyl privacy and ornamental keep generic gate posts
-// at owner-rule length. Other non-chain-link types still carry the legacy
+// at owner-rule length, as does split rail. Other non-chain-link types still carry the legacy
 // gate-post rules; their later C0b tasks remain separate.
 const GOLDEN = {
   // C0b (owner rulings 2026-10-23): posts 9'/10.5' -> 6', sleeves 9 -> none (swedged),
@@ -553,13 +620,16 @@ const GOLDEN = {
   chainlink: { matCost: 137852, clientTotal: 314441, bom: { "Chain Link Fabric (48\")": 84, "Top Rail 1-5/8\"": 84, "Line Post 6'": 6, "Terminal/Corner Post 6'": 2, "Tension Bar": 6, "Tension Band": 18, "Post Cap": 12, "Terminal-size Brace Band": 12, "Rail End (Loop Cap)": 6, "Wire Ties 9ga": 66, "Hog Rings": 42, "3/8\" Carriage Bolt+Nut": 30, "Post Concrete (60lb bag)": 10, "Bottom Tension Wire 9ga": 84, "Walk Gate w/ Hardware": 1, "Gate Post 6'": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
   woodprivacy: { matCost: 250635, clientTotal: 492738, bom: { "Dog-Ear Picket 1x4x6'": 288, "Post 4x4x8'": 11, "2x4 Top Rail": 84, "2x4 Bottom Rail": 84, "2x4 Mid Rail": 84, "Post Cap / Finial": 11, "Exterior Screws (rails)": 66, "Exterior Screws (pickets)": 2592, "Post Concrete (60lb bag)": 13, "Walk Gate w/ Hardware": 1, "Gate Post 4x4x8'": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
   woodshadowbox: { matCost: 246345, clientTotal: 499967, bom: { "Dog-Ear Picket 1x6x6'": 275, "Post 4x4x8'": 11, "2x4 Top Rail": 84, "2x4 Bottom Rail": 84, "2x4 Mid Rail": 84, "Post Cap / Finial": 11, "Exterior Screws (rails)": 66, "Exterior Screws (pickets)": 2475, "Post Concrete (60lb bag)": 13, "Walk Gate w/ Hardware": 1, "Gate Post 4x4x8'": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
-  woodsplit2: { matCost: 98700, clientTotal: 235545, bom: { "Split Rail 11ft Rail": 18, "Split Rail Post 6'": 8, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
-  woodsplit3: { matCost: 106800, clientTotal: 259500, bom: { "Split Rail 11ft Rail": 27, "Split Rail Post 6'": 8, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
-  woodsplit3fb: { matCost: 118560, clientTotal: 288396, bom: { "Split Rail 11ft Rail": 27, "Split Rail Post 6'": 8, "1x6 Face Board": 84, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
+  // C0b split rail (rulings 4, W2, Final owner answers): 10 ft 4 in centers, posts
+  // height + 2 ft (wood/vinyl 2 rail 6' -> 5', 3 rail stay 6'), concrete 1 bag line /
+  // 2 bags terminal (wood none -> 10, vinyl 16 -> 10), gate posts 10.5' cut -> owner length.
+  woodsplit2: { matCost: 105200, clientTotal: 244320, bom: { "Split Rail 11ft Rail": 18, "Split Rail Post 5'": 8, "Post Concrete (60lb bag)": 10, "Walk Gate w/ Hardware": 1, "Gate Post 5'": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
+  woodsplit3: { matCost: 113300, clientTotal: 268275, bom: { "Split Rail 11ft Rail": 27, "Split Rail Post 6'": 8, "Post Concrete (60lb bag)": 10, "Walk Gate w/ Hardware": 1, "Gate Post 6'": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
+  woodsplit3fb: { matCost: 125060, clientTotal: 297171, bom: { "Split Rail 11ft Rail": 27, "Split Rail Post 6'": 8, "Post Concrete (60lb bag)": 10, "1x6 Face Board": 84, "Walk Gate w/ Hardware": 1, "Gate Post 6'": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
   vinylprivacy6: { matCost: 322644, clientTotal: 602970, bom: { "Vinyl Privacy Panel 72\"": 12, "Vinyl Post 8'": 11, "Vinyl Top Rail": 84, "Vinyl Bottom Rail": 84, "Vinyl Mid Rail": 84, "Post Cap Vinyl": 11, "Stainless Screws": 12, "Post Concrete (60lb bag)": 13, "Walk Gate w/ Hardware": 1, "Gate Post 8'": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
   vinylprivacy8: { matCost: 332394, clientTotal: 642172, bom: { "Vinyl Privacy Panel 96\"": 12, "Vinyl Post 10'": 9, "Vinyl Post 12'": 2, "Vinyl Top Rail": 84, "Vinyl Bottom Rail": 84, "Vinyl Mid Rail": 84, "Post Cap Vinyl": 11, "Stainless Screws": 12, "Post Concrete (60lb bag)": 24, "Walk Gate w/ Hardware": 1, "Gate Post 12'": 4, "Gate Post Concrete (60lb bag)": 12, "Dbl Drive w/ Hardware": 1 } },
-  vinylsplit2: { matCost: 129700, clientTotal: 290415, bom: { "Vinyl Split Rail": 18, "Vinyl Split Rail Post 6'": 8, "Post Cap Vinyl": 8, "Post Concrete (60lb bag)": 16, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
-  vinylsplit3: { matCost: 142300, clientTotal: 320445, bom: { "Vinyl Split Rail": 27, "Vinyl Split Rail Post 6'": 8, "Post Cap Vinyl": 8, "Post Concrete (60lb bag)": 16, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
+  vinylsplit2: { matCost: 125800, clientTotal: 285150, bom: { "Vinyl Split Rail": 18, "Vinyl Split Rail Post 5'": 8, "Post Cap Vinyl": 8, "Post Concrete (60lb bag)": 10, "Walk Gate w/ Hardware": 1, "Gate Post 5'": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
+  vinylsplit3: { matCost: 138400, clientTotal: 315180, bom: { "Vinyl Split Rail": 27, "Vinyl Split Rail Post 6'": 8, "Post Cap Vinyl": 8, "Post Concrete (60lb bag)": 10, "Walk Gate w/ Hardware": 1, "Gate Post 6'": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
   ornamental: { matCost: 194670, clientTotal: 443225, bom: { "Ornamental Panel 60\"": 12, "Ornamental Post 7'": 11, "Post Concrete (60lb bag)": 13, "Panel Bracket Kit": 12, "Self-Tapping Screws": 48, "Walk Gate w/ Hardware": 1, "Gate Post 7'": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
   cattlefield: { matCost: 86264, clientTotal: 205736, bom: { "T-Post 6ft": 6, "Wood Corner/Brace Post 6'": 2, "Brace Wire": 4, "T-Post Clips": 51, "Barbed Wire Strand 1": 84, "Barbed Wire Strand 2": 84, "Barbed Wire Strand 3": 84, "Post Concrete (60lb bag)": 4, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
   cattlehog: { matCost: 113648, clientTotal: 255725, bom: { "T-Post 6ft": 6, "Wood Corner/Brace Post 6'": 2, "Brace Wire": 4, "T-Post Clips": 51, "Hog Wire Welded Panel (red-top)": 84, "Post Concrete (60lb bag)": 4, "Walk Gate w/ Hardware": 1, "Gate Post 10.5' (74\" cut)": 4, "Gate Post Concrete (60lb bag)": 8, "Dbl Drive w/ Hardware": 1 } },
