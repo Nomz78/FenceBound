@@ -90,6 +90,13 @@ test('ratified footing parameters persist and bagsForHole uses the seeded schedu
 
 test('168 LF house-terminated reference job matches the authoritative takeoff', async ({ page }) => {
   await seed168LfFixture(page);
+  // Owner C4 ruling (2026-10-24): these are still posts, within 3" of the
+  // house. Explicit markings must preserve the authoritative takeoff below.
+  await state(page, 'S.selected=0;syncSelectedRunToPanel();updatePanel()');
+  await expect(page.locator('#run-start-type')).toBeVisible();
+  await page.locator('#run-start-type').selectOption('house');
+  await state(page, 'S.selected=2;syncSelectedRunToPanel();updatePanel()');
+  await page.locator('#run-end-type').selectOption('house');
   const actual=await state(page, `(()=>{
     const stats=getStats(),bom=calcAutoMaterials();
     const sum=predicate=>bom.filter(predicate).reduce((total,row)=>total+Number(row.qty||0),0);

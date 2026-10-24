@@ -175,10 +175,16 @@ style) — the "material order" every commercial tool produces. Counts only; pri
 **Done when:** the export equals the on-screen order quantities in a test.
 
 ### C4 — House/wall termination
-The owner's 168 LF fixture is house-terminated, but the app has no house-end element, so a
-run ending at a house is counted as a post plus concrete. Add an end type "wall/house" that
-uses the owner-ruled wall hardware (ask if unknown) and no post or concrete.
-**Done when:** the 168 LF fixture uses it and its counts match the owner's field numbers.
+Owner correction, 2026-10-24: a house end **still has a post**, set within 3 inches of the
+wall. This supersedes the earlier C4 proposal for no post/concrete and wall-attachment
+hardware. Retain the ordinary post, concrete and terminal hardware rules; the authoritative
+168 LF fixture's two house terminal posts remain correct.
+
+Add explicit house/wall markings on run ends, with the placement instruction visible to the
+contractor. The marking records installation intent; wall geometry and measured clearance
+are not modeled. It does not change quantities or infer wall-attachment hardware.
+**Done when:** both house ends of the 168 LF fixture are explicitly marked, existing counts
+remain unchanged, and the markings survive editing, undo/redo and job persistence.
 
 ## Open owner rulings (walls — ask, don't guess)
 
