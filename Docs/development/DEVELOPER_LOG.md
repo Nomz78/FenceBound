@@ -841,3 +841,14 @@ closeout; their bytes match the previously reviewed repair checkpoint.
   a depth is edited.
 - Gate: `npm test` 203/203, persistence matrix 12/12, `git diff --check` clean. Same
   scratch-only jsPDF preload (npm UMD 364463 bytes, SHA-256 `98ccf17aa10c…3df875`).
+
+## 2026-10-24 — C0b chain link follow-up (owner review)
+
+- Owner: "r15 approved … fix the sleeve count. opening old jobs is irrelevant at this point.
+  also, doing just one sample job is probably ironically over complicating it."
+- R15 28287 approved. Reference comparison row corrected: plain 21 ft rail on the fixture
+  is 1+1+0 = 2 sleeves (was written "2+1+0=3"); the code already gave 2.
+- New C0b-7: the chain link rules (post lengths, concrete, bolts, ties, hog rings, plain
+  rail sleeves) checked on 49 straight runs, heights 3–10 ft × lengths 12–250 ft, with
+  expected counts written from the rules. Red on `6eb7e1e` (321 mismatches), green now.
+- Old-job behaviour dropped from the open items. Gate: `npm test` 204/204, matrix 12/12.

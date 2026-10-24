@@ -264,7 +264,7 @@ from a kit. Missing kit contents are therefore unverified, not automatically bug
 | Terminal/Corner Post 10.5' (74" cut) | 2 | matches | Two outer endpoints (CL-R). No corner in fixture; stock length unresolved. |
 | Tension Bar | 6 | matches | Six section terminations (CL-R). |
 | Tension Band | 18 | matches | 6 × (4−1) = 18 (CL-R). |
-| Top Rail Sleeve | 9 | owner choice (sources disagree) | CL-R swedged: 0 separate sleeves; CL-C 21-ft plain rails: derived 2+1+0=3 joints without short-piece reuse, versus app 9. Explicit sleeve wall. |
+| Top Rail Sleeve | 9 | owner choice (sources disagree) | CL-R swedged: 0 separate sleeves; CL-C 21-ft plain rails: sections 40/26/18 ft take 2/2/1 sticks, so 1+1+0=2 joints without short-piece reuse, versus app 9 (corrected 2026-10-24; was "2+1+0=3"). Explicit sleeve wall. |
 | Post Cap | 12 | matches | 12 physical posts; CL-R distinguishes six line tops and six terminal caps. Generic line is not a purchasable SKU split. |
 | Terminal-size Brace Band | 12 | matches | Owner rule: six fabric ends × (one rail + one wire) = 12; CL-R alone covers only its rail. |
 | Rail End (Loop Cap) | 6 | matches | Owner rule: six rail ends; CL-R calls these cups, distinct from line-post loop tops. Name conflation remains. |

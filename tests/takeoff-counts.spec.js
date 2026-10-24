@@ -269,6 +269,43 @@ test('C0b-6 concrete: line posts 1 bag (2 from 8 ft), terminals 2 bags (3 from 7
   expect(await state(page, `validateProject({includePricing:false,requireClient:false}).warnings.filter(w=>w.code==='CONCRETE_DEPTH_OFF_TABLE').length`)).toBe(0);
 });
 
+// The same rules across heights and lengths, not just the one sample job. Each
+// expected count is written from the owner's rule, not from the app's helpers.
+test('C0b-7 chain link rules hold across heights 3-10 ft and run lengths 12-250 ft', async ({ page }) => {
+  await cleanOpen(page);
+  const ft = inches => +(inches / 12).toFixed(2);
+  const failures = [];
+  for (const h of [36, 48, 60, 72, 84, 96, 120]) {
+    for (const L of [12, 21, 22, 57, 100, 163, 250]) {
+      const r = await state(page, `(()=>{
+        S.elements=[];S.materials=[];
+        const specs=cloneRunSpecs(S.specs);specs.heightIn=${h};applyHeightDrivenSpecs({specs});specs.topRailJoint='plain';
+        const run={type:'fence',start:{x:0,y:0},end:{x:${L}*GRID_FT,y:0},fenceType:'chainlink',runId:'sweep',specs,postSpacing:10,autoPostSpacing:10};
+        S.elements=[run];rebuildRunAutoPosts(run);
+        const out={};calcAutoMaterials().forEach(x=>{out[x.name]=(out[x.name]||0)+x.qty;});
+        return {bom:out,line:getStats().linePosts,rails:1+(specs.hasMidRail?1:0)+(specs.hasBottomRail?1:0),
+          wires:(specs.addons.has('bottom-wire')?1:0)+(specs.addons.has('top-wire')?1:0),mid:!!specs.hasMidRail};
+      })()`);
+      const n = r.line, ends = 2, bands = ends * (Math.ceil(h / 12) - 1) + ends * (r.rails + r.wires) + (r.mid ? ends : 0);
+      const termDepth = h < 96 ? 24 : Math.min(h / 2, 48);
+      const want = {
+        [`Line Post ${ft(h + 24)}'`]: n,
+        [`Terminal/Corner Post ${ft(h + termDepth)}'`]: 2,
+        'Post Concrete (60lb bag)': n * (h < 96 ? 1 : 2) + 2 * (h < 84 ? 2 : 3),
+        '3/8" Carriage Bolt+Nut': bands,
+        'Wire Ties 9ga': Math.ceil(L / 2) * r.rails + n * Math.ceil(h / 15),
+        'Hog Rings': Math.ceil(L / 2) * r.wires,
+        'Top Rail Sleeve': Math.ceil(L / 21) - 1,
+      };
+      for (const [k, v] of Object.entries(want)) {
+        const got = r.bom[k] || 0;
+        if (got !== v) failures.push(`${h}" x ${L} ft ${k}: want ${v}, got ${got}`);
+      }
+    }
+  }
+  expect(failures, `${REF} Final owner answers, rulings 2/3/8`).toEqual([]);
+});
+
 // Golden BOMs at seed prices and default specs. Every non-chain-link type still
 // gets chain-link pipe gate posts, gate concrete and one flat kit per gate type
 // (audit F-5): recorded as an owner question, deliberately locked here so any

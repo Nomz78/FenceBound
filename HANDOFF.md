@@ -7,7 +7,7 @@
 - Owner answered every C0 question and every open wall on 2026-10-23. Commits `902ab5b`,
   `a5dae98`, `454a1bb` (docs only, on the C2 branch).
 - C0b chain link: branch `claude/counting-c0b-chainlink` (from the C2 branch), PR open.
-  Gate 203/203, matrix 12/12. R15 moved 28692 → 28287 (owner to acknowledge). Details:
+  Gate 204/204, matrix 12/12. R15 28692 → 28287, owner approved 2026-10-24. Details:
   `Docs/execution/C0B_CHAINLINK_HANDOFF_2026-10-23.md`.
 - Next: step 2, wood, branched from `claude/counting-c0b-chainlink`.
 
