@@ -1,51 +1,37 @@
-# HANDOFF — counting, round 5
+# HANDOFF — counting, round 6
 
 ## Current state
-- C1 pack sizes: PR #19 (`claude/counting-c1`, `a4fb3fd`) merged into `main`.
-- C2 waste %: PR #20 (`claude/quirky-tesla-wyxrmc`, `e5938d1`) merged into C1.
-- C0b chain link: PR #21 merged into C2. These are the live GitHub base/merge states
-  checked this round; downstream merges are not a claim of final integration into main.
-- Owner final answers remain in `Docs/reference/HARDWARE_SPEC_REFERENCE.md:539`.
-- C0b wood privacy/shadowbox is implemented on `claude/counting-c0b-wood`, starting
-  at `dd5f49d` (based on `claude/counting-c0b-chainlink`). Four red-before regressions
-  cover 140 default layouts and edited line/end/corner/gate depths. Golden changes and
-  evidence: `Docs/execution/C0B_WOOD_HANDOFF_2026-10-24.md`; final gate and tested commit:
-  `Docs/CURRENT_HANDOFF.md`.
-- Wood PR #22 merged into `claude/counting-c0b-chainlink` (`bd60cc2`).
-- C0b vinyl privacy (owner: "Start vinyl as the next C0b PR", 2026-10-24) is implemented on
-  `claude/admiring-thompson-589ghg` (`a194c16`, from `bd60cc2`); PR against
-  `claude/counting-c0b-chainlink`. Evidence and goldens: `Docs/execution/C0B_VINYL_HANDOFF_2026-10-24.md`.
-  Vinyl split rail is left for the split-rail PR. Vinyl gate-post material stays generic (unverified).
-- Vinyl PR: #23 (`claude/admiring-thompson-589ghg` -> `claude/counting-c0b-chainlink`), open.
-- **Owner go-ahead 2026-10-24 for all remaining C0b types: "i want to give the go ahead on all
-  of them. lets get this done today".** Round 5 does them below, one PR each, stacked.
+- Stack (each PR based on the one before): chain link #21, wood #22 (merged into chain link),
+  vinyl #23 (`claude/admiring-thompson-589ghg`), **ornamental #24**
+  (`claude/counting-c0b-ornamental`, `6336cc7`), **split rail #25**
+  (`claude/counting-c0b-splitrail`, `8be571b`, plus this docs commit). All open.
+- Owner go-ahead 2026-10-24 for all remaining C0b types: "i want to give the go ahead on all
+  of them. lets get this done today". Only **cattle** is left.
+- Rules: `Docs/reference/HARDWARE_SPEC_REFERENCE.md:539-560` (Final owner answers); apply
+  simply, do not re-ask.
+- Evidence/goldens: `Docs/execution/C0B_ORNAMENTAL_HANDOFF_2026-10-24.md`,
+  `Docs/execution/C0B_SPLITRAIL_HANDOFF_2026-10-24.md`; log entry in `DEVELOPER_LOG.md`.
+- Gate on split rail head: `npm test` 220 passed, persistence matrix 12 pass.
 
-## Round 5 plan: ornamental, split rail, cattle
-Same method as wood/vinyl: red-before sweep test (expected counts from geometry and the
-rules, never from app helpers), then the change, goldens old -> new, full gate, push, PR.
-Read the vinyl diff first as the pattern: `git show a194c16` (index.html + tests).
-Rules: `Docs/reference/HARDWARE_SPEC_REFERENCE.md:539-560`; apply simply, do not re-ask.
-Leave pickets/rails/caps/screws/kits/rates alone unless a rule below names them.
-
-1. **Ornamental** (`ornamental`, index.html ~1124; branch `claude/counting-c0b-ornamental`
-   from `claude/admiring-thompson-589ghg`, PR base the vinyl branch). Add to
-   `OWNER_POST_RULE_TYPES`: posts by role with owner-rule lengths, owner concrete.
-   Panel width = post spacing; default spacing 8 ft (currently 6 ft); 6 ft stays selectable
-   through run spacing (no new UI). Panels per section at the run's spacing.
-   **Done when:** sweep (heights 4-8, both 6 and 8 ft spacing, gated/ungated) red then green;
-   ornamental golden old -> new; full gate; PR.
-2. **Split rail** (`woodsplit2/3/3fb`, `vinylsplit2/3`; branch `claude/counting-c0b-splitrail`
-   from the ornamental branch). Post centers 10 ft 4 in (ruling 4). Default heights 3 ft
-   (2 rail), 4 ft (3 rail), per ruling W2. Posts/concrete per Final owner answers (line =
-   height + 2 ft; the S15 lengths in W2 are superseded). Rails per bay at 10'4" centers.
-   **Done when:** sweep across all five types red then green; five goldens old -> new; gate; PR.
-3. **Cattle** (`cattlefield`, `cattlehog`; branch `claude/counting-c0b-cattle` from the
-   split-rail branch). A brace assembly mid-line every 200 ft of run (count =
-   floor of section length / 200 per section, no brace at exactly a terminal); posts and
-   concrete per the owner rules where these types set posts in concrete (check source).
-   **Done when:** sweep (lengths below/at/over 200, 400, 650 ft) red then green; goldens; gate; PR.
-4. After the three PRs: update this file, `Docs/development/DEVELOPER_LOG.md`, one
-   `Docs/execution/C0B_<TYPE>_HANDOFF_2026-10-24.md` per type; stop.
+## Round 6 plan: cattle
+Read first: `git show 8be571b -- index.html` (pattern), `index.html` cattle branch in
+`calcAutoMaterials` (search `mat==='cattle'`; T-posts on line, `Wood Corner/Brace Post`
+at terminals, brace wire 2 per terminal, concrete only on terminals/corners via
+`concreteBagsForPosts`), `FENCE_TYPES.cattlefield/cattlehog` (spacing 12, embed 24),
+`tests/takeoff-counts.spec.js` split-rail sweep (search `C0b-splitrail`) as the test pattern.
+1. Branch `claude/counting-c0b-cattle` from `claude/counting-c0b-splitrail`; PR base the
+   split-rail branch. Types `cattlefield`, `cattlehog`.
+2. Brace assembly mid-line every 200 ft of run: count = floor(section length / 200) per
+   fabric section; none at exactly a terminal (a 200 ft section adds 0... decide: floor
+   counts 1 at exactly 200 ft, so use `ceil(len/200)-1`, i.e. one per full 200 ft *inside*
+   the section). Each brace adds what a terminal brace carries (wood brace post(s), brace
+   wire) at the owner terminal rules. Keep it simple; state the assembly contents in the PR.
+3. Posts/concrete: wood corner/brace posts are terminals → owner terminal length and bags
+   (they set in concrete today). T-posts are driven, no concrete; leave them alone.
+4. **Done when:** sweep (lengths 150/199/200/201/399/400/401/650 ft, gated/ungated, both
+   types) red then green; goldens old -> new; full gate (`npm test` + matrix); push; PR.
+5. Then: execution handoff `Docs/execution/C0B_CATTLE_HANDOFF_2026-10-24.md`, a
+   DEVELOPER_LOG entry, update this file; stop. Hand off to r7 if over break-even.
 
 ## Wood plan (step 2; implemented round 4)
 Owner direction 2026-10-24: test rules across many heights/lengths, not one sample job.
