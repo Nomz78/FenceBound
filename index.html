@@ -565,6 +565,14 @@ label{font-size:10px;color:var(--text2);letter-spacing:0.02em;display:block;marg
           <div class="psec-title">Manual items</div>
           <div id="mat-list"></div>
         </div>
+        <div class="psec">
+          <div class="psec-title">Material order</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn" id="btn-order-csv" style="flex:1">Order CSV</button>
+            <button class="btn" id="btn-order-pdf" style="flex:1">Order PDF</button>
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:6px">Grouped order quantities, including manual items. Counts only.</div>
+        </div>
       </div>
 
       <!-- TAB: SUMMARY / JOB -->
@@ -2658,12 +2666,13 @@ function updatePanel(preserveSpecs=false){
     aml.innerHTML=autoItems.map(m=>`
       <div class="mat-row">
         <div style="flex:1;min-width:0">
-          <div style="font-size:10px;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.name)}</div>
+          <div class="mat-name" style="font-size:10px;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.name)}</div>
         </div>
         <span class="mat-need" style="font-size:10px;color:var(--text3);white-space:nowrap;margin-left:6px" title="Needed">need ${m.qty}</span>
         <span class="mat-order" style="font-size:10px;color:var(--accent);font-weight:700;white-space:nowrap;margin-left:6px" title="Order${m.waste?` (+${m.waste}% waste)`:''}${m.pack>1?` (packs of ${m.pack} ${m.unit})`:''}">order ${m.order} ${m.unit}</span>
       </div>`).join('');
   }
+  updateMatList();
 }
 
 function updateLegend(){
@@ -2872,14 +2881,15 @@ function updateHint(){
 function updateMatList(){
   const ml=document.getElementById('mat-list');
   if(!S.materials.length){ml.innerHTML='<div style="font-size:10px;color:var(--text3);text-align:center;padding:8px 0">No manual items added</div>';return;}
-  ml.innerHTML=S.materials.map((m,i)=>`
+  ml.innerHTML=S.materials.map((item,i)=>{const m=withOrderQty({...item,source:'manual'});return `
     <div class="mat-row">
       <div style="flex:1;min-width:0">
-        <div style="font-size:10px;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.name)}</div>
-        <div style="font-size:10px;color:var(--text2)">${esc(m.qty)} ${esc(m.unit)}</div>
+        <div class="mat-name" style="font-size:10px;color:var(--text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.name)}</div>
+        <span class="mat-need" style="font-size:10px;color:var(--text3)">need ${esc(m.qty)}</span>
+        <span class="mat-order" style="font-size:10px;color:var(--accent);margin-left:6px">order ${m.order??'invalid'} ${esc(m.unit)}</span>
       </div>
       <button data-mi="${i}" style="background:none;border:none;color:var(--red);opacity:0.6;cursor:pointer;font-size:14px;padding:0 4px">✕</button>
-    </div>`).join('');
+    </div>`;}).join('');
   ml.querySelectorAll('[data-mi]').forEach(b=>b.addEventListener('click',()=>{S.materials.splice(+b.dataset.mi,1);updateMatList();}));
 }
 
@@ -3467,6 +3477,8 @@ function init(){
     el.addEventListener(el.type==='number'?'input':'change',()=>{if(S.activeTab==='pricing')updatePricing();scheduleAutosave();});
   });
   document.getElementById('btn-gen-estimate').addEventListener('click',exportEstimatePDF);
+  document.getElementById('btn-order-csv').addEventListener('click',exportMaterialOrderCSV);
+  document.getElementById('btn-order-pdf').addEventListener('click',exportMaterialOrderPDF);
   document.getElementById('btn-validate-job').addEventListener('click',runValidationReport);
   const _ce=document.getElementById('btn-cost-editor');if(_ce)_ce.addEventListener('click',openCostEditor);
   const _cp=document.getElementById('btn-company-profile');if(_cp)_cp.addEventListener('click',openCompanyEditor);
@@ -4884,6 +4896,139 @@ function drawPdfValidationWarning(doc,validation,x,y,width){
   return height;
 }
 
+// ── MATERIAL ORDER (C3) ───────────────────────────────────────────────────
+function materialOrderRows(){
+  const grouped=new Map();
+  // Preserve the existing per-section LF rounding and each manual line's order.
+  // Group the resulting quantities; never run pack/waste rounding a second time.
+  const items=[...calcAutoMaterials(),...S.materials.map(m=>withOrderQty({...m,source:'manual'}))];
+  for(const item of items){
+    const key=costKeyFor(item),entry=key!==null&&Object.prototype.hasOwnProperty.call(COST_DB,key)?COST_DB[key]:null;
+    if(coerceNonNegNumber(item.qty)===null||!Number.isFinite(item.order)||item.order<0||
+      (entry&&typeof entry==='object'&&((entry.pack!==undefined&&coercePackSize(entry.pack)===null)||
+        (entry.waste!==undefined&&coerceWastePct(entry.waste)===null))))
+      throw new Error('Check material quantities, pack sizes and waste before exporting.');
+    const name=String(item.name??''),unit=String(item.unit??'');
+    const id=JSON.stringify([name,unit,item.pack,item.waste]);
+    const row=grouped.get(id);
+    if(row){row.qty+=Number(item.qty);row.order+=item.order;}
+    else grouped.set(id,{name,unit,qty:Number(item.qty),order:item.order,pack:item.pack,waste:item.waste});
+  }
+  const rows=[...grouped.values()];
+  if(rows.some(r=>!Number.isFinite(r.qty)||!Number.isFinite(r.order)))
+    throw new Error('Check material quantities, pack sizes and waste before exporting.');
+  return rows;
+}
+function materialOrderExportData(){
+  try{
+    const rows=materialOrderRows();
+    if(!rows.length){showToast('No materials to order. Draw fence or add manual items.');return null;}
+    // Counts do not require prices or customer billing details. Do not publish
+    // this result as estimate readiness via renderValidationStatus.
+    const validation=validateProject({includePricing:false,requireClient:false});
+    return{rows,validation,notes:[...validation.errors,...validation.warnings].map(i=>i.message)};
+  }catch(error){showToast(error.message||'Material order could not be calculated. Check the layout.',true);return null;}
+}
+function materialOrderFilename(extension){
+  return String(S.projectName||'Untitled Job').replace(/[^a-z0-9]+/gi,'_')+'_material_order.'+extension;
+}
+function materialOrderCSVCell(value){
+  let text=String(value);
+  // Quoting handles CSV delimiters; the apostrophe keeps contractor-entered
+  // text from becoming a formula when the CSV is opened in a spreadsheet.
+  if(typeof value==='string'&&/^[\s]*[=+\-@\t\r]/.test(text))text="'"+text;
+  return '"'+text.replace(/"/g,'""')+'"';
+}
+function exportMaterialOrderCSV(){
+  const data=materialOrderExportData();if(!data)return;
+  const lines=[];
+  if(data.notes.length){
+    lines.push(['Status',data.validation.ok?'REVIEW LAYOUT':'NOT FULLY VERIFIED']);
+    data.notes.forEach(note=>lines.push(['Layout note',note]));
+    lines.push([]);
+  }
+  lines.push(['Item','Needed','Order','Unit','Pack size','Waste (%)']);
+  data.rows.forEach(r=>lines.push([r.name,r.qty,r.order,r.unit,r.pack,r.waste]));
+  const csv=lines.map(row=>row.map(materialOrderCSVCell).join(',')).join('\r\n')+'\r\n';
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  const a=document.createElement('a');a.href=url;a.download=materialOrderFilename('csv');a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function exportMaterialOrderPDF(){
+  const data=materialOrderExportData();if(!data)return;
+  if(!window.jspdf){alert('PDF library not loaded. Check internet connection.');return;}
+  const doc=new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'letter'});
+  const ACC=hexToRgb(COMPANY.accent),left=16,right=200,bottom=260;
+  let y=0,page=0;
+  const tableHeader=()=>{
+    doc.setFillColor(28,28,28);doc.rect(left,y,right-left,7,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(255,255,255);
+    doc.text('ITEM',left+2,y+5);doc.text('NEEDED',134,y+5,{align:'right'});
+    doc.text('ORDER',157,y+5,{align:'right'});doc.text('UNIT',164,y+5);
+    y+=12;
+  };
+  const newPage=(table=true)=>{
+    if(page++)doc.addPage();
+    doc.setFillColor(28,28,28);doc.rect(0,0,216,22,'F');
+    doc.setFillColor(...ACC);doc.rect(0,22,216,1.5,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(14);doc.setTextColor(255,255,255);
+    doc.text('MATERIAL ORDER',left,13);
+    doc.setFont('helvetica','normal');doc.setFontSize(8);
+    const jobLines=doc.splitTextToSize('Job: '+String(S.projectName||'Untitled Job'),right-left-6);
+    doc.text(jobLines[0]+(jobLines.length>1?'...':''),left,19);
+    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(100,100,100);
+    doc.text(`Page ${page}`,right,272,{align:'right'});
+    doc.text('Orders include pack rounding and waste. Quantities use the listed units.',left,28);
+    y=34;
+    if(data.notes.length){
+      doc.setTextColor(160,45,25);doc.setFont('helvetica','bold');
+      doc.text(data.validation.ok?'REVIEW LAYOUT - see layout notes.':'NOT FULLY VERIFIED',left,y);y+=6;
+    }
+    if(table)tableHeader();
+  };
+  // Flow arbitrary-length descriptions/metadata across pages without clipping.
+  const paragraph=(text,bold=false,table=false)=>{
+    doc.setFont('helvetica',bold?'bold':'normal');doc.setFontSize(8);doc.setTextColor(50,50,50);
+    const lines=doc.splitTextToSize(String(text),right-left-4);
+    for(const line of lines){
+      if(y>bottom){newPage(table);doc.setFont('helvetica',bold?'bold':'normal');doc.setFontSize(8);doc.setTextColor(50,50,50);}
+      doc.text(line,left+2,y);y+=4;
+    }
+    y+=3;
+  };
+  newPage(false);
+  paragraph(companyDisplayName(),true);paragraph(S.projectName||'Untitled Job');
+  if(S.jobCustomer)paragraph(S.jobCustomer);
+  if(S.jobAddress)paragraph(S.jobAddress);
+  if(y+12>bottom)newPage(false);
+  tableHeader();
+  for(const row of data.rows){
+    doc.setFont('helvetica','normal');doc.setFontSize(8);
+    const names=doc.splitTextToSize(row.name,98),units=doc.splitTextToSize(row.unit,34);
+    let offset=0;
+    while(offset<Math.max(names.length,units.length)){
+      if(y+5>bottom)newPage();
+      const count=Math.max(1,Math.floor((bottom-y)/4));
+      doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(28,28,28);
+      const nameLines=names.slice(offset,offset+count),unitLines=units.slice(offset,offset+count);
+      if(nameLines.length)doc.text(nameLines,left+2,y);
+      if(!offset){doc.text(String(row.qty),134,y,{align:'right'});doc.text(String(row.order),157,y,{align:'right'});}
+      if(unitLines.length)doc.text(unitLines,164,y);
+      y+=Math.max(nameLines.length,unitLines.length)*4;offset+=count;
+    }
+    // Pack size is in the line's unit, independent of any rate-card price unit.
+    if(row.pack!==1||row.waste)paragraph(`Pack size: ${row.pack} ${row.unit}; Waste: ${row.waste}%`,false,true);
+    y+=3;
+    doc.setDrawColor(225,225,225);doc.line(left,y-4,right,y-4);
+  }
+  // Notes use the same wrapped, paginated flow as descriptions.
+  if(data.notes.length){
+    paragraph('LAYOUT NOTES - review before ordering',true);
+    data.notes.forEach(note=>paragraph(note));
+  }
+  doc.save(materialOrderFilename('pdf'));
+}
+
 // ── ESTIMATE PDF (company-profile branded) ─────────────────────────────────
 function exportEstimatePDF(){
   const validation=validateProject();
@@ -5098,6 +5243,7 @@ init();
   <div class="fb-dev-box"><h3>Current Status</h3><div>v5.4.0 includes CSV price import, company profile, and full backup/restore. September 6 takeoff changes are implemented, but the passing 168 LF fixture disagrees with the authoritative field specification; pricing correctness is not fully established. The September 18 automatic-post repair is a local candidate pending closeout.</div></div>
 
   <div class="fb-dev-box"><h3>Takeoff — Implemented and Unresolved</h3><ul>
+   <li><b>C3 material order (24 October 2026):</b> Materials tab exports grouped CSV and paginated PDF orders from existing pack/waste quantities, including manual items. Counts only; layout notes travel with the output.</li>
    <li><b>C0b wood (24 October 2026):</b> Privacy/shadowbox 4x4 line, end, corner and gate lengths and concrete follow the final 23 October owner rules. Gate posts use the wood post rate key. Other wood materials and split rail retain their existing rules.</li>
    <li><b>D1/D2</b> Statistics and materials share per-run post tallies; linear materials and per-LF labour exclude gate widths.</li>
    <li><b>D3/D5 unresolved authority conflict:</b> the closed-loop fixture expects 12 tension bars, 60 tension bands, 24 terminal brace bands, 16 line brace bands, 24 rail-end cups and 8 caps. The house-terminated reference specifies 10, 50, 60, 10, 30 and 0 respectively. Passing that fixture is not field-specification approval.</li>
