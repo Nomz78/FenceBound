@@ -891,3 +891,13 @@ closeout; their bytes match the previously reviewed repair checkpoint.
 - This is directly required by the authorized wood gate-post key change. No default
   price values or unrelated mappings changed. Final full gate will use the follow-up
   implementation commit; earlier failed gate is retained as evidence.
+
+### C0b wood validated closeout
+
+- Tested implementation `c688ba09ed08c8550ef08415ac069706175c06c8`: `npm test` 208/208, persistence matrix 12/12,
+  `git diff --check` PASS at `2026-10-24T03:29:08+00:00`. Normal browser/CDN, including PDF tests.
+- Independent review: no blocking findings; golden deltas independently reconciled.
+  Inherited limits include generic spec-panel depths and uncapped explicit overrides.
+- This direct documentation child refreshes state/current handoff and archives
+  `Docs/handoffs/2026-10-24__counting-c0b-wood-closeout.md`. Push target remains
+  `origin/claude/counting-c0b-wood`, PR base `claude/counting-c0b-chainlink`; stop after PR.
