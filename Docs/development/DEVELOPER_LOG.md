@@ -354,3 +354,9 @@ Append one entry for every development session. Preserve prior entries.
   validation and placeholder pricing; customer estimate PDF exports on the placeholder baseline; gate-post and
   off-line gate accounting questions (need owner ruling); plan PDF dark/unbranded; mobile layout unusable.
 - **Owner direction:** fix as many as possible and sort each into fix or redo. The plan is in root `HANDOFF.md`.
+
+## 2026-10-29 — audit-repairs r1: F2 labor-hint literal (Claude Code)
+
+- **F2:** the labor-hours hint (`index.html`, static HTML) rendered `$${''}55/hr`; the `${''}` was a template-literal
+  fragment that never runs in markup. Replaced with `$`. New `tests/audit-repairs.spec.js` F2 failed before
+  (received `$${''}55/hr`) and passes after. Full suite 97/97.
