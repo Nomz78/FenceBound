@@ -396,6 +396,20 @@ Append one entry for every development session. Preserve prior entries.
   export and all pricing values are unchanged. Removed the F4 `knownDefects` entry.
 - **Tests:** `F4 estimate PDF on placeholder pricing carries the NOT FULLY VERIFIED stamp` failed before and passes
   after; `F4 estimate PDF on a saved rate card is not stamped` guards the clean path. Full suite 101/101.
+
+## 2026-10-29 — audit-repairs r1: F7 cosmetics (Claude Code)
+
+- **F7a:** estimate PDF whole-dollar amounts (line totals, urban premium, total, deposit) keep their `toFixed(0)`
+  rounding and gain thousands separators (`$1,209`, matching the app). Two-decimal PDF amounts are unchanged.
+  On the test job the PDF total equals the app total; the audit's `$1,541`/`$1559` gap was not reproduced.
+- **F7b:** the canvas draws one `0'` label at the origin (the y-axis label at 0 is skipped).
+- **F7c:** the plan PDF TYPES legend lists only fence types used by the job's runs.
+- **F7d NOT repaired — conflict recorded:** hiding raw codes in the validation modal breaks accepted tests
+  `phase-one-acceptance.spec.js` test 5 and `v5.4-port.spec.js:135`, which require `CUSTOMER_NAME` and
+  `COMPANY_PROFILE` in the modal. Reverted; owner decision needed.
+- **Tests:** F7a–c failed before and pass after; screenshots of the origin, modal, plan PDF and estimate PDF
+  were checked (session scratchpad, not committed). Full suite with F7d: 103 passed, 2 failed (both F7d);
+  after the revert, the three affected spec files pass 28/28.
 ## 2026-10-29 — audit-repairs r1 closeout and owner rulings (Claude Code)
 
 - **PRs:** #29 F2, #30 F1, #31 F3, #32 F4, #33 F7a–c (merge order and details in root `HANDOFF.md`).

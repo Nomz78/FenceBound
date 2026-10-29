@@ -1851,7 +1851,7 @@ function draw(){
   ctx.textAlign='center';
   for(let x=_lx0;x<ge;x+=_labelStep)ctx.fillText(`${(x/GRID_FT).toFixed(0)}'`,x,-8/S.zoom);
   ctx.textAlign='right';
-  for(let y=_ly0;y<gb;y+=_labelStep)ctx.fillText(`${(y/GRID_FT).toFixed(0)}'`,-6/S.zoom,y+4/S.zoom);
+  for(let y=_ly0;y<gb;y+=_labelStep)if(y!==0)ctx.fillText(`${(y/GRID_FT).toFixed(0)}'`,-6/S.zoom,y+4/S.zoom);
 
   const cs=buildCornerSet(S.elements);
   S.elements.forEach((el,i)=>{
@@ -2773,7 +2773,8 @@ function exportPDF(){
   // Legend
   doc.setDrawColor(40,55,75);doc.setLineWidth(0.2);doc.line(tbX+4,PH-28,tbX+tbW-4,PH-28);
   let ly=PH-23;doc.setFont('helvetica','bold');doc.setFontSize(6.5);doc.setTextColor(100,120,150);doc.text('TYPES',tbX+4,ly);ly+=4;
-  Object.entries(FENCE_TYPES).forEach(([,ft])=>{
+  const usedTypes=new Set(S.elements.filter(el=>el.type==='fence').map(el=>el.fenceType));
+  Object.entries(FENCE_TYPES).filter(([key])=>usedTypes.has(key)).forEach(([,ft])=>{
     if(ly>PH-6)return;
     const c=parseInt(ft.color.slice(1),16);
     doc.setDrawColor((c>>16)&255,(c>>8)&255,c&255);doc.setLineWidth(1);doc.line(tbX+4,ly,tbX+12,ly);
@@ -4160,6 +4161,7 @@ function exportEstimatePDF(){
   try{stats=pricingUnavailable?emptyExportStats():getStats();}catch(e){stats=emptyExportStats();}
   try{P=pricingUnavailable?unavailableExportPricing():computePricing();}catch(e){P=unavailableExportPricing();}
   const quickReference=false;
+  const usd0=v=>`$${Number(v.toFixed(0)).toLocaleString('en-US')}`;
   const ucDemo=document.getElementById('uc-demo')?.checked;
   const ucSlope=document.getElementById('uc-slope')?.checked;
   const ucUrban=document.getElementById('uc-urban')?.checked;
@@ -4254,7 +4256,7 @@ function exportEstimatePDF(){
       `${ft.toFixed(1)} LF`,
       `${fdef.label} Installation${notes}${(()=>{const hs=[...new Set(S.elements.filter(r=>r.type==='fence'&&r.fenceType===type).map(r=>hydrateRunSpecs(r.specs).heightIn))];return hs.length===1?` (${hs[0]}\" H)`:hs.length>1?` (Mixed heights: ${hs.join(', ')}\")`:'';})()}`,
       `$${clientPerLF.toFixed(2)}/LF`,
-      `$${lineTotal.toFixed(0)}`
+      usd0(lineTotal)
     );
   });
 
@@ -4282,7 +4284,7 @@ function exportEstimatePDF(){
   }
 
   // Upcharges
-  if(ucUrban)addRow('1','Urban/City Market Premium','15%',`+$${P.urbanAdd.toFixed(0)}`);
+  if(ucUrban)addRow('1','Urban/City Market Premium','15%',`+${usd0(P.urbanAdd)}`);
   if(ucHardDig)addRow('1','Hard Dig / Equipment Required','Est.','Included');
 
   // ── TOTALS ──
@@ -4293,12 +4295,12 @@ function exportEstimatePDF(){
   doc.setFillColor(28,28,28);doc.rect(ML,y,tableW,9,'F');
   doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(...ACC);
   doc.text('ESTIMATE TOTAL',ML+4,y+6);
-  doc.text(P.pricingUnavailable?'NOT CALCULATED':`$${P.clientTotal.toFixed(0)}`,PW-MR-2,y+6,{align:'right'});
+  doc.text(P.pricingUnavailable?'NOT CALCULATED':usd0(P.clientTotal),PW-MR-2,y+6,{align:'right'});
   y+=14;
 
   // Deposit line
   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(100,100,100);
-  doc.text(P.pricingUnavailable?`${COMPANY.depositPct}% Deposit: NOT CALCULATED`:`${COMPANY.depositPct}% Deposit Due at Signing: $${(P.clientTotal*(COMPANY.depositPct/100)).toFixed(0)}`,PW-MR-2,y,{align:'right'});
+  doc.text(P.pricingUnavailable?`${COMPANY.depositPct}% Deposit: NOT CALCULATED`:`${COMPANY.depositPct}% Deposit Due at Signing: ${usd0(P.clientTotal*(COMPANY.depositPct/100))}`,PW-MR-2,y,{align:'right'});
   y+=5;
   if(P.unknown&&P.unknown.length){
     doc.setFontSize(7.5);doc.setTextColor(200,80,40);
