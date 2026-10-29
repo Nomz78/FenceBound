@@ -200,3 +200,31 @@ test('F5 plan PDF post summary shows gate posts and matches the materials list',
   expect(strings).toContain('(Gate: 2)');
   expect(strings).toContain(`(Total Posts: ${listed})`);
 });
+
+// F6: a gate drawn off its run was attached to the nearest run where it was drawn,
+// still deducting its full drawn length. Owner ruling 2026-10-29: snap a near miss
+// onto the run, refuse a gate clearly off any run.
+async function drawGate(page, a, b) {
+  await cleanOpen(page);
+  await seedPlainRun(page);
+  return state(page, `(()=>{
+    const P=([x,y])=>({x:x*GRID_FT,y:y*GRID_FT});
+    S.tool='gate';S.gateType='walk';S.drawing={type:'gate',start:P(${JSON.stringify(a)}),end:P(${JSON.stringify(b)})};
+    handleUp({preventDefault(){},stopPropagation(){}});
+    const gates=S.elements.filter(el=>el.type==='gate').map(g=>({start:[g.start.x/GRID_FT,g.start.y/GRID_FT],
+      end:[g.end.x/GRID_FT,g.end.y/GRID_FT],runId:g.runId}));
+    return{gates,netFt:getStats().byRunId.run_f3.netFt};
+  })()`);
+}
+
+test('F6 a gate drawn just off its run snaps onto the run', async ({ page }) => {
+  const r = await drawGate(page, [20, 1], [24, 0]);
+  expect(r.gates).toEqual([{ start: [20, 0], end: [24, 0], runId: 'run_f3' }]);
+  expect(r.netFt).toBeCloseTo(56, 6);
+});
+
+test('F6 a gate drawn clearly off any run is refused', async ({ page }) => {
+  const r = await drawGate(page, [20, 10], [24, 10]);
+  expect(r.gates).toEqual([]);
+  expect(r.netFt).toBeCloseTo(60, 6);
+});

@@ -442,6 +442,17 @@ Append one entry for every development session. Preserve prior entries.
   pending an owner answer.
 - **Tests:** `F5 plan PDF post summary shows gate posts…` failed before (no `Gate:` line) and passes after.
   Full suite 108/108.
+
+## 2026-10-29 — audit-repairs r2: F6 gate snap and refuse (Claude Code)
+
+- **Repair (owner ruling):** a newly drawn gate is projected onto its nearest run (`closestPointOnSeg`). It is
+  refused with "Draw the gate on a fence run" when either end is more than 2 ft from the run (or 26 screen px
+  when zoomed far out), or when the snapped gate is shorter than the minimum run. The fabric deduction is the
+  snapped width. The 2 ft tolerance is an agent choice (drawing snaps to a 1 ft grid); the owner may change it.
+- **Not covered:** moving an existing gate with the Move tool can still take it off its run. A refused gate
+  leaves one empty undo step, as the existing "no run" refusal already does.
+- **Tests:** `F6 a gate drawn just off its run snaps…` and `F6 … clearly off any run is refused` failed before
+  and pass after. Full suite 110/110.
 ## 2026-10-29 — audit-repairs r1 closeout and owner rulings (Claude Code)
 
 - **PRs:** #29 F2, #30 F1, #31 F3, #32 F4, #33 F7a–c (merge order and details in root `HANDOFF.md`).
