@@ -1,69 +1,46 @@
-# HANDOFF — audit-repairs r1
+# HANDOFF — audit-repairs r3
 
-Start branch: `audit/v540-launch-review` (from `main` @ `82a148f`). Push to the same branch; open a PR per fix.
+Start branch: `audit/v540-launch-review`. Each fix goes on its own `fix/…` branch with its own PR into
+`audit/v540-launch-review`.
 
 ## Current state
 
-- **Done (2026-10-29, Claude Code, docs only):** a launch-readiness, UI, bug and market audit of `index.html`
-  v5.4.0. The only code change is this file plus a developer-log entry.
-- **Gate observed on `main` @ `82a148f`:** `npm test` 95/96; `node scripts/cad-persistence-matrix.js` 12/12.
-  The failure was `persistence-integrity.spec.js:605` `R9 all exports survive imported null start`
-  (`Cannot read properties of null (reading 'x')`) during estimate export. It passed 3/3 when re-run alone,
-  so it is intermittent. It is new since the Oct 3 gate (96/96).
-- **Open:** nothing has been fixed yet. The owner wants as many findings fixed as possible, and each one
-  sorted into **fix** or **redo**.
-- **Launch readiness (audit estimate):** ~75% for the owner's own crew, ~35% for a paid outside beta,
-  ~20% for a general launch.
-- **Market fit:** 4/10 today; about 6.5/10 if positioned as a precision chain-link/commercial takeoff and
-  bid tool (with the NCDOT connector) rather than a general fence CRM.
+- **r1 (2026-10-29):** #29 F2, #30 F1, #31 F3 (on #29), #32 F4 (on #31), #33 F7a–c (on #32).
+- **r2 (2026-10-29):** owner rulings logged (`9f32bd8`). Each fix has a red-before test and full suite green:
+  - #34 `fix/f5-gate-post-dedup` (on #33): defect recorded first (`321b68b`). A gate post on a run end replaces
+    the end post, and the gate's own run takes no fabric-end hardware, truss or bay there. Other runs ending
+    at that post (corners) keep theirs. Suite 107/107.
+  - #35 `fix/f5-plan-pdf-gate-posts` (on #34): plan PDF shows `Gate: N`, and Total Posts includes gate posts.
+    Suite 108/108.
+  - #36 `fix/f6-gate-snap` (on #35): a new gate snaps onto its run, and is refused if it's more than 2 ft off
+    (26 px on screen when zoomed out). Suite 110/110.
+  - **F7d deferred by owner:** keep the validation codes visible for debugging. Hide them before release; the
+    beta is undecided.
+- **Merge order:** #29 → #31 → #32 → #33 → #34 → #35 → #36 → #37 → #38; #30 any time. Every branch appends to
+  `Docs/development/DEVELOPER_LOG.md`; on conflict keep both entries.
+- **r3 owner rulings (2026-10-29, in the developer log, `38af676`):** Q1 yes, Q2 keep 2 ft, Q3 yes.
+- **r3 fixes (2026-10-29):** each has a red-before test and full suite green:
+  - #37 `fix/f5-panel-gate-posts` (on #36): side panel shows `Gate posts` and counts them in Total posts. Suite 111/111.
+  - #38 `fix/f6-gate-move-snap` (on #37): a moved gate (body or end drag) snaps onto its own run; refused if more
+    than 2 ft off. F6 rule shared as `snapGateToRun`. Dragging onto a different run is refused. Suite 114/114.
+- **Former open owner questions** (answered in r3):
+  1. Should the side panel's post summary also show gate posts in Total posts, matching the plan PDF?
+  2. Is the 2 ft F6 snap tolerance right?
+  3. Should moving an existing gate with the Move tool also snap it to its run? Not covered by F6.
 
 ## Read first
 
-- `CLAUDE.md` working rules: red-before tests, no pricing **value** changes, and a defect record before any
-  pricing **behavior** change.
-- `index.html:595`: labor hint markup (finding F2).
-- `index.html:1488-1515`: post and gate accounting (F5, F6).
-- `index.html:1700-1712`: gate materials-list lines.
-- `index.html:3430-3440` and `:3500-3505`: `isFinalReady` and the badge (F3).
-- `index.html:3985-3995`: estimate validation (F4).
-- `tests/persistence-integrity.spec.js:600-645`: R9 test (F1).
-- The `CURRENT_STATE.json` `knownDefects` list.
+- `CLAUDE.md` working rules.
+- `index.html`, by symbol: `getStats` (F5), `handleUp` gate branch (F6), `exportPDF` `Total Posts`.
+- `tests/audit-repairs.spec.js` on `fix/f6-gate-snap` for the helpers (`seedPlainRun`, `seedGateJob`,
+  `drawGate`).
 
-## Remaining steps — FIX (small, defect-shaped; one PR each)
+## Remaining steps
 
-1. **F2 labor hint shows a literal `$${''}`** (`index.html:595`, static HTML). Replace it with `$`.
-   Done when a test asserts the hint text contains `$55/hr`, fails before the fix and passes after.
-2. **F1 intermittent null-start crash.** Capture the page-error stack (`page.on('pageerror', e => e.stack)`),
-   find the unguarded `.start.x` read, then sanitize non-point `start`/`end` at import.
-   Done when R9 passes with `--repeat-each=20` inside the full suite.
-3. **F3 FINAL-READY badge appears with 4 validation errors and placeholder pricing**
-   (`index.html:3436`, `:3503`). Require validation to pass and non-placeholder pricing; otherwise show
-   "Pricing complete · not verified". Done when a red-before test passes.
-4. **F4 a customer estimate PDF exports on the shipped placeholder baseline with no warning.** This is a
-   pricing-**behavior** change, so record a defect first, then block the export or stamp the PDF the same
-   way the NOT FULLY VERIFIED path does. Done when the PDF strings test shows the stamp.
-5. **F7 cosmetics:** currency formatting differs (`$1,541` in the app, `$1559` on the PDF); two `0'` origin
-   labels overlap; the plan legend lists types the job doesn't use; the validation modal shows raw codes
-   (`PROJECT_NAME`). Done when a screenshot check confirms each.
-6. **F5/F6 need an owner field ruling before any code:**
-   - Gate posts always add +2 with no de-duplication against a coincident fence end post.
-   - The plan PDF post summary omits gate posts while the materials list includes them.
-   - A gate drawn off the fence line still subtracted 3 ft of fabric (38 LF on 41 LF).
-   Ask the owner, record the ruling in the developer log, then write red-before tests.
+1. ~~Owner answers the open questions above.~~ Done in r3 (#37, #38; Q2 no change).
+2. Merge the PRs in the order above, but only once the owner says to.
+3. **REDO list** (commit `371850a`, `HANDOFF.md:54-70`): drawing interaction, mobile layout, visual system,
+   plan PDF rebuild, estimate PDF rebuild, platform. Don't start without explicit owner feature authorization.
 
-## Remaining steps — REDO (redesign scope; needs explicit owner feature authorization)
-
-- **Drawing interaction:** drag-per-segment with no hint. Add click-to-chain polylines with double-click to
-  finish.
-- **Mobile and tablet layout:** at 390 px the canvas is about 85 px wide and the panel covers two-thirds of
-  the screen. Needs a responsive rebuild (bottom sheet).
-- **Visual system:** 9-11 px grey-on-charcoal text, unlabeled header icons, "Clear" next to "PDF", PNG as the
-  primary call to action. Needs a high-contrast or light field theme and an action-hierarchy pass.
-- **Plan PDF:** black background, branded "FenceBound" instead of the contractor, no scale bar. Rebuild it
-  light-themed and contractor-branded.
-- **Estimate PDF:** thin (no scope, drawing or terms). Rebuild it as a real customer quote.
-- **Platform:** aerial or parcel underlay, accounts and cloud save (O-5/v6.0), e-signature. This is
-  v6.0-level work.
-
-Evidence (screenshots, PDFs, logs) was in the audit session's scratchpad and is not in the repo. Reproduce
-it with Playwright, drawing by **drag**: mouse down, move, mouse up.
+Test notes: `npm test` takes about 2.5 minutes; run it in the background and log to the scratchpad. Port 8080 may
+collide with a Codex worktree (`../FenceBound-codex`).
