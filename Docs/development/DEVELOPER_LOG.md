@@ -377,3 +377,11 @@ Append one entry for every development session. Preserve prior entries.
 
 - **PRs:** #34 F5 de-duplication, #35 F5 plan PDF, #36 F6 snap/refuse (stacked on #33 in that order). F7d deferred
   by owner ruling. Open owner questions and the merge order are in root `HANDOFF.md` (r3).
+
+## 2026-10-29 — audit-repairs r3 owner rulings (Claude Code)
+
+- **Q1 side-panel Total posts (owner: yes):** the side panel's post summary includes gate posts in Total posts,
+  matching the plan PDF (#35). Fixed on its own `fix/` branch with a red-before test.
+- **Q2 F6 snap tolerance (owner: keep 2 ft):** no change.
+- **Q3 Move tool (owner: yes):** moving an existing gate snaps it onto its run, and refuses the move if it ends
+  more than 2 ft off, same rule as F6 for new gates. Fixed on its own `fix/` branch with a red-before test.

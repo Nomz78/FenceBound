@@ -18,7 +18,8 @@ Start branch: `audit/v540-launch-review`. Each fix goes on its own `fix/…` bra
     beta is undecided.
 - **Merge order:** #29 → #31 → #32 → #33 → #34 → #35 → #36; #30 any time. Every branch appends to
   `Docs/development/DEVELOPER_LOG.md`; on conflict keep both entries.
-- **Open owner questions:**
+- **r3 owner rulings (2026-10-29, in the developer log):** Q1 yes, Q2 keep 2 ft, Q3 yes.
+- **Former open owner questions** (answered in r3):
   1. Should the side panel's post summary also show gate posts in Total posts, matching the plan PDF?
   2. Is the 2 ft F6 snap tolerance right?
   3. Should moving an existing gate with the Move tool also snap it to its run? Not covered by F6.
