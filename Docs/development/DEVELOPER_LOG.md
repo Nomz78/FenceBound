@@ -370,3 +370,10 @@ Append one entry for every development session. Preserve prior entries.
 - **Tests:** `F3 badge is not FINAL-READY…` failed before (badge read FINAL-READY) and passes after; the green-path
   test guards FINAL-READY with a saved rate card and passing validation. Full suite 98/99: the one failure was R9
   null start, the F1 flake fixed separately in PR #30 and absent from this branch. Persistence matrix 12/12.
+
+## 2026-10-29 — audit-repairs r1: defect record F4 (Claude Code)
+
+- **Defect F4 (pricing behavior):** `exportEstimatePDF()` stamps NOT FULLY VERIFIED only when `validateProject()`
+  fails. A job that passes validation while `usingSeedPrices()` is true (no saved rate card) exports a customer
+  estimate priced on the shipped North Carolina placeholder baseline with no warning on the PDF.
+  Recorded in `CURRENT_STATE.json` `knownDefects` before any repair, per the working rules.
