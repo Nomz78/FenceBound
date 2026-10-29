@@ -372,3 +372,8 @@ Append one entry for every development session. Preserve prior entries.
   A hand-placed post under a gate post must count once, so F5 de-duplication covers that case too.
 - **F7d validation codes (owner: keep for now):** codes stay visible in the validation modal for debugging.
   Hide them before release; whether the beta shows them is undecided. No code or test change now.
+
+## 2026-10-29 — audit-repairs r2 closeout (Claude Code)
+
+- **PRs:** #34 F5 de-duplication, #35 F5 plan PDF, #36 F6 snap/refuse (stacked on #33 in that order). F7d deferred
+  by owner ruling. Open owner questions and the merge order are in root `HANDOFF.md` (r3).
