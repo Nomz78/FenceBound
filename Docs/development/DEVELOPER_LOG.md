@@ -354,3 +354,12 @@ Append one entry for every development session. Preserve prior entries.
   validation and placeholder pricing; customer estimate PDF exports on the placeholder baseline; gate-post and
   off-line gate accounting questions (need owner ruling); plan PDF dark/unbranded; mobile layout unusable.
 - **Owner direction:** fix as many as possible and sort each into fix or redo. The plan is in root `HANDOFF.md`.
+
+## 2026-10-29 — audit-repairs r1 closeout and owner rulings (Claude Code)
+
+- **PRs:** #29 F2, #30 F1, #31 F3, #32 F4, #33 F7a–c (merge order and details in root `HANDOFF.md`).
+- **Owner rulings:** F5: a gate post coincident with a run end post replaces it (counts once, as a gate post).
+  F5: the plan PDF post summary shows gate posts and includes them in Total Posts.
+- **Open for the owner (asked in r2):** F6 off-line gate handling (recommended: snap onto the run); F7d hiding
+  validation codes, which conflicts with two accepted tests.
+- **Handoff:** `HANDOFF.md` rewritten for audit-repairs r2.
