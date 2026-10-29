@@ -354,3 +354,14 @@ Append one entry for every development session. Preserve prior entries.
   validation and placeholder pricing; customer estimate PDF exports on the placeholder baseline; gate-post and
   off-line gate accounting questions (need owner ruling); plan PDF dark/unbranded; mobile layout unusable.
 - **Owner direction:** fix as many as possible and sort each into fix or redo. The plan is in root `HANDOFF.md`.
+
+## 2026-10-29 — audit-repairs r1: F1 intermittent null-start crash (Claude Code)
+
+- **Root cause (captured stack):** `ResizeObserver → resizeCanvas → draw → drawFenceRun` read `el.start.x` on an
+  imported run whose `start` is null. Import keeps malformed runs on purpose (R9 expects `PRICING_RUNTIME`), so the
+  crash surfaced whenever a layout change redrew the canvas, which made R9 intermittent.
+- **Fix:** `isPoint()` guard; `draw()` and `buildCornerSet()` skip elements without finite coordinates. Import and
+  validation unchanged (did not sanitize at import, which would contradict R9's accepted expectations).
+- **Test:** `Audit F1 canvas redraw survives imported null start` failed before (page-error stack above) and passes
+  after. Full suite 97/97; `persistence-integrity.spec.js
+  --repeat-each=20` 1000/1000.
