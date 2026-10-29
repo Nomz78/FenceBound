@@ -1,4 +1,8 @@
 const { test, expect } = require('@playwright/test');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { execFileSync } = require('child_process');
 
 // Regression suite for the 2026-10-29 v5.4.0 launch-audit FIX list (HANDOFF.md).
 
@@ -53,4 +57,42 @@ test('F3 badge is FINAL-READY once validation passes on a saved rate card', asyn
   expect(await state(page, 'usingSeedPrices()')).toBe(false);
   expect(await state(page, 'validateProject().ok')).toBe(true);
   expect(await badgeText(page)).toContain('FINAL-READY');
+});
+
+async function estimateStrings(page, label) {
+  await page.waitForFunction(() => !!window.jspdf, null, { timeout: 20_000 });
+  const downloadPromise = page.waitForEvent('download', { timeout: 10_000 });
+  await state(page, 'exportEstimatePDF()');
+  const download = await downloadPromise;
+  const filePath = path.join(os.tmpdir(), `fencebound-${label}-${Date.now()}.pdf`);
+  await download.saveAs(filePath);
+  const strings = execFileSync('/usr/bin/strings', [filePath], { encoding: 'utf8' });
+  fs.unlinkSync(filePath);
+  return strings;
+}
+
+async function seedVerifiedJob(page, saveRateCard) {
+  await cleanOpen(page);
+  await state(page, `(()=>{COMPANY={...DEFAULT_COMPANY,name:'FenceBound Test Company'};saveCompany();
+    ${saveRateCard ? 'saveCostDB();' : ''}
+    S.projectName='F4 Job';S.jobCustomer='F4 Customer';S.jobAddress='1 Test Lane';})()`);
+  await seedPlainRun(page);
+  expect(await state(page, 'validateProject().ok')).toBe(true);
+}
+
+// F4: a job that passed validation exported a customer estimate on the
+// shipped placeholder rate card with no warning on the PDF.
+test('F4 estimate PDF on placeholder pricing carries the NOT FULLY VERIFIED stamp', async ({ page }) => {
+  await seedVerifiedJob(page, false);
+  expect(await state(page, 'usingSeedPrices()')).toBe(true);
+  const strings = await estimateStrings(page, 'f4-placeholder');
+  expect(strings).toContain('NOT FULLY VERIFIED');
+  expect(strings).toContain('placeholder');
+});
+
+test('F4 estimate PDF on a saved rate card is not stamped', async ({ page }) => {
+  await seedVerifiedJob(page, true);
+  expect(await state(page, 'usingSeedPrices()')).toBe(false);
+  const strings = await estimateStrings(page, 'f4-saved');
+  expect(strings).not.toContain('NOT FULLY VERIFIED');
 });
