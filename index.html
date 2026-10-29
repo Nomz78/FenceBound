@@ -3504,7 +3504,11 @@ function updatePricing(){
       <span style="color:var(--text2);font-weight:600;font-size:10px">MARGIN</span>
       <span class="stat-val" style="color:${mCol};font-weight:800;font-size:21px">${P.marginPct.toFixed(1)}%</span>
     </div>`;
-    tHtml+=`<div class="stat-row"><span style="font-size:10px;color:${P.isFinalReady?'#5FBF7F':'#E8A33D'}">${P.isFinalReady?'FINAL-READY':'QUICK REFERENCE · incomplete pricing'}</span></div>`;
+    // FINAL-READY also needs a passing validation and the user's own rate card,
+    // not just a cost on every BOM line.
+    const verified=P.isFinalReady&&!usingSeedPrices()&&validateProject().ok;
+    const badge=verified?'FINAL-READY':P.isFinalReady?'Pricing complete · not verified':'QUICK REFERENCE · incomplete pricing';
+    tHtml+=`<div class="stat-row"><span style="font-size:10px;color:${verified?'#5FBF7F':'#E8A33D'}">${badge}</span></div>`;
     const deposit=P.clientTotal*(COMPANY.depositPct/100);
     tHtml+=`<div class="stat-row"><span style="color:var(--text3);font-size:10px">${COMPANY.depositPct}% Deposit Due</span><span style="color:var(--text3);font-size:10px">${mc(deposit)}</span></div>`;
     totalsEl.innerHTML=tHtml;

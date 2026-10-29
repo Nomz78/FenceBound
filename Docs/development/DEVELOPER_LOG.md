@@ -370,6 +370,16 @@ Append one entry for every development session. Preserve prior entries.
 - **F2:** the labor-hours hint (`index.html`, static HTML) rendered `$${''}55/hr`; the `${''}` was a template-literal
   fragment that never runs in markup. Replaced with `$`. New `tests/audit-repairs.spec.js` F2 failed before
   (received `$${''}55/hr`) and passes after. Full suite 97/97.
+
+## 2026-10-29 — audit-repairs r1: F3 FINAL-READY badge (Claude Code)
+
+- **F3:** the totals badge showed FINAL-READY whenever `P.isFinalReady` (every BOM line costed), even with validation
+  errors open and the shipped placeholder rate card. The badge now needs `P.isFinalReady`, `!usingSeedPrices()`
+  and `validateProject().ok`; costed-but-unverified shows "Pricing complete · not verified". `P.isFinalReady`
+  itself is unchanged (C1 and persistence tests assert it). No pricing values or math touched.
+- **Tests:** `F3 badge is not FINAL-READY…` failed before (badge read FINAL-READY) and passes after; the green-path
+  test guards FINAL-READY with a saved rate card and passing validation. Full suite 98/99: the one failure was R9
+  null start, the F1 flake fixed separately in PR #30 and absent from this branch. Persistence matrix 12/12.
 ## 2026-10-29 — audit-repairs r1 closeout and owner rulings (Claude Code)
 
 - **PRs:** #29 F2, #30 F1, #31 F3, #32 F4, #33 F7a–c (merge order and details in root `HANDOFF.md`).
