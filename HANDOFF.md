@@ -22,7 +22,9 @@ Start branch: `audit/v540-launch-review`. Each fix goes on its own `fix/…` bra
     as a gate post).
   - **F5 plan PDF:** the post summary **shows gate posts** and includes them in Total Posts, matching the
     materials list.
-- **Open owner questions** (the owner will answer these at the start of r2; ask first):
+- **r2 owner rulings (2026-10-29, in the developer log):** F6 yes, snap + refuse (a hand-placed post under a gate
+  post also counts once, under F5). F7d keep codes visible for debugging; hide before release, beta undecided.
+- **Former open owner questions** (answered in r2, kept for context):
   1. **F6 off-line gate:** the owner asked "why would there be an off-line gate post?" Answer: it's a drawing
      mistake (a near-miss click); the app attaches the gate to the nearest run and still deducts 3 ft of fabric.
      Recommendation: snap the gate onto its run when drawn, and refuse it if it's too far from any run. Get a yes
@@ -46,8 +48,7 @@ Start branch: `audit/v540-launch-review`. Each fix goes on its own `fix/…` bra
 
 ## Remaining steps
 
-1. **Ask the two open questions above.** Done when the owner has answered both and the rulings are in the
-   developer log.
+1. ~~Ask the two open questions above.~~ Done in r2; rulings in the developer log.
 2. **F5 gate-post de-duplication.** F5 changes post counts, which is pricing **behavior**, so record a defect in
    `CURRENT_STATE.json` `knownDefects` first. Then add a red-before test: a gate whose post coincides with a run
    end counts that post once. Done when the test passes and the full suite is green.
@@ -55,7 +56,7 @@ Start branch: `audit/v540-launch-review`. Each fix goes on its own `fix/…` bra
    equal to the materials list. Done when green.
 4. **F6** per the ruling in step 1 (snap: a red-before test that an off-line gate ends up on its run and the
    fabric deduction equals the gate width). Done when green.
-5. **F7d** per the ruling in step 1. Done when green, or closed as won't-fix in the log.
+5. ~~F7d~~ Deferred by owner ruling: keep codes now, hide before release (pre-release checklist item).
 6. **REDO list** (in r1's `HANDOFF.md` in git history, commit `371850a`): don't start without explicit owner
    feature authorization.
 

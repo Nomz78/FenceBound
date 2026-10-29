@@ -363,3 +363,12 @@ Append one entry for every development session. Preserve prior entries.
 - **Open for the owner (asked in r2):** F6 off-line gate handling (recommended: snap onto the run); F7d hiding
   validation codes, which conflicts with two accepted tests.
 - **Handoff:** `HANDOFF.md` rewritten for audit-repairs r2.
+
+## 2026-10-29 — audit-repairs r2 owner rulings (Claude Code)
+
+- **F6 off-line gate (owner: yes):** a gate drawn off its run snaps onto the nearest run; a gate too far from any
+  run is refused with a message. Owner asked about starting from a known gate post location: still supported by
+  placing a post and starting the run from it (run starts snap to standalone posts), then drawing the gate.
+  A hand-placed post under a gate post must count once, so F5 de-duplication covers that case too.
+- **F7d validation codes (owner: keep for now):** codes stay visible in the validation modal for debugging.
+  Hide them before release; whether the beta shows them is undecided. No code or test change now.
