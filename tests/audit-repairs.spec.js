@@ -132,3 +132,49 @@ test('F7c plan PDF legend lists only fence types used in the job', async ({ page
   const unused = Object.entries(labels).filter(([k]) => k !== 'chainlink').map(([, label]) => `(${label})`);
   expect(unused.filter(label => strings.includes(label))).toEqual([]);
 });
+
+// F5: a gate post on a run end was counted twice (end post + gate post), and that
+// run end also took fabric-end hardware although the run's fabric stops at the gate.
+async function seedGateJob(page, runs, gates) {
+  await cleanOpen(page);
+  return state(page, `(()=>{
+    const F=GRID_FT,P=([x,y])=>({x:x*F,y:y*F});
+    S.elements=${JSON.stringify(runs)}.map(([a,b],i)=>({type:'fence',start:P(a),end:P(b),fenceType:'chainlink',
+      runId:'run_f5_'+i,specs:cloneRunSpecs(S.specs),postSpacing:10,autoPostSpacing:10}));
+    ${JSON.stringify(gates)}.forEach(([i,a,b])=>S.elements.push(attachGateToRun(
+      {type:'gate',start:P(a),end:P(b),gateType:'walk',hinge:'start',swingDir:1},S.elements[i])));
+    S.elements.filter(el=>el.type==='fence').forEach(rebuildRunAutoPosts);
+    const st=getStats(),qty=re=>calcAutoMaterials().filter(it=>new RegExp(re).test(it.name)).reduce((s,it)=>s+it.qty,0);
+    return{endPosts:st.terminalPosts.size+st.cornerPosts.size,gatePosts:st.gatePosts,ends:st.terminationEnds,
+      endPostQty:qty('^Terminal/Corner Post '),gatePostQty:qty('^Gate Post \\\\d'),tensionBars:qty('^Tension Bar$')};
+  })()`);
+}
+
+test('F5 gate post on a run end replaces the end post and takes no fabric-end hardware', async ({ page }) => {
+  const r = await seedGateJob(page, [[[0, 0], [60, 0]]], [[0, [0, 0], [4, 0]]]);
+  expect(r.endPosts).toBe(1);
+  expect(r.endPostQty).toBe(1);
+  expect(r.gatePosts).toBe(2);
+  expect(r.gatePostQty).toBe(2);
+  expect(r.ends).toBe(2);
+  expect(r.tensionBars).toBe(2);
+});
+
+test('F5 gate post on a corner keeps the other run\'s fabric end', async ({ page }) => {
+  const r = await seedGateJob(page, [[[0, 60], [0, 0]], [[-60, 0], [0, 0]]], [[1, [0, 0], [-4, 0]]]);
+  expect(r.endPosts).toBe(2);
+  expect(r.endPostQty).toBe(2);
+  expect(r.gatePosts).toBe(2);
+  expect(r.gatePostQty).toBe(2);
+  expect(r.ends).toBe(4);
+});
+
+test('F5 mid-run gate counting is unchanged', async ({ page }) => {
+  const r = await seedGateJob(page, [[[0, 0], [60, 0]]], [[0, [20, 0], [24, 0]]]);
+  expect(r.endPosts).toBe(2);
+  expect(r.endPostQty).toBe(2);
+  expect(r.gatePosts).toBe(2);
+  expect(r.gatePostQty).toBe(2);
+  expect(r.ends).toBe(4);
+  expect(r.tensionBars).toBe(4);
+});
