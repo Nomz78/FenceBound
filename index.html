@@ -1408,6 +1408,12 @@ const ftLbl=px=>`${(px/GRID_FT).toFixed(1)}'`;
 const ptKey=pt=>`${Math.round(pt.x)},${Math.round(pt.y)}`;
 const snap=v=>Math.round(v/(S.snapFt*GRID_FT))*(S.snapFt*GRID_FT);
 
+function closestPointOnSeg(p,a,b){
+  const dx=b.x-a.x,dy=b.y-a.y,lsq=dx*dx+dy*dy;
+  if(!lsq)return{x:a.x,y:a.y};
+  const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/lsq));
+  return{x:a.x+t*dx,y:a.y+t*dy};
+}
 function ptSegDist(p,a,b){
   const dx=b.x-a.x,dy=b.y-a.y,lsq=dx*dx+dy*dy;
   if(!lsq)return dist(p,a);
@@ -2662,7 +2668,14 @@ function handleUp(e){
       if(S.drawing.type==='gate'){
         const owner=nearestFenceRunForGate(S.drawing.start,S.drawing.end);
         if(!owner){showToast('Draw a fence run before placing a gate');S.drawing=null;S._snapTarget=null;draw();updatePanel();return;}
-        const gate=attachGateToRun({type:'gate',start:S.drawing.start,end:S.drawing.end,
+        // A gate lies on its run (owner ruling F6, 2026-10-29): snap a near miss onto the
+        // run line; refuse a gate more than 2 ft (or a fingertip on screen) off it.
+        const tol=Math.max(2*GRID_FT,26/S.zoom);
+        const start=closestPointOnSeg(S.drawing.start,owner.start,owner.end),end=closestPointOnSeg(S.drawing.end,owner.start,owner.end);
+        if(dist(start,S.drawing.start)>tol||dist(end,S.drawing.end)>tol||dist(start,end)<=MINRUN){
+          showToast('Draw the gate on a fence run');S.drawing=null;S._snapTarget=null;draw();updatePanel();return;
+        }
+        const gate=attachGateToRun({type:'gate',start,end,
           gateType:S.gateType,hinge:'start',swingDir:1},owner);
         S.elements.push(gate);
         rebuildRunAutoPosts(owner);
