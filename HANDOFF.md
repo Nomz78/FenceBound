@@ -16,9 +16,13 @@ Start branch: `audit/v540-launch-review`. Each fix goes on its own `fix/…` bra
     (26 px on screen when zoomed out). Suite 110/110.
   - **F7d deferred by owner:** keep the validation codes visible for debugging. Hide them before release; the
     beta is undecided.
-- **Merge order:** #29 → #31 → #32 → #33 → #34 → #35 → #36; #30 any time. Every branch appends to
+- **Merge order:** #29 → #31 → #32 → #33 → #34 → #35 → #36 → #37 → #38; #30 any time. Every branch appends to
   `Docs/development/DEVELOPER_LOG.md`; on conflict keep both entries.
-- **r3 owner rulings (2026-10-29, in the developer log):** Q1 yes, Q2 keep 2 ft, Q3 yes.
+- **r3 owner rulings (2026-10-29, in the developer log, `38af676`):** Q1 yes, Q2 keep 2 ft, Q3 yes.
+- **r3 fixes (2026-10-29):** each has a red-before test and full suite green:
+  - #37 `fix/f5-panel-gate-posts` (on #36): side panel shows `Gate posts` and counts them in Total posts. Suite 111/111.
+  - #38 `fix/f6-gate-move-snap` (on #37): a moved gate (body or end drag) snaps onto its own run; refused if more
+    than 2 ft off. F6 rule shared as `snapGateToRun`. Dragging onto a different run is refused. Suite 114/114.
 - **Former open owner questions** (answered in r3):
   1. Should the side panel's post summary also show gate posts in Total posts, matching the plan PDF?
   2. Is the 2 ft F6 snap tolerance right?
@@ -33,8 +37,7 @@ Start branch: `audit/v540-launch-review`. Each fix goes on its own `fix/…` bra
 
 ## Remaining steps
 
-1. Owner answers the open questions above. Each change is a new `fix/…` branch with a red-before test. Done when
-   green, or closed in the log.
+1. ~~Owner answers the open questions above.~~ Done in r3 (#37, #38; Q2 no change).
 2. Merge the PRs in the order above, but only once the owner says to.
 3. **REDO list** (commit `371850a`, `HANDOFF.md:54-70`): drawing interaction, mobile layout, visual system,
    plan PDF rebuild, estimate PDF rebuild, platform. Don't start without explicit owner feature authorization.
