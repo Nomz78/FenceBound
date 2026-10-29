@@ -424,3 +424,11 @@ Append one entry for every development session. Preserve prior entries.
   pass after. `F5 mid-run gate counting is unchanged` guards the existing case. Full suite 107/107.
 - **Open for the owner:** the side panel's post summary also omits gate posts from Total posts; the ruling named
   the plan PDF only.
+
+## 2026-10-29 — audit-repairs r2: F5 plan PDF gate posts (Claude Code)
+
+- **Repair (owner ruling):** the plan PDF post summary adds a `Gate: N` line, and Total Posts includes gate posts,
+  matching the line, terminal/corner and gate post quantities in the materials list. The side panel is unchanged
+  pending an owner answer.
+- **Tests:** `F5 plan PDF post summary shows gate posts…` failed before (no `Gate:` line) and passes after.
+  Full suite 108/108.

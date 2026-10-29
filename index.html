@@ -2748,11 +2748,12 @@ function exportPDF(){
     doc.setDrawColor(60,80,100);doc.setLineWidth(0.2);doc.line(tbX+4,sy,tbX+tbW-4,sy);sy+=4;
     doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(245,166,35);
     doc.text('TOTAL LF',tbX+4,sy);doc.text(`${stats.totalFt.toFixed(1)}'`,tbX+tbW-4,sy,{align:'right'});sy+=6;
-    const tp=stats.terminalPosts.size+stats.cornerPosts.size+stats.linePosts;
+    const tp=stats.terminalPosts.size+stats.cornerPosts.size+stats.linePosts+stats.gatePosts;
     doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(200,200,200);
     if(stats.terminalPosts.size){doc.text(`Terminal: ${stats.terminalPosts.size}`,tbX+4,sy);sy+=4;}
     if(stats.cornerPosts.size){doc.text(`Corner: ${stats.cornerPosts.size}`,tbX+4,sy);sy+=4;}
     if(stats.linePosts){doc.text(`Line: ${stats.linePosts}`,tbX+4,sy);sy+=4;}
+    if(stats.gatePosts){doc.text(`Gate: ${stats.gatePosts}`,tbX+4,sy);sy+=4;}
     doc.setTextColor(245,166,35);doc.text(`Total Posts: ${tp}`,tbX+4,sy);sy+=6;
   }
   if(stats.gateTotal){
