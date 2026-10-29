@@ -345,3 +345,12 @@ Append one entry for every development session. Preserve prior entries.
   yes); under-6 ft depth editability; session:init handling of PR merge commits.
 - **Authority drift:** older CLAUDE/SOURCE_OF_TRUTH ordering and supplement listings differ
   from START_HERE; embedded Development Index remains stale. Recorded, not revised.
+
+## 2026-10-29 — v5.4.0 launch-readiness, UI and market audit (Claude Code, docs only)
+
+- **Observed gate on `main` @ `82a148f`:** `npm test` 95/96; persistence matrix 12/12. R9 "imported null start"
+  threw `Cannot read properties of null (reading 'x')` once in the full suite and passed 3/3 alone (intermittent).
+- **Findings (unrepaired):** literal `$${''}` in the labor hint (`index.html:595`); FINAL-READY badge ignores
+  validation and placeholder pricing; customer estimate PDF exports on the placeholder baseline; gate-post and
+  off-line gate accounting questions (need owner ruling); plan PDF dark/unbranded; mobile layout unusable.
+- **Owner direction:** fix as many as possible and sort each into fix or redo. The plan is in root `HANDOFF.md`.
