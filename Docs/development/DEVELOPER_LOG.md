@@ -497,3 +497,10 @@ Append one entry for every development session. Preserve prior entries.
 - **Q2 F6 snap tolerance (owner: keep 2 ft):** no change.
 - **Q3 Move tool (owner: yes):** moving an existing gate snaps it onto its run, and refuses the move if it ends
   more than 2 ft off, same rule as F6 for new gates. Fixed on its own `fix/` branch with a red-before test.
+
+## 2026-10-29 — audit-repairs r3 merges (Claude Code)
+
+- **Owner: merge in order.** Merged #29, #30, #31–#36, #39, #38 into `audit/v540-launch-review`. Each branch had a
+  developer-log conflict only; both sides kept. #37's retarget failed (`gh pr edit` hit the classic-Projects
+  deprecation error), so it merged into `fix/f6-gate-snap`; #39 re-landed `fix/f5-panel-gate-posts` on the audit
+  branch, and #38 was retargeted via the REST API. Merged suite 115/115.

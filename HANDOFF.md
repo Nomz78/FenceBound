@@ -16,7 +16,10 @@ Start branch: `audit/v540-launch-review`. Each fix goes on its own `fix/…` bra
     (26 px on screen when zoomed out). Suite 110/110.
   - **F7d deferred by owner:** keep the validation codes visible for debugging. Hide them before release; the
     beta is undecided.
-- **Merge order:** #29 → #31 → #32 → #33 → #34 → #35 → #36 → #37 → #38; #30 any time. Every branch appends to
+- **Merged by owner instruction (2026-10-29):** #29, #30, #31–#36, #39, #38 into `audit/v540-launch-review`, in
+  that order; developer-log conflicts kept both sides. #37 merged into `fix/f6-gate-snap` by mistake (its base change
+  failed on a GitHub classic-Projects API error), so #39 re-landed the same branch on the audit branch before #38.
+  Merged suite 115/115. Every branch appends to
   `Docs/development/DEVELOPER_LOG.md`; on conflict keep both entries.
 - **r3 owner rulings (2026-10-29, in the developer log, `38af676`):** Q1 yes, Q2 keep 2 ft, Q3 yes.
 - **r3 fixes (2026-10-29):** each has a red-before test and full suite green:
@@ -38,7 +41,7 @@ Start branch: `audit/v540-launch-review`. Each fix goes on its own `fix/…` bra
 ## Remaining steps
 
 1. ~~Owner answers the open questions above.~~ Done in r3 (#37, #38; Q2 no change).
-2. Merge the PRs in the order above, but only once the owner says to.
+2. ~~Merge the PRs in order.~~ Done (see above).
 3. **REDO list** (commit `371850a`, `HANDOFF.md:54-70`): drawing interaction, mobile layout, visual system,
    plan PDF rebuild, estimate PDF rebuild, platform. Don't start without explicit owner feature authorization.
 
