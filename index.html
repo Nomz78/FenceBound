@@ -2166,7 +2166,8 @@ function updatePanel(){
     if(stats.terminalPosts.size)html+=`<div class="stat-row"><span style="color:var(--text2)">Terminal posts</span><span class="stat-val">${stats.terminalPosts.size}</span></div>`;
     if(stats.cornerPosts.size)html+=`<div class="stat-row"><span style="color:#E07B40"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/></svg> Corner posts</span><span class="stat-val">${stats.cornerPosts.size}</span></div>`;
     if(stats.linePosts)html+=`<div class="stat-row"><span style="color:var(--text2)">Line posts</span><span class="stat-val">${stats.linePosts}</span></div>`;
-    const totalPosts=stats.terminalPosts.size+stats.cornerPosts.size+stats.linePosts;
+    if(stats.gatePosts)html+=`<div class="stat-row"><span style="color:var(--text2)">Gate posts</span><span class="stat-val">${stats.gatePosts}</span></div>`;
+    const totalPosts=stats.terminalPosts.size+stats.cornerPosts.size+stats.linePosts+stats.gatePosts;
     html+=`<div class="stat-row"><span style="color:var(--text2)">Total posts</span><span class="stat-val" style="color:var(--accent)">${totalPosts}</span></div>`;
     if(stats.gateTotal){
       if(stats.gates.walk)html+=`<div class="stat-row"><span style="color:#F5A623">Walk gates</span><span class="stat-val">${stats.gates.walk}</span></div>`;

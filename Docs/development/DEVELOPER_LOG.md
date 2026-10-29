@@ -453,6 +453,12 @@ Append one entry for every development session. Preserve prior entries.
   leaves one empty undo step, as the existing "no run" refusal already does.
 - **Tests:** `F6 a gate drawn just off its run snaps…` and `F6 … clearly off any run is refused` failed before
   and pass after. Full suite 110/110.
+
+## 2026-10-29 — audit-repairs r3 F5 side panel (Claude Code)
+
+- **F5 side panel (owner ruling r3 Q1):** the side panel's post summary shows a `Gate posts` row and includes gate
+  posts in Total posts, matching the plan PDF (#35). Red-before test `F5 side panel post summary shows gate posts
+  in Total posts like the plan PDF` failed (Total posts 6, no gate row), then passed. Suite 111/111.
 ## 2026-10-29 — audit-repairs r1 closeout and owner rulings (Claude Code)
 
 - **PRs:** #29 F2, #30 F1, #31 F3, #32 F4, #33 F7a–c (merge order and details in root `HANDOFF.md`).
