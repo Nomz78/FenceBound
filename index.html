@@ -1490,16 +1490,24 @@ function getStats(){
     gates:{walk:0,doubledrive:0,cantilever:0,other:0},gateTotal:0,gatePosts:0,
     netFence:{},netTotalFt:0,terminationEnds:0,byRunId:{}};
   const claimed=new Set();
+  // A gate post on a run end replaces that end post (owner ruling F5, 2026-10-29).
+  // Hardware follows fabric: the gate's own run has no fabric end there; other runs keep theirs.
+  const gatePostKeys=new Set(),ownGateEnds={};
+  S.elements.filter(el=>el.type==='gate').forEach(gate=>[gate.start,gate.end].forEach(pt=>{
+    const k=ptKey(pt);gatePostKeys.add(k);(ownGateEnds[gate.runId]||=new Set()).add(k);
+  }));
   S.elements.filter(el=>el.type==='fence').forEach(run=>{
     const grossFt=dist(run.start,run.end)/GRID_FT;
     const row=acc.byRunId[run.runId]={runId:run.runId,grossFt,gateOpeningFt:0,netFt:grossFt,
-      lineCt:0,termCt:0,cornerCt:0,gatePostCt:0,terminalEndCt:0,cornerEndCt:0,terminationEnds:0};
+      lineCt:0,termCt:0,cornerCt:0,gatePostCt:0,gateEndCt:0,terminalEndCt:0,cornerEndCt:0,terminationEnds:0};
     acc.fence[run.fenceType]=(acc.fence[run.fenceType]||0)+grossFt;
     acc.totalFt+=grossFt;
     [run.start,run.end].forEach(pt=>{
       const k=ptKey(pt),isCorner=cs.has(k);
-      if(isCorner){acc.cornerPosts.add(k);row.cornerEndCt++;}
-      else{acc.terminalPosts.add(k);row.terminalEndCt++;}
+      if(ownGateEnds[run.runId]?.has(k)){row.gateEndCt++;return;}
+      if(isCorner)row.cornerEndCt++;else row.terminalEndCt++;
+      if(gatePostKeys.has(k))return;
+      if(isCorner)acc.cornerPosts.add(k);else acc.terminalPosts.add(k);
       if(!claimed.has(k)){claimed.add(k);if(isCorner)row.cornerCt++;else row.termCt++;}
     });
   });
@@ -1514,7 +1522,7 @@ function getStats(){
   S.elements.filter(el=>el.type==='fence').forEach(run=>{
     const row=acc.byRunId[run.runId];
     row.netFt=Math.max(0,row.grossFt-row.gateOpeningFt);
-    row.terminationEnds=row.terminalEndCt+row.cornerEndCt+row.gatePostCt;
+    row.terminationEnds=row.terminalEndCt+row.cornerEndCt+row.gatePostCt-row.gateEndCt;
     acc.terminationEnds+=row.terminationEnds;
     acc.netFence[run.fenceType]=(acc.netFence[run.fenceType]||0)+row.netFt;
     acc.netTotalFt+=row.netFt;
@@ -1566,7 +1574,7 @@ function calcAutoMaterials(){
 
     if(type==='chainlink'){
       const ends=runStats.terminationEnds;
-      const trussAssemblies=sp.hasMidRail&&sp.hasTrussRod?runStats.cornerEndCt+runStats.gatePostCt:0;
+      const trussAssemblies=sp.hasMidRail&&sp.hasTrussRod?runStats.cornerEndCt+runStats.gatePostCt-runStats.gateEndCt:0;
       const hasBarbed=sp.addons.has('barbed-wire');
       items.push({name:`Chain Link Fabric (${sp.heightIn}")`,qty:Math.ceil(ft),unit:'lf'});
       if(sp.hasTopRail)items.push({name:`Top Rail 1-5/8"`,qty:Math.ceil(ft),unit:'lf'});
@@ -1590,8 +1598,8 @@ function calcAutoMaterials(){
       // Fastening (owner rules 2026-10-03): 5 per bay on every horizontal element,
       // whatever the bay length — wire ties on rails, hog rings on tension wires and
       // razor ribbon. Line posts take (height ft - 1) ties, like tension bands.
-      // Bays = line posts + fabric sections (each gate splits the run).
-      const bays=lineCt+runStats.gatePostCt/2+1;
+      // Bays = line posts + fabric sections (each gate splits the run unless it sits on a run end).
+      const bays=Math.max(0,lineCt+runStats.gatePostCt/2+1-runStats.gateEndCt);
       const fastenedWires=['bottom-wire','top-wire','tension-wire','razor-ribbon'].filter(a=>sp.addons.has(a)).length;
       const tiesPerLinePost=Math.max(Math.ceil(sp.heightIn/12)-1,0);
       items.push({name:'Wire Ties 9ga',qty:5*bays*rails+lineCt*tiesPerLinePost,unit:'ea'});

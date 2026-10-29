@@ -412,3 +412,15 @@ Append one entry for every development session. Preserve prior entries.
   from that post (a corner) keeps its hardware.
 - **Correction to the r2 ruling entry:** hand-placed (non-auto) posts are not counted in the materials list, so a
   hand-placed post under a gate post cannot double count. F5 covers run-end posts only.
+
+## 2026-10-29 — audit-repairs r2: F5 gate-post de-duplication (Claude Code)
+
+- **Repair:** `getStats()` collects gate post points. A run end at a gate post is no longer counted as a
+  terminal/corner post. If the gate belongs to that run, the end is recorded as `gateEndCt`. It is then removed
+  from fabric ends (termination hardware), truss assemblies and bays, because that run's fabric stops at the
+  gate's other post. Other runs ending at the same post keep their fabric end. No pricing values changed.
+  Removed the F5 `knownDefects` entry.
+- **Tests:** `F5 gate post on a run end…` and `F5 gate post on a corner…` failed before (2 and 3 end posts) and
+  pass after. `F5 mid-run gate counting is unchanged` guards the existing case. Full suite 107/107.
+- **Open for the owner:** the side panel's post summary also omits gate posts from Total posts; the ruling named
+  the plan PDF only.

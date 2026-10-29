@@ -57,7 +57,6 @@
     "Deferred: the model cannot separately represent real installation hole depth and submittal specification depth.",
     "Tooling: session:init falsely rejects approved one-child documentation closeouts when governance files fall outside its closeout allowlist; the allowlist needs to accommodate the approved structure.",
     "Tooling: session:init reports PR merge commits as drift because they are not a direct allowlisted documentation child of the recorded implementation head.",
-    "Playwright 1.40.1 has npm audit advisory GHSA-7mvr-c777-76hp; upgrade deferred because newer Playwright does not support macOS Catalina.",
-    "F5 (2026-10-29 audit): a gate post on a run end is counted twice (as the terminal/corner post and as a gate post), and that run end also gets fabric-end hardware and an extra bay although no fabric of that run reaches it."
+    "Playwright 1.40.1 has npm audit advisory GHSA-7mvr-c777-76hp; upgrade deferred because newer Playwright does not support macOS Catalina."
   ]
 }
