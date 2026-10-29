@@ -178,3 +178,25 @@ test('F5 mid-run gate counting is unchanged', async ({ page }) => {
   expect(r.ends).toBe(4);
   expect(r.tensionBars).toBe(4);
 });
+
+// F5 (plan PDF): the post summary omitted gate posts, so Total Posts disagreed
+// with the materials list (owner ruling 2026-10-29: show them and include them).
+test('F5 plan PDF post summary shows gate posts and matches the materials list', async ({ page }) => {
+  await seedVerifiedJob(page, true);
+  const listed = await state(page, `(()=>{
+    const run=S.elements.find(el=>el.type==='fence');
+    S.elements.push(attachGateToRun({type:'gate',start:{x:20*GRID_FT,y:0},end:{x:24*GRID_FT,y:0},
+      gateType:'walk',hinge:'start',swingDir:1},run));
+    rebuildRunAutoPosts(run);draw();updatePanel();
+    return calcAutoMaterials().filter(it=>/^(Line|Terminal\\/Corner|Gate) Post \\d/.test(it.name)).reduce((s,it)=>s+it.qty,0);
+  })()`);
+  await page.waitForFunction(() => !!window.jspdf, null, { timeout: 20_000 });
+  const downloadPromise = page.waitForEvent('download', { timeout: 10_000 });
+  await state(page, 'exportPDF()');
+  const filePath = path.join(os.tmpdir(), `fencebound-f5-plan-${Date.now()}.pdf`);
+  await (await downloadPromise).saveAs(filePath);
+  const strings = execFileSync('/usr/bin/strings', [filePath], { encoding: 'utf8' });
+  fs.unlinkSync(filePath);
+  expect(strings).toContain('(Gate: 2)');
+  expect(strings).toContain(`(Total Posts: ${listed})`);
+});
