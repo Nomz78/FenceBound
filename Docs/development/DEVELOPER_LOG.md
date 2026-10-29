@@ -355,6 +355,11 @@ Append one entry for every development session. Preserve prior entries.
   off-line gate accounting questions (need owner ruling); plan PDF dark/unbranded; mobile layout unusable.
 - **Owner direction:** fix as many as possible and sort each into fix or redo. The plan is in root `HANDOFF.md`.
 
+## 2026-10-29 — audit-repairs r1: F2 labor-hint literal (Claude Code)
+
+- **F2:** the labor-hours hint (`index.html`, static HTML) rendered `$${''}55/hr`; the `${''}` was a template-literal
+  fragment that never runs in markup. Replaced with `$`. New `tests/audit-repairs.spec.js` F2 failed before
+  (received `$${''}55/hr`) and passes after. Full suite 97/97.
 ## 2026-10-29 — audit-repairs r1 closeout and owner rulings (Claude Code)
 
 - **PRs:** #29 F2, #30 F1, #31 F3, #32 F4, #33 F7a–c (merge order and details in root `HANDOFF.md`).
