@@ -228,3 +228,16 @@ test('F6 a gate drawn clearly off any run is refused', async ({ page }) => {
   expect(r.gates).toEqual([]);
   expect(r.netFt).toBeCloseTo(60, 6);
 });
+
+// F5 (side panel): the post summary's Total posts left out gate posts, disagreeing with
+// the plan PDF (owner ruling r3, 2026-10-29: include them, matching the PDF).
+test('F5 side panel post summary shows gate posts in Total posts like the plan PDF', async ({ page }) => {
+  await seedGateJob(page, [[[0, 0], [60, 0]]], [[0, [20, 0], [24, 0]]]);
+  const r = await state(page, `(()=>{
+    updatePanel();const st=getStats();
+    const rows=[...document.querySelectorAll('#summary-content .stat-row')].map(row=>row.textContent.trim());
+    return{rows,expected:st.terminalPosts.size+st.cornerPosts.size+st.linePosts+st.gatePosts};
+  })()`);
+  expect(r.rows).toContain('Gate posts2');
+  expect(r.rows).toContain(`Total posts${r.expected}`);
+});
