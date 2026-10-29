@@ -365,3 +365,38 @@ Append one entry for every development session. Preserve prior entries.
 - **Test:** `Audit F1 canvas redraw survives imported null start` failed before (page-error stack above) and passes
   after. Full suite 97/97; `persistence-integrity.spec.js
   --repeat-each=20` 1000/1000.
+## 2026-10-29 — audit-repairs r1: F2 labor-hint literal (Claude Code)
+
+- **F2:** the labor-hours hint (`index.html`, static HTML) rendered `$${''}55/hr`; the `${''}` was a template-literal
+  fragment that never runs in markup. Replaced with `$`. New `tests/audit-repairs.spec.js` F2 failed before
+  (received `$${''}55/hr`) and passes after. Full suite 97/97.
+## 2026-10-29 — audit-repairs r1 closeout and owner rulings (Claude Code)
+
+- **PRs:** #29 F2, #30 F1, #31 F3, #32 F4, #33 F7a–c (merge order and details in root `HANDOFF.md`).
+- **Owner rulings:** F5: a gate post coincident with a run end post replaces it (counts once, as a gate post).
+  F5: the plan PDF post summary shows gate posts and includes them in Total Posts.
+- **Open for the owner (asked in r2):** F6 off-line gate handling (recommended: snap onto the run); F7d hiding
+  validation codes, which conflicts with two accepted tests.
+- **Handoff:** `HANDOFF.md` rewritten for audit-repairs r2.
+
+## 2026-10-29 — audit-repairs r2 owner rulings (Claude Code)
+
+- **F6 off-line gate (owner: yes):** a gate drawn off its run snaps onto the nearest run; a gate too far from any
+  run is refused with a message. Owner asked about starting from a known gate post location: still supported by
+  placing a post and starting the run from it (run starts snap to standalone posts), then drawing the gate.
+  A hand-placed post under a gate post must count once, so F5 de-duplication covers that case too.
+- **F7d validation codes (owner: keep for now):** codes stay visible in the validation modal for debugging.
+  Hide them before release; whether the beta shows them is undecided. No code or test change now.
+
+## 2026-10-29 — audit-repairs r2 closeout (Claude Code)
+
+- **PRs:** #34 F5 de-duplication, #35 F5 plan PDF, #36 F6 snap/refuse (stacked on #33 in that order). F7d deferred
+  by owner ruling. Open owner questions and the merge order are in root `HANDOFF.md` (r3).
+
+## 2026-10-29 — audit-repairs r3 owner rulings (Claude Code)
+
+- **Q1 side-panel Total posts (owner: yes):** the side panel's post summary includes gate posts in Total posts,
+  matching the plan PDF (#35). Fixed on its own `fix/` branch with a red-before test.
+- **Q2 F6 snap tolerance (owner: keep 2 ft):** no change.
+- **Q3 Move tool (owner: yes):** moving an existing gate snaps it onto its run, and refuses the move if it ends
+  more than 2 ft off, same rule as F6 for new gates. Fixed on its own `fix/` branch with a red-before test.
