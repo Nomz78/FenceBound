@@ -400,3 +400,15 @@ Append one entry for every development session. Preserve prior entries.
 - **Tests:** F7a–c failed before and pass after; screenshots of the origin, modal, plan PDF and estimate PDF
   were checked (session scratchpad, not committed). Full suite with F7d: 103 passed, 2 failed (both F7d);
   after the revert, the three affected spec files pass 28/28.
+
+## 2026-10-29 — audit-repairs r2: defect record F5 (Claude Code)
+
+- **Defect F5 (pricing behavior):** `getStats()` counts every run end as a terminal or corner post and every gate
+  as two gate posts. When a gate post sits on a run end, that post is counted twice. That run end also counts as
+  a fabric end (tension bar, bands, brace bands, rail ends, bolts, truss), and the gate adds a bay, although the
+  run's fabric stops at the gate's other post. Recorded in `CURRENT_STATE.json` `knownDefects` before any repair.
+- **Owner rules applied:** the gate post replaces the end post (counts once, as a gate post). Hardware follows the
+  fabric: each run whose fabric reaches a post gets termination hardware there, so another run that continues
+  from that post (a corner) keeps its hardware.
+- **Correction to the r2 ruling entry:** hand-placed (non-auto) posts are not counted in the materials list, so a
+  hand-placed post under a gate post cannot double count. F5 covers run-end posts only.
