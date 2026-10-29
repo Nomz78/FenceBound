@@ -757,6 +757,14 @@ function attachGateToRun(gate,run){
   gate.specs=cloneRunSpecs(run.specs);
   return gate;
 }
+// A gate lies on its run (owner ruling F6, 2026-10-29): snap a near miss onto the run
+// line; refuse (null) a gate more than 2 ft (or a fingertip on screen) off it.
+function snapGateToRun(start,end,run,minLen){
+  const tol=Math.max(2*GRID_FT,26/S.zoom);
+  const s=closestPointOnSeg(start,run.start,run.end),e=closestPointOnSeg(end,run.start,run.end);
+  if(dist(s,start)>tol||dist(e,end)>tol||dist(s,e)<=minLen)return null;
+  return{start:s,end:e};
+}
 function activeFenceType(){
   const run=selectedFenceRun();
   return run?run.fenceType:S.fenceType;
@@ -2656,7 +2664,14 @@ function handleUp(e){
       (dist(el.start,orig.start)>1e-6||dist(el.end,orig.end)>1e-6);
     if(changed){
       if(el.type==='fence')rebuildRunAutoPosts(el);
-      if(el.type==='gate')rebuildRunAutoPosts(fenceRunById(el.runId));
+      if(el.type==='gate'){
+        // A moved gate stays on its own run, same rule as a new one (owner ruling r3, 2026-10-29).
+        const run=fenceRunById(el.runId);
+        const placed=run&&snapGateToRun(el.start,el.end,run,Math.max(S.snapFt*GRID_FT/2,GRID_FT*0.25));
+        if(run&&!placed){S.elements[movingIdx]=orig;showToast('Keep the gate on its fence run');}
+        else if(placed){el.start=placed.start;el.end=placed.end;}
+        rebuildRunAutoPosts(run);
+      }
     }
     S.moving=null;S.moveStart=null;S.moveOrigEl=null;
     draw();updatePanel();scheduleAutosave();return;
@@ -2673,14 +2688,11 @@ function handleUp(e){
       if(S.drawing.type==='gate'){
         const owner=nearestFenceRunForGate(S.drawing.start,S.drawing.end);
         if(!owner){showToast('Draw a fence run before placing a gate');S.drawing=null;S._snapTarget=null;draw();updatePanel();return;}
-        // A gate lies on its run (owner ruling F6, 2026-10-29): snap a near miss onto the
-        // run line; refuse a gate more than 2 ft (or a fingertip on screen) off it.
-        const tol=Math.max(2*GRID_FT,26/S.zoom);
-        const start=closestPointOnSeg(S.drawing.start,owner.start,owner.end),end=closestPointOnSeg(S.drawing.end,owner.start,owner.end);
-        if(dist(start,S.drawing.start)>tol||dist(end,S.drawing.end)>tol||dist(start,end)<=MINRUN){
+        const placed=snapGateToRun(S.drawing.start,S.drawing.end,owner,MINRUN);
+        if(!placed){
           showToast('Draw the gate on a fence run');S.drawing=null;S._snapTarget=null;draw();updatePanel();return;
         }
-        const gate=attachGateToRun({type:'gate',start,end,
+        const gate=attachGateToRun({type:'gate',start:placed.start,end:placed.end,
           gateType:S.gateType,hinge:'start',swingDir:1},owner);
         S.elements.push(gate);
         rebuildRunAutoPosts(owner);
