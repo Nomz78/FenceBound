@@ -449,3 +449,11 @@ Append one entry for every development session. Preserve prior entries.
 - **F5 side panel (owner ruling r3 Q1):** the side panel's post summary shows a `Gate posts` row and includes gate
   posts in Total posts, matching the plan PDF (#35). Red-before test `F5 side panel post summary shows gate posts
   in Total posts like the plan PDF` failed (Total posts 6, no gate row), then passed. Suite 111/111.
+
+## 2026-10-29 — audit-repairs r3 F6 Move tool (Claude Code)
+
+- **F6 Move tool (owner ruling r3 Q3):** moving a gate (body drag or end drag) snaps it onto its own run; a move
+  that ends more than 2 ft off is refused and the gate returns to where it was. The F6 rule is now one helper,
+  `snapGateToRun`, shared by drawing and moving. A gate dragged onto a different run is refused rather than
+  reattached (before, it kept deducting from its old run). Three red-before tests failed (gate left where
+  dropped), then passed. Suite 114/114.

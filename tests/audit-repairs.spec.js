@@ -241,3 +241,42 @@ test('F5 side panel post summary shows gate posts in Total posts like the plan P
   expect(r.rows).toContain('Gate posts2');
   expect(r.rows).toContain(`Total posts${r.expected}`);
 });
+
+// F6 (Move tool): moving an existing gate left it wherever it was dropped, off its run,
+// still deducting from that run. Owner ruling r3 Q3 (2026-10-29): same rule as a new gate.
+async function moveGate(page, kind, to) {
+  await cleanOpen(page);
+  await seedPlainRun(page);
+  return state(page, `(()=>{
+    const P=([x,y])=>({x:x*GRID_FT,y:y*GRID_FT}),run=S.elements[0];
+    S.elements.push(attachGateToRun({type:'gate',start:P([20,0]),end:P([24,0]),gateType:'walk',hinge:'start',swingDir:1},run));
+    rebuildRunAutoPosts(run);
+    const idx=S.elements.findIndex(el=>el.type==='gate'),g=S.elements[idx],to=${JSON.stringify(to)};
+    S.tool='move';pushHistory();
+    S.moving={idx,type:'${kind}',endpoint:'${kind}'==='endpoint'?'end':null};S.moveStart=g.start;
+    S.moveOrigEl=JSON.parse(JSON.stringify(g));
+    if('${kind}'==='endpoint')g.end=P(to);else{g.start=P(to[0]);g.end=P(to[1]);}
+    handleUp({preventDefault(){},stopPropagation(){}});
+    const gates=S.elements.filter(el=>el.type==='gate').map(g=>({start:[g.start.x/GRID_FT,g.start.y/GRID_FT],
+      end:[g.end.x/GRID_FT,g.end.y/GRID_FT],runId:g.runId}));
+    return{gates,netFt:getStats().byRunId.run_f3.netFt};
+  })()`);
+}
+
+test('F6 a gate moved just off its run snaps back onto the run', async ({ page }) => {
+  const r = await moveGate(page, 'body', [[30, 1], [34, 1]]);
+  expect(r.gates).toEqual([{ start: [30, 0], end: [34, 0], runId: 'run_f3' }]);
+  expect(r.netFt).toBeCloseTo(56, 6);
+});
+
+test('F6 a gate end dragged just off its run snaps onto the run', async ({ page }) => {
+  const r = await moveGate(page, 'endpoint', [26, 1]);
+  expect(r.gates).toEqual([{ start: [20, 0], end: [26, 0], runId: 'run_f3' }]);
+  expect(r.netFt).toBeCloseTo(54, 6);
+});
+
+test('F6 a gate moved clearly off its run is refused and stays put', async ({ page }) => {
+  const r = await moveGate(page, 'body', [[30, 10], [34, 10]]);
+  expect(r.gates).toEqual([{ start: [20, 0], end: [24, 0], runId: 'run_f3' }]);
+  expect(r.netFt).toBeCloseTo(56, 6);
+});
