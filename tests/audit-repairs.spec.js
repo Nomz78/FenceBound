@@ -96,3 +96,39 @@ test('F4 estimate PDF on a saved rate card is not stamped', async ({ page }) => 
   const strings = await estimateStrings(page, 'f4-saved');
   expect(strings).not.toContain('NOT FULLY VERIFIED');
 });
+
+// F7: cosmetic findings from the audit.
+test('F7a estimate PDF formats dollars with thousands separators like the app', async ({ page }) => {
+  await seedVerifiedJob(page, true);
+  const appTotal = await state(page, "(()=>{const v=computePricing().clientTotal;return '$'+v.toLocaleString('en-US',{maximumFractionDigits:0});})()");
+  expect(appTotal).toMatch(/^\$\d{1,3}(,\d{3})+$/);
+  const strings = await estimateStrings(page, 'f7a');
+  expect(strings).toContain(`(${appTotal})`);
+  expect(strings).not.toMatch(/\$\d{4,}/);
+});
+
+test('F7b canvas draws a single 0\' label at the origin', async ({ page }) => {
+  await cleanOpen(page);
+  const zeros = await state(page, `(()=>{
+    const ctx=document.getElementById('canvas').getContext('2d'),orig=ctx.fillText;let n=0;
+    ctx.fillText=function(t,...rest){if(t==="0'")n++;return orig.call(this,t,...rest);};
+    try{draw();}finally{ctx.fillText=orig;}
+    return n;
+  })()`);
+  expect(zeros).toBe(1);
+});
+
+test('F7c plan PDF legend lists only fence types used in the job', async ({ page }) => {
+  await seedVerifiedJob(page, true);
+  await page.waitForFunction(() => !!window.jspdf, null, { timeout: 20_000 });
+  const labels = await state(page, "Object.fromEntries(Object.entries(FENCE_TYPES).map(([k,v])=>[k,v.label]))");
+  const downloadPromise = page.waitForEvent('download', { timeout: 10_000 });
+  await state(page, 'exportPDF()');
+  const filePath = path.join(os.tmpdir(), `fencebound-f7c-${Date.now()}.pdf`);
+  await (await downloadPromise).saveAs(filePath);
+  const strings = execFileSync('/usr/bin/strings', [filePath], { encoding: 'utf8' });
+  fs.unlinkSync(filePath);
+  expect(strings).toContain(`(${labels.chainlink})`);
+  const unused = Object.entries(labels).filter(([k]) => k !== 'chainlink').map(([, label]) => `(${label})`);
+  expect(unused.filter(label => strings.includes(label))).toEqual([]);
+});
