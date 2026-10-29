@@ -380,6 +380,22 @@ Append one entry for every development session. Preserve prior entries.
 - **Tests:** `F3 badge is not FINAL-READY…` failed before (badge read FINAL-READY) and passes after; the green-path
   test guards FINAL-READY with a saved rate card and passing validation. Full suite 98/99: the one failure was R9
   null start, the F1 flake fixed separately in PR #30 and absent from this branch. Persistence matrix 12/12.
+
+## 2026-10-29 — audit-repairs r1: defect record F4 (Claude Code)
+
+- **Defect F4 (pricing behavior):** `exportEstimatePDF()` stamps NOT FULLY VERIFIED only when `validateProject()`
+  fails. A job that passes validation while `usingSeedPrices()` is true (no saved rate card) exports a customer
+  estimate priced on the shipped North Carolina placeholder baseline with no warning on the PDF.
+  Recorded in `CURRENT_STATE.json` `knownDefects` before any repair, per the working rules.
+
+## 2026-10-29 — audit-repairs r1: F4 repair (Claude Code)
+
+- **Fix:** `exportEstimatePDF()` adds a `PLACEHOLDER_PRICING` item to the copy of validation used for the PDF stamp
+  when `usingSeedPrices()` is true, so the existing NOT FULLY VERIFIED block appears with "Prices are the shipped
+  placeholder baseline, not this company's saved rate card." `validateProject()`, the plan PDF, the portable
+  export and all pricing values are unchanged. Removed the F4 `knownDefects` entry.
+- **Tests:** `F4 estimate PDF on placeholder pricing carries the NOT FULLY VERIFIED stamp` failed before and passes
+  after; `F4 estimate PDF on a saved rate card is not stamped` guards the clean path. Full suite 101/101.
 ## 2026-10-29 — audit-repairs r1 closeout and owner rulings (Claude Code)
 
 - **PRs:** #29 F2, #30 F1, #31 F3, #32 F4, #33 F7a–c (merge order and details in root `HANDOFF.md`).

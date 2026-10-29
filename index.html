@@ -4125,7 +4125,8 @@ function projectExportWarning(validation){
     NO_BOM:'The materials and labor list could not be produced.',
     MISSING_COST:'One or more materials do not have a saved price.',
     ZERO_COST:'One or more materials have a zero-dollar price.',
-    TOTAL_INVALID:'The estimate total could not be verified.'
+    TOTAL_INVALID:'The estimate total could not be verified.',
+    PLACEHOLDER_PRICING:'Prices are the shipped placeholder baseline, not this company\'s saved rate card.'
   })[item.code]||'Required project information could not be verified.';
   const all=validation.errors.map(customerMessage),shown=all.slice(0,4);
   if(all.length>shown.length)shown.push(`And ${all.length-shown.length} more item${all.length-shown.length===1?'':'s'} need review.`);
@@ -4184,7 +4185,11 @@ function exportEstimatePDF(){
   doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(160,160,160);
   doc.text(companyContactLine([COMPANY.phone,COMPANY.email]),PW-MR,18,{align:'right'});
   y=30;
-  if(!validation.ok)y+=drawPdfValidationWarning(doc,validation,ML,y,PW-ML-MR)+5;
+  // A customer estimate priced on the shipped baseline is not verified even
+  // when the project itself validates.
+  const stamped=usingSeedPrices()?{...validation,ok:false,errors:[...validation.errors,
+    {severity:'error',code:'PLACEHOLDER_PRICING',message:'Pricing is the shipped placeholder baseline.',ref:null}]}:validation;
+  if(!stamped.ok)y+=drawPdfValidationWarning(doc,stamped,ML,y,PW-ML-MR)+5;
 
   // ── ESTIMATE LABEL ──
   doc.setFont('helvetica','bold');doc.setFontSize(20);doc.setTextColor(...ACC);
