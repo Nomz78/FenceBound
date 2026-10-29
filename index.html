@@ -1415,8 +1415,11 @@ function ptSegDist(p,a,b){
   return dist(p,{x:a.x+t*dx,y:a.y+t*dy});
 }
 
+// Imported geometry is kept as-is so validation can report it; rendering skips
+// anything without finite coordinates instead of throwing mid-redraw.
+function isPoint(p){return!!p&&Number.isFinite(p.x)&&Number.isFinite(p.y);}
 function buildCornerSet(els){
-  const runs=els.filter(e=>e.type==='fence'),cs=new Set();
+  const runs=els.filter(e=>e.type==='fence'&&isPoint(e.start)&&isPoint(e.end)),cs=new Set();
   for(let i=0;i<runs.length;i++)for(let j=i+1;j<runs.length;j++){
     const a=runs[i],b=runs[j];
     [[a.start,b.start],[a.start,b.end],[a.end,b.start],[a.end,b.end]].forEach(([p1,p2])=>{
@@ -1861,6 +1864,7 @@ function draw(){
   const cs=buildCornerSet(S.elements);
   S.elements.forEach((el,i)=>{
     const ft=FENCE_TYPES[el.fenceType]||FENCE_TYPES.chainlink,sel=S.selected===i;
+    if(el.type==='post'?!isPoint(el.pos):!isPoint(el.start)||!isPoint(el.end))return;
     if(el.type==='boundary'){drawBoundary(ctx,el,sel);return;}
     if(el.type==='fence'){drawFenceRun(ctx,el,ft,sel,cs);}
     if(el.type==='post'){drawPost(ctx,el,ft,sel);}
