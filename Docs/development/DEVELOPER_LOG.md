@@ -983,3 +983,5 @@ closeout; their bytes match the previously reviewed repair checkpoint.
   The plan PDF captures the live canvas, so on light it now gets dark linework (REDO 4 builds on this).
 - **Tests:** `tests/visual-system.spec.js` (4): 4 failed before, 4/4 after.
 - **Full suite:** 221/221 (5.2 min, port 8081 config so Codex's 8080 run is not disturbed).
+- **Handoff (REDO r1 → r2):** #43 (REDO 4, Codex) committed by the coordinator; REDO 5 handed to Codex
+  (`handoffs/CODEX-NEXT-estimate-pdf1.md`, running at handoff). Next: `handoffs/CLAUDE-NEXT-redo2.md`.
