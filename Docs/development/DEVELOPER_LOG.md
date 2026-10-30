@@ -1147,3 +1147,30 @@ undo/redo restores `quote`; T10 isolation still holds.
   `frozenAt` = their `savedAt`. Their totals on open are unchanged from today.
 - Cost editor with a quoted job open: **edits the company card only.** The job keeps its quoted prices; a
   toast points to Re-price.
+
+**Implementation (6b), with corrections to the proposal above.**
+- `index.html`: `S.quote = null | {frozenAt, total, pricing}`. Helpers by the rate-card store:
+  `clonePricing`, `useCompanyRateCard` (defaults + saved card into the globals), `useQuotePricing`.
+  `_pricingFromLoadedProject` now means "the globals hold the open job's quote"; `saveCostDB()` still refuses
+  while it is true.
+- File format: `snapshotState()` adds `quote: {frozenAt,total} | null`. The frozen prices stay in the existing
+  top-level `costs…postEmbedIn` fields (no duplication); a draft's copies are not read back. `schemaVersion`
+  stays 3 (the acceptance suite pins it): `quote` present-but-null vs. absent tells a new draft from a
+  pre-split file.
+- `applyState()`: always starts from the company card (never from whatever was live), then lays a quote's
+  prices over it. Never writes the card.
+- Freeze: after a successful `exportEstimatePDF()` with pricing available. Later exports keep `frozenAt` and
+  the prices and update `total`.
+- Re-price (pricing tab, "Quoted prices · date" note): confirm shows old → new total; the job returns to being
+  a **draft** on the company card until its next estimate export. Clear also drops the quote.
+- Rate-card writes: the cost editor swaps the card in on open and the quote back on close, so its save, reset,
+  reload, CSV import and price-file import act on the card; their five "came from the loaded project" confirms
+  are removed. Backup restore swaps the same way.
+- Not in undo history (history holds drawings only; a job load clears it), so design point 6 is dropped. No
+  "Rate card prices" label for drafts; only quotes are labelled.
+- Known gap: the freeze reaches autosave immediately but a Saved Jobs record only on its next Save.
+- **Tests:** new `tests/price-snapshot.spec.js` (5). Before (worktree at `36ca3df`): 5 failed. After: 5/5.
+  Full suite: 249/249 (4.3 min). Rewritten for the two-store model: T-P1, F1, T-P5 (`persistence-integrity`), MR2 (`market-readiness-repairs`);
+  marked as quotes / pre-split files: T-P2, O4, job-state-isolation 2, IB2/IB4 (`input-boundary-validation`).
+  `fixture-168lf` "ratified footing parameters": a pre-split file without post sizes now fills them from the
+  company card (1.625) instead of unsaved live globals (3); expectation updated, deliberate.

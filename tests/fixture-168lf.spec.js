@@ -60,7 +60,7 @@ test('ratified footing parameters persist and bagsForHole uses the seeded schedu
     FOOTING=JSON.parse(JSON.stringify(DEFAULT_FOOTING));POST_OD_IN={...DEFAULT_POST_OD_IN};POST_EMBED_IN={...DEFAULT_POST_EMBED_IN};S.specs=hydrateRunSpecs({...S.specs,postDiaIn:undefined,postDiaDirty:undefined,postEmbedIn:undefined,postEmbedDirty:undefined});
     applyState(snapshot);
     const applied={bags:FOOTING.bagsByDepthIn[30],gateOD:POST_OD_IN.gate,gateEmbed:POST_EMBED_IN.gate,runGateOD:S.specs.postDiaIn.gate,runGateEmbed:S.specs.postEmbedIn.gate,dirtyLineOD:S.specs.postDiaIn.line,dirtyLineEmbed:S.specs.postEmbedIn.line};
-    const legacy=JSON.parse(JSON.stringify(snapshot));delete legacy.footing;delete legacy.postODIn;delete legacy.postEmbedIn;delete legacy.specs.postDiaIn;delete legacy.specs.postDiaDirty;delete legacy.specs.postEmbedIn;delete legacy.specs.postEmbedDirty;legacy.specs.embedDepthIn=28;
+    const legacy=JSON.parse(JSON.stringify(snapshot));delete legacy.quote;delete legacy.footing;delete legacy.postODIn;delete legacy.postEmbedIn;delete legacy.specs.postDiaIn;delete legacy.specs.postDiaDirty;delete legacy.specs.postEmbedIn;delete legacy.specs.postEmbedDirty;legacy.specs.embedDepthIn=28;
     applyState(legacy);
     const legacyLoaded={lineOD:S.specs.postDiaIn.line,gateOD:S.specs.postDiaIn.gate,lineEmbed:S.specs.postEmbedIn.line,gateEmbed:S.specs.postEmbedIn.gate};
     return {defaults,bags,restoredBags:FOOTING.bagsByDepthIn[30],restoredGateOD:POST_OD_IN.gate,
@@ -85,7 +85,9 @@ test('ratified footing parameters persist and bagsForHole uses the seeded schedu
   expect(result.snapshotPostOD.gate).toBe(4.5);
   expect(result.snapshotPostEmbed.gate).toBe(36);
   expect(result.applied).toEqual({bags:7,gateOD:4.5,gateEmbed:36,runGateOD:4.5,runGateEmbed:36,dirtyLineOD:9,dirtyLineEmbed:17});
-  expect(result.legacyLoaded).toEqual({lineOD:3,gateOD:4.5,lineEmbed:28,gateEmbed:28});
+  // REDO 6b: a pre-split file without post sizes takes them from the company
+  // card (line 1.625 saved above), not from unsaved live edits (line 3).
+  expect(result.legacyLoaded).toEqual({lineOD:1.625,gateOD:4.5,lineEmbed:28,gateEmbed:28});
 });
 
 test('168 LF house-terminated reference job matches the authoritative takeoff', async ({ page }) => {

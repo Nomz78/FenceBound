@@ -108,7 +108,8 @@ test('O4 pack sizes save and reload with the job without touching the company ca
   // The company card keeps pack sizes across a reload of the saved card.
   expect(await state(page, `(()=>{reloadSavedCostDB();return COST_DB['wire ties'].pack;})()`)).toBe(50);
   await state(page, seed('chainlink', { runs: 2 }));
-  const job = await state(page, `JSON.parse(JSON.stringify(snapshotState()))`);
+  // A quoted job keeps the prices it was quoted with (REDO 6b).
+  const job = await state(page, `({...JSON.parse(JSON.stringify(snapshotState())),quote:{frozenAt:'then',total:null}})`);
   const jobOrder = (await state(page, line('Wire Ties 9ga'))).order;
 
   // The company later switches to bags of 500.
