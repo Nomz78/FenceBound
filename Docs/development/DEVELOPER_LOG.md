@@ -1092,3 +1092,12 @@ closeout; their bytes match the previously reviewed repair checkpoint.
     PDF and stored with the frozen quote. No vendor.
 - **Order:** underlay first (smallest, independent), then the O-5 split, then the signature pad (it stores into
   the frozen quote, so it follows the split).
+- **REDO 6a, site-image underlay:** Job info drawer → "Site image": Add/Replace image, Set scale, Remove,
+  Opacity. Uploads are downscaled to ≤ 2000 px JPEG (localStorage budget) and centred in view; drawn under the
+  grid at the saved opacity. Set scale: two unsnapped clicks, then a prompt for the real distance in feet; the
+  scale changes about the first point. Esc or a tool change cancels. `underlay` rides in `snapshotState()`
+  (autosave, saved jobs, job files); `applyState` drops anything but a base64 png/jpeg/webp/gif data URL with
+  finite placement. An underlay alone now counts as session content to restore. PNG export includes it; the
+  plan PDF does not. Not in undo history.
+- **Tests:** `tests/site-underlay.spec.js` (5). Before (worktree at `344eedf`): 5 failed. After: 5/5.
+  Full suite: 244/244 (4.5 min).
