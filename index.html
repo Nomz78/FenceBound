@@ -2782,8 +2782,8 @@ function selectFenceType(key){
 
 function updateHint(){
   const hints={
-    fence:`Draw fence · ${S.autoPost?`Auto-posts every ${S.postSpacing}'`:'Posts off'} · ${(FENCE_TYPES[S.fenceType]||{label:''}).label}${S.angleLock?' · ∠45° locked':''}`,
-    boundary:`Draw property boundary (dashed, no posts)${S.angleLock?' · ∠45° locked':''}`,
+    fence:`Click points or drag · double-click/Esc to finish · ${S.autoPost?`Auto-posts every ${S.postSpacing}'`:'Posts off'} · ${(FENCE_TYPES[S.fenceType]||{label:''}).label}${S.angleLock?' · ∠45° locked':''}`,
+    boundary:`Draw property boundary (dashed, no posts) · click points or drag · double-click/Esc to finish${S.angleLock?' · ∠45° locked':''}`,
     gate:`Draw gate · Type: ${(GATE_TYPES[S.gateType]||{label:''}).label}`,
     post:'Tap to place post',
     select:S.selected!==null?'Selected — ✕ to delete':'Tap to select element',
@@ -3091,31 +3091,56 @@ function handleUp(e){
     // Min run length: half the snap interval, floored at 0.25' so the new 0.1'
     // fine snap can't turn tap jitter into 2px micro-runs. (v5.3)
     const MINRUN=Math.max(S.snapFt*GRID_FT/2,GRID_FT*0.25);
+    if(S.drawing.chain){
+      // Touch has no hover, so take the release point rather than the last move.
+      S.drawing.end=applyAngleLock(snapToEndpoint(toWorld(e)),S.drawing.start);
+      const len=dist(S.drawing.start,S.drawing.end);
+      // A click on the chain's last point (the second click of a double-click) finishes it.
+      if(len<=MINRUN){endChain();return;}
+      const {type,start,end}=S.drawing;
+      const ok=commitDrawnSegment(type,start,end);
+      // Gates are single segments; fences and boundaries continue from the new end.
+      S.drawing=ok&&type!=='gate'?{type,start:end,end,chain:true}:null;
+      S._snapTarget=null;draw();updatePanel();updateHint();scheduleAutosave();return;
+    }
     const len=dist(S.drawing.start,S.drawing.end);
     if(len>MINRUN){
-      pushHistory();
-      const runId=S.drawing.type==='fence'?makeRunId():undefined;
-      const runSpecs=S.drawing.type==='fence'?cloneRunSpecs(S.specs):undefined;
-      if(S.drawing.type==='gate'){
-        if(!S.elements.some(el=>el.type==='fence')){showToast('Draw a fence run before placing a gate');S.drawing=null;S._snapTarget=null;draw();updatePanel();return;}
-        const gate={type:'gate',start:S.drawing.start,end:S.drawing.end,
-          gateType:S.gateType,hinge:'start',swingDir:1,fenceType:S.fenceType};
-        const {next:owner}=rebindGate(gate,gateDrawReach());
-        if(!owner){showToast('Draw the gate on a fence run');S.drawing=null;S._snapTarget=null;draw();updatePanel();return;}
-        S.elements.push(gate);
-        rebuildRunAutoPosts(owner);
-      }else{
-        const newEls=[{type:S.drawing.type,start:S.drawing.start,end:S.drawing.end,
-          fenceType:S.drawing.type!=='boundary'?S.fenceType:undefined,
-          runId, specs:runSpecs, postSpacing:S.drawing.type==='fence'?S.postSpacing:undefined,
-          autoPostSpacing:S.drawing.type==='fence'&&S.autoPost?S.postSpacing:null,
-          hinge:'start',swingDir:1}];
-        if(S.drawing.type==='fence'&&S.autoPost)newEls.push(...autoPostsForRun(S.drawing.start,S.drawing.end,S.postSpacing,S.fenceType,runId,runSpecs));
-        S.elements.push(...newEls);
-      }
+      commitDrawnSegment(S.drawing.type,S.drawing.start,S.drawing.end);
+      S.drawing=null;
+    }else{
+      // A click (no drag) starts a click-to-chain polyline at that point.
+      S.drawing.chain=true;
     }
-    S.drawing=null;S._snapTarget=null;draw();updatePanel();scheduleAutosave();
+    S._snapTarget=null;draw();updatePanel();updateHint();scheduleAutosave();
   }
+}
+function endChain(){
+  S.drawing=null;S._snapTarget=null;draw();updatePanel();updateHint();
+}
+// Commits one drawn segment. Returns false when a gate has no fence run to sit on.
+function commitDrawnSegment(type,start,end){
+  // History is pushed before the gate checks, as before: a refused gate leaves an undo step.
+  pushHistory();
+  if(type==='gate'){
+    if(!S.elements.some(el=>el.type==='fence')){showToast('Draw a fence run before placing a gate');return false;}
+    const gate={type:'gate',start,end,
+      gateType:S.gateType,hinge:'start',swingDir:1,fenceType:S.fenceType};
+    const {next:owner}=rebindGate(gate,gateDrawReach());
+    if(!owner){showToast('Draw the gate on a fence run');return false;}
+    S.elements.push(gate);
+    rebuildRunAutoPosts(owner);
+    return true;
+  }
+  const runId=type==='fence'?makeRunId():undefined;
+  const runSpecs=type==='fence'?cloneRunSpecs(S.specs):undefined;
+  const newEls=[{type,start,end,
+    fenceType:type!=='boundary'?S.fenceType:undefined,
+    runId, specs:runSpecs, postSpacing:type==='fence'?S.postSpacing:undefined,
+    autoPostSpacing:type==='fence'&&S.autoPost?S.postSpacing:null,
+    hinge:'start',swingDir:1}];
+  if(type==='fence'&&S.autoPost)newEls.push(...autoPostsForRun(start,end,S.postSpacing,S.fenceType,runId,runSpecs));
+  S.elements.push(...newEls);
+  return true;
 }
 
 function showLabelOverlay(){
@@ -3356,7 +3381,7 @@ function init(){
   // Toolbar
   document.querySelectorAll('[data-tool]').forEach(b=>{
     b.addEventListener('click',()=>{
-      S.tool=b.dataset.tool;S.selected=null;S.editingGate=null;
+      S.tool=b.dataset.tool;S.selected=null;S.editingGate=null;S.drawing=null;
       document.querySelectorAll('[data-tool]').forEach(x=>x.classList.remove('active'));
       b.classList.add('active');
       syncSpecInputs();updateTypeBar();updateHint();updatePanel();updateGateEditor();
@@ -3661,8 +3686,10 @@ function init(){
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?doRedo():doUndo();}
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();doRedo();}
     // Escape — cancel an in-progress draw, or revert an in-progress move
+    // Enter finishes a click-to-chain polyline (Escape below does too)
+    if(e.key==='Enter'&&S.drawing&&S.drawing.chain&&!inField){e.preventDefault();endChain();}
     if(e.key==='Escape'){
-      if(S.drawing){S.drawing=null;draw();}
+      if(S.drawing){endChain();}
       else if(S.moving&&S.moveOrigEl&&S.elements[S.moving.idx]){
         S.elements[S.moving.idx]=S.moveOrigEl;
         (S.moveCarried||[]).forEach(c=>{c.gate.start=c.start;c.gate.end=c.end;});

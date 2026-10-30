@@ -954,3 +954,18 @@ closeout; their bytes match the previously reviewed repair checkpoint.
   legacy-state loader because malformed imports are now rejected atomically.
 - **Handoff:** main's `HANDOFF.md` (Codex counting accuracy) kept; audit handoff moved to
   `handoffs/CLAUDE-NEXT-audit-repairs3.md`. Suite 212/212.
+
+## 2026-10-30 — REDO 1: click-to-chain drawing (Claude Code)
+
+- **Owner authorization (2026-10-30):** "all need to be done, push in the order of debugging necessary" — all six
+  REDO items (`371850a:HANDOFF.md:54-70`) are authorized feature work. Order, by what later work is debugged
+  through: 1 drawing interaction, 2 visual system, 3 mobile/tablet layout, 4 plan PDF, 5 estimate PDF,
+  6 platform (v6.0; needs owner choices of providers before code).
+- **REDO 1:** with the fence, boundary or gate tool, a click (no drag) starts a polyline; each later click commits a
+  segment and continues from its end (a gate ends after one segment); double-click, Enter or Escape finishes;
+  switching tools cancels. Drag-per-segment drawing is unchanged. Segment commit moved into
+  `commitDrawnSegment()`; history is still pushed before the gate checks, so a refused gate keeps its undo step.
+  Hint text names the new gesture. Counting is unchanged: chained runs are ordinary runs sharing endpoints.
+- **Tests:** `tests/click-chain-drawing.spec.js` (5). Before the fix 4 failed (the tool-switch case passes
+  trivially there); after, 5/5. Full `npm test` result below.
+- **Full suite:** `npm test` 217/217 (4.8 min). REDO 4 (plan PDF) briefed to Codex: `handoffs/CODEX-NEXT-plan-pdf1.md`.
