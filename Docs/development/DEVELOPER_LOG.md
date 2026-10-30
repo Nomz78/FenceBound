@@ -1058,3 +1058,25 @@ closeout; their bytes match the previously reviewed repair checkpoint.
   absent after local search; documented entry checks performed directly. Tier 1 hierarchy differs from
   CLAUDE.md/SOURCE_OF_TRUTH ordering; owner authorization and canonical source control this narrow work.
   Historical state/handoff files retained for the coordinator's committed closeout.
+
+## 2026-10-30 — REDO r2: merges, REDO 5 intake, REDO 3 mobile layout (Claude Code)
+
+- **Merges (owner: "merge the prs too"):** #41 (REDO 1) merged to `main`. The retarget of #42 to `main` failed
+  silently (gh CLI "Projects (classic)" error), so #42 merged into `feat/redo1-click-chain-drawing`; the same
+  commits went to `main` through replacement PR #44. #43 (REDO 4): `main` merged in (log conflict, both sides
+  kept), full suite 225/225, then merged. Future base edits: check `baseRefName` after `gh pr edit`.
+- **REDO 5 intake:** Codex's estimate-PDF work reviewed and committed (`868d60c`, "Implemented by Codex"). The
+  vector plan moved unchanged into `drawPdfProjectDrawing()` (scale bar now frame-relative); scope reuses the
+  `getStats()` records; prices/totals only gained page-break guards. F3 keeps its warning assertions; its
+  one-page check becomes the three-page layout. Codex: 2 red / 1 control before, 219/219 full after.
+- **REDO 3 (≤ 768 px):** toolbar becomes a horizontal strip under the canvas; the panel becomes an in-flow
+  bottom sheet (`#sheet-grip`: tap cycles collapsed / half / full, drag snaps to the nearest; a panel tab opens
+  a collapsed sheet; legend hidden when collapsed); the header hides `.btn-lbl`, the zoom readout and
+  separators, and moves Job, Jobs, PNG, theme, Reset zoom and Clear into a "More" menu (`#more-menu`) whose
+  items click the real buttons. Every header button now has an `aria-label`. Drawers span the width. Hint
+  wraps. Desktop layout is unchanged. Zoom +/− scroll into view at 390 px (pinch and Fit remain).
+- **Tests:** `tests/mobile-layout.spec.js` (11, at 390×844 and 768×1024 plus a desktop control). Before: 6 failed;
+  the toolbar-fit, touch-drawing (CDP `Input.dispatchTouchEvent`) and desktop tests passed as guards. After:
+  11/11. The sheet tests first read the panel mid-animation under load (2 failures in a 232-test run);
+  they now poll the height. Full suite after merging `main` (REDO 4 + 5): 239/239 (4.3 min).
+- **Handoff (REDO r2 → r3):** `handoffs/CLAUDE-NEXT-redo3.md`. Next: REDO 6, owner choices first.

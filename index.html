@@ -323,14 +323,45 @@ label{font-size:12px;color:var(--text2);letter-spacing:0.02em;display:block;marg
 #app-toast.show{opacity:1}
 #app-toast.err{border-color:var(--red);color:var(--red)}
 
-/* ── RESPONSIVE — narrow panels on small iPads ── */
+/* ── HEADER OVERFLOW MENU and BOTTOM-SHEET GRIP (shown only on phones and tablets) ── */
+#header{position:relative}
+#header-right #btn-more{display:none}
+#more-menu{position:absolute;top:calc(100% + 4px);right:8px;z-index:300;min-width:170px;
+  background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);
+  box-shadow:0 8px 20px rgba(0,0,0,0.2);padding:4px;display:flex;flex-direction:column}
+#more-menu[hidden]{display:none}
+#more-menu button{background:transparent;border:none;color:var(--text1);font:inherit;font-size:13px;
+  text-align:left;padding:10px 12px;border-radius:var(--radius);cursor:pointer}
+#more-menu button:hover{background:var(--surface2)}
+#sheet-grip{display:none}
+
+/* ── RESPONSIVE — phones and tablets: toolbar strip, compact header, bottom sheet ── */
 @media (max-width:768px){
   #header{height:auto;min-height:48px;overflow:visible;align-items:center;padding-top:5px;padding-bottom:5px}
   .logo-word{display:none}
+  #header-left{flex-shrink:1}
   #header-left .sep{display:none}
-  #toolbar{width:48px}
-  .tbtn{width:42px;height:42px}
-  #panel{width:256px}
+  #job-name-display{max-width:none;min-width:0}
+  #header-right{flex-wrap:nowrap;flex-shrink:0}
+  #header-right .btn-lbl,#zoom-label,#header-right .hsep{display:none}
+  #btn-reset-zoom,#btn-clear,#btn-jobinfo,#btn-jobs,#btn-theme,#btn-png{display:none!important}
+  #header-right #btn-more{display:inline-flex}
+  #body{flex-direction:column}
+  #canvas-wrap{order:1}
+  #toolbar{order:2;width:100%;flex-direction:row;padding:2px 4px;border-right:none;
+    border-top:1px solid var(--border);overflow-x:auto;overflow-y:hidden}
+  .tbtn{width:42px;height:42px;flex-shrink:0}
+  .tbtn:active,.tbtn.active{box-shadow:inset 0 -2px 0 var(--accent)}
+  #drag-handle,#panel-collapse-btn{display:none}
+  #panel{order:3;width:100%!important;border-top:1px solid var(--border);transition:height 0.18s ease}
+  #panel.sheet-collapsed .panel-body,#panel.sheet-collapsed .panel-legend{display:none!important}
+  .hint{white-space:normal;width:max-content;max-width:calc(100% - 16px);text-align:center;letter-spacing:0}
+  #panel.sheet-half{height:45%}
+  #panel.sheet-full{height:88%}
+  #sheet-grip{display:flex;justify-content:center;align-items:center;width:100%;height:20px;flex-shrink:0;
+    background:transparent;border:none;cursor:ns-resize;touch-action:none}
+  #sheet-grip::after{content:'';width:40px;height:4px;border-radius:2px;background:var(--border2)}
+  .drawer{left:0;right:0!important;width:auto}
 }
 </style>
 </head>
@@ -346,18 +377,27 @@ label{font-size:12px;color:var(--text2);letter-spacing:0.02em;display:block;marg
     </div>
     <div id="header-right">
       <span class="zoom-info" id="zoom-label">100%</span>
-      <button class="btn" id="btn-fit" title="Zoom to fit drawing"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5"/></svg><span class="btn-lbl">Fit</span></button>
-      <button class="btn" id="btn-reset-zoom" title="Reset zoom to 100%"><span class="btn-lbl">Reset</span></button>
+      <button class="btn" id="btn-fit" aria-label="Zoom to fit" title="Zoom to fit drawing"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5"/></svg><span class="btn-lbl">Fit</span></button>
+      <button class="btn" id="btn-reset-zoom" aria-label="Reset zoom" title="Reset zoom to 100%"><span class="btn-lbl">Reset</span></button>
       <span class="hsep"></span>
-      <button class="btn" id="btn-clear" title="Clear the drawing">Clear</button>
-      <button class="btn" id="btn-undo" disabled title="Undo (⌘Z / two-finger tap)"><svg class="ui-icon" viewBox="0 0 24 24"><path d="m9 7-5 5 5 5"/><path d="M4 12h9a7 7 0 0 1 7 7"/></svg><span class="btn-lbl">Undo</span></button>
-      <button class="btn" id="btn-redo" disabled title="Redo (⌘⇧Z)"><svg class="ui-icon" viewBox="0 0 24 24"><path d="m15 7 5 5-5 5"/><path d="M20 12h-9a7 7 0 0 0-7 7"/></svg><span class="btn-lbl">Redo</span></button>
+      <button class="btn" id="btn-clear" aria-label="Clear the drawing" title="Clear the drawing">Clear</button>
+      <button class="btn" id="btn-undo" aria-label="Undo" disabled title="Undo (⌘Z / two-finger tap)"><svg class="ui-icon" viewBox="0 0 24 24"><path d="m9 7-5 5 5 5"/><path d="M4 12h9a7 7 0 0 1 7 7"/></svg><span class="btn-lbl">Undo</span></button>
+      <button class="btn" id="btn-redo" aria-label="Redo" disabled title="Redo (⌘⇧Z)"><svg class="ui-icon" viewBox="0 0 24 24"><path d="m15 7 5 5-5 5"/><path d="M20 12h-9a7 7 0 0 0-7 7"/></svg><span class="btn-lbl">Redo</span></button>
       <span class="hsep"></span>
-      <button class="btn" id="btn-jobinfo" title="Job information"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M8 5h8M8 9h8M8 13h5"/><rect x="5" y="3" width="14" height="18" rx="2"/></svg><span class="btn-lbl">Job</span></button>
-      <button class="btn" id="btn-jobs" title="Saved jobs"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M4 7h6l2 2h8v10H4z"/><path d="M4 7V5h6l2 2"/></svg><span class="btn-lbl">Jobs</span></button>
-      <button class="btn" id="btn-theme" title="Switch light / dark theme"><svg class="ui-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><span class="btn-lbl" id="btn-theme-lbl">Dark</span></button>
-      <button class="btn" id="btn-png" title="Save the drawing as an image">PNG</button>
-      <button class="btn accent" id="btn-pdf" title="Export the plan PDF">Plan PDF</button>
+      <button class="btn" id="btn-jobinfo" aria-label="Job information" title="Job information"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M8 5h8M8 9h8M8 13h5"/><rect x="5" y="3" width="14" height="18" rx="2"/></svg><span class="btn-lbl">Job</span></button>
+      <button class="btn" id="btn-jobs" aria-label="Saved jobs" title="Saved jobs"><svg class="ui-icon" viewBox="0 0 24 24"><path d="M4 7h6l2 2h8v10H4z"/><path d="M4 7V5h6l2 2"/></svg><span class="btn-lbl">Jobs</span></button>
+      <button class="btn" id="btn-theme" aria-label="Switch light / dark theme" title="Switch light / dark theme"><svg class="ui-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><span class="btn-lbl" id="btn-theme-lbl">Dark</span></button>
+      <button class="btn" id="btn-png" aria-label="Save as PNG image" title="Save the drawing as an image">PNG</button>
+      <button class="btn accent" id="btn-pdf" aria-label="Export the plan PDF" title="Export the plan PDF">Plan PDF</button>
+      <button class="btn" id="btn-more" title="More actions" aria-label="More actions" aria-haspopup="menu" aria-expanded="false"><svg class="ui-icon" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
+      <div id="more-menu" role="menu" hidden>
+        <button role="menuitem" data-proxy="btn-jobinfo">Job information</button>
+        <button role="menuitem" data-proxy="btn-jobs">Saved jobs</button>
+        <button role="menuitem" data-proxy="btn-png">Save PNG image</button>
+        <button role="menuitem" data-proxy="btn-theme">Light / dark theme</button>
+        <button role="menuitem" data-proxy="btn-reset-zoom">Reset zoom</button>
+        <button role="menuitem" data-proxy="btn-clear">Clear the drawing</button>
+      </div>
     </div>
   </div>
 
@@ -392,7 +432,8 @@ label{font-size:12px;color:var(--text2);letter-spacing:0.02em;display:block;marg
     <div id="drag-handle"></div>
 
     <!-- ── PANEL ── -->
-    <div id="panel">
+    <div id="panel" class="sheet-collapsed">
+      <button id="sheet-grip" title="Drag or tap to resize the panel" aria-label="Resize panel" aria-expanded="false"></button>
       <div class="panel-tabs">
         <button id="panel-collapse-btn" title="Hide panel — more canvas space">«</button>
         <button class="ptab active" data-tab="draw">DRAW</button>
@@ -3800,6 +3841,56 @@ function init(){
       }
       setTimeout(resizeCanvas,20);
     });
+  })();
+
+  // Bottom sheet (phones and tablets; the classes are inert on desktop).
+  // A tap on the grip cycles collapsed → half → full; a drag snaps to the nearest state.
+  (()=>{
+    const panel=document.getElementById('panel'),grip=document.getElementById('sheet-grip');
+    const states=['sheet-collapsed','sheet-half','sheet-full'];
+    const setSheet=s=>{
+      states.forEach(c=>panel.classList.toggle(c,c===s));
+      grip.setAttribute('aria-expanded',String(s!=='sheet-collapsed'));
+    };
+    let startY=null,dragged=false;
+    grip.addEventListener('pointerdown',e=>{startY=e.clientY;dragged=false;grip.setPointerCapture(e.pointerId);});
+    grip.addEventListener('pointermove',e=>{
+      if(startY===null)return;
+      if(Math.abs(e.clientY-startY)>8)dragged=true;
+      if(dragged){
+        const body=document.getElementById('body').getBoundingClientRect();
+        panel.style.height=Math.max(40,Math.min(body.height*0.88,body.bottom-e.clientY))+'px';
+      }
+    });
+    grip.addEventListener('pointerup',e=>{
+      if(startY===null)return;
+      startY=null;
+      if(!dragged)return;
+      const body=document.getElementById('body').getBoundingClientRect();
+      const frac=(body.bottom-e.clientY)/body.height;
+      panel.style.height='';
+      setSheet(frac<0.25?states[0]:frac<0.65?states[1]:states[2]);
+    });
+    grip.addEventListener('click',()=>{
+      if(dragged){dragged=false;return;}
+      const cur=states.findIndex(c=>panel.classList.contains(c));
+      setSheet(states[(cur+1)%states.length]);
+    });
+    document.querySelectorAll('.ptab').forEach(b=>b.addEventListener('click',()=>{
+      if(panel.classList.contains('sheet-collapsed'))setSheet('sheet-half');
+    }));
+  })();
+
+  // Header overflow menu (phones and tablets): each item clicks the real header button.
+  (()=>{
+    const more=document.getElementById('btn-more'),menu=document.getElementById('more-menu');
+    const setOpen=open=>{menu.hidden=!open;more.setAttribute('aria-expanded',String(open));};
+    more.addEventListener('click',e=>{e.stopPropagation();setOpen(menu.hidden);});
+    menu.querySelectorAll('[data-proxy]').forEach(item=>item.addEventListener('click',()=>{
+      setOpen(false);document.getElementById(item.dataset.proxy).click();
+    }));
+    document.addEventListener('click',e=>{if(!menu.hidden&&!menu.contains(e.target))setOpen(false);});
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!menu.hidden)setOpen(false);});
   })();
 
   // Touch guard — disable panel pointer events the moment 2+ fingers are on screen.
