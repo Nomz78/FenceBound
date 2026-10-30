@@ -954,3 +954,36 @@ closeout; their bytes match the previously reviewed repair checkpoint.
   legacy-state loader because malformed imports are now rejected atomically.
 - **Handoff:** main's `HANDOFF.md` (Codex counting accuracy) kept; audit handoff moved to
   `handoffs/CLAUDE-NEXT-audit-repairs3.md`. Suite 212/212.
+
+## 2026-10-30 — REDO 4: light contractor plan PDF (Codex, round 1)
+
+- **Authorization:** owner's REDO 4 prompt authorizes light theme, existing contractor branding and a scale
+  bar. Its final “Leave changes uncommitted” instruction supersedes commit/push/PR and two-commit closeout.
+  Work is on owner-named `feat/redo4-plan-pdf`, from current `main` at `41ea935`.
+- **Implementation:** only `exportPDF()` in canonical `index.html` changes. White paper, dark text and vector
+  geometry, darker fence colors plus matching legend dash patterns, contractor header using the existing
+  profile helpers, small Made with FenceBound footer. Fits world geometry independently of screen pan/zoom;
+  draws runs with gate openings, gate leaves, posts, boundaries, dimensions and labels. A labeled 1/2/5
+  scale bar uses the same mm/world-unit scale as the geometry. No north arrow without geographic orientation.
+- **Preserved:** F5 gate posts/Total Posts, F7c used-type legend, validation warning, all pricing/count logic,
+  and estimate PDF. Runtime outside `exportPDF()` is byte-for-byte unchanged; REDO 1 drawing track unaffected.
+- **Red before / green after:** four new `tests/plan-pdf.spec.js` cases failed against the original exporter
+  (white background, contractor profile/header and two scale/zoom cases). After repair, all four and the
+  existing F5/F7c PDF regressions pass: **6/6**. Tests inspect real jsPDF calls/output strings; scale lengths
+  agree within 1% for 60 ft and 600 ft runs despite off-screen pan and different viewport zooms.
+  Logs: `/tmp/fencebound-redo4-red.log`, `/tmp/fencebound-redo4-green.log`.
+- **Gate:** first full `npm test`: **215 passed / 1 failed**; warning-placement test still captured removed
+  `addImage()`. Updated only its capture to the vector drawing frame, preserving the placement assertion;
+  `tests/persistence-integrity.spec.js` is the fifth changed file. Final focused **7/7 PASS**
+  (`/tmp/fencebound-redo4-green-final.log`); first full log `/tmp/fencebound-redo4-full-first.log`.
+  Final full `npm test` **216/216 PASS** in 5.0 min, completed 2026-10-30T17:14:31Z
+  (`/tmp/fencebound-redo4-full.log`); base checkout 212 tests + 4 new = 216.
+  Persistence matrix **12/12 PASS** (`/tmp/fencebound-redo4-matrix.log`); `git diff --check` PASS.
+  Actual mixed-type/gate PDF rendered and inspected: `/tmp/fencebound-redo4-preview.pdf` / `.png`.
+  `npm ci` restored dependencies without changing manifests/lockfile; no CDN transport workaround needed.
+- **Status drift:** session init reports October 15 branch/HEAD metadata; source-of-truth docs differ on
+  authority order. Referenced October 30 REDO 1 log entry is absent at this HEAD; direct owner prompt supplies
+  authorization. Global `$initiate-repo` skill unavailable locally; documented entry checks performed.
+  Historical status files retained rather than claiming a committed closeout. No release/doctrine change.
+- **Open:** single-page sidebar retains existing capacity limits for unusually long job fields/material lists.
+  No new commit/push/PR by instruction. Result: `handoffs/CODEX-RESULT-plan-pdf1.md` (the owner's requested name).

@@ -597,10 +597,16 @@ test('F4 plan warning occupies reserved space above the drawing',async({page})=>
       const height=originalWarning(doc,validation,x,y,width);
       window.__planExportGeometry.warning={x,y,width,height};return height;
     };
-    const originalAddImage=window.jspdf.jsPDF.API.addImage;
-    window.jspdf.jsPDF.API.addImage=function(data,format,x,y,width,height){
-      window.__planExportGeometry.drawing={x,y,width,height};
-      return originalAddImage.apply(this,arguments);
+    // The plan is vector output now; capture its reserved drawing frame rather
+    // than relying on an embedded canvas image. Keep the warning-space contract.
+    const Real=window.jspdf.jsPDF;
+    window.jspdf.jsPDF=function(...args){
+      const doc=new Real(...args),originalRect=doc.rect;
+      doc.rect=function(x,y,width,height,...rest){
+        if(x===5&&width>150&&height>50)window.__planExportGeometry.drawing={x,y,width,height};
+        return originalRect.call(this,x,y,width,height,...rest);
+      };
+      return doc;
     };
   })()`);
   const downloadPromise=page.waitForEvent('download',{timeout:10_000});
