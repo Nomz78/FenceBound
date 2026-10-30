@@ -969,3 +969,19 @@ closeout; their bytes match the previously reviewed repair checkpoint.
 - **Tests:** `tests/click-chain-drawing.spec.js` (5). Before the fix 4 failed (the tool-switch case passes
   trivially there); after, 5/5. Full `npm test` result below.
 - **Full suite:** `npm test` 217/217 (4.8 min). REDO 4 (plan PDF) briefed to Codex: `handoffs/CODEX-NEXT-plan-pdf1.md`.
+
+## 2026-10-30 — REDO 2: visual system (Claude Code)
+
+- **Light field theme by default**, dark one click away (header "Dark"/"Light", saved per device in
+  `localStorage` `fb-theme`, applied before first paint). Light tokens under `:root[data-theme="light"]`; dark
+  `--text3` raised to 4.5:1. New tokens `--overlay`, `--on-accent`, `--accent-hover`.
+- **Readable type:** every 9–11 px UI size raised to 12 px (dev index panel untouched).
+- **Action hierarchy:** header icons carry text labels (Fit, Reset, Undo, Redo, Job, Jobs, theme); Clear moved
+  beside Undo, away from the exports; **Plan PDF** is the primary (accent) button; PNG is secondary.
+- **Canvas:** `canvasPalette()` and `ink()` keep linework readable on white (fence/gate colors darkened to 3:1
+  only on light; dark unchanged). `labelInk()` keeps old white labels visible. Fence-type data is unchanged.
+  The plan PDF captures the live canvas, so on light it now gets dark linework (REDO 4 builds on this).
+- **Tests:** `tests/visual-system.spec.js` (4): 4 failed before, 4/4 after.
+- **Full suite:** 221/221 (5.2 min, port 8081 config so Codex's 8080 run is not disturbed).
+- **Handoff (REDO r1 → r2):** #43 (REDO 4, Codex) committed by the coordinator; REDO 5 handed to Codex
+  (`handoffs/CODEX-NEXT-estimate-pdf1.md`, running at handoff). Next: `handoffs/CLAUDE-NEXT-redo2.md`.
