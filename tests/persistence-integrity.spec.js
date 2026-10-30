@@ -569,7 +569,7 @@ for(const [code,mutation] of estimateErrorCases){
   });
 }
 
-test('F3 warning caps customer-facing details and estimate remains one page',async({page})=>{
+test('F3 warning caps customer-facing details on the three-page customer estimate',async({page})=>{
   await cleanOpen(page);
   await seedEstimateState(page);
   await state(page,`(()=>{
@@ -584,7 +584,11 @@ test('F3 warning caps customer-facing details and estimate remains one page',asy
   expect(warning.unverified.join(' ')).not.toMatch(/run ID|unknown-style|ADDON_STATE|PRICING_RUNTIME/);
   const pdf=await exportEstimateAndRead(page,'warning-cap');
   const pageObjects=(pdf.bytes.toString('latin1').match(/\/Type\s*\/Page\b/g)||[]).length;
-  expect(pageObjects).toBe(1);
+  // REDO 5 adds dedicated scope/acceptance and drawing pages to the quote.
+  // Preserve the capped, customer-facing warning contract above.
+  expect(pageObjects).toBe(3);
+  expect(pdf.strings).toContain('SCOPE OF WORK');
+  expect(pdf.strings).toContain('PROJECT DRAWING');
 });
 
 test('F4 plan warning occupies reserved space above the drawing',async({page})=>{

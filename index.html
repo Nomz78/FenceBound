@@ -3220,6 +3220,72 @@ function showLabelOverlay(){
 }
 
 // ── PDF EXPORT ─────────────────────────────────────────────────────────────
+// Shared paper-space vector plan; all dimensions are in millimetres.
+function drawPdfProjectDrawing(doc,dX,drawingY,dW,dH){
+  doc.setFillColor(255,255,255);doc.rect(dX,drawingY,dW,dH,'F');
+  doc.setDrawColor(90,90,90);doc.setLineWidth(0.3);doc.rect(dX,drawingY,dW,dH);
+  // Fit world geometry, independent of screen pan, zoom and device pixel ratio.
+  const validPoint=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y);
+  const points=[];
+  S.elements.forEach(el=>{if(el.type==='post'){if(validPoint(el.pos))points.push(el.pos);}
+    else if(validPoint(el.start)&&validPoint(el.end))points.push(el.start,el.end);});
+  S.labels.forEach(l=>{if(validPoint(l))points.push(l);});
+  if(points.length){
+    const minX=Math.min(...points.map(p=>p.x)),maxX=Math.max(...points.map(p=>p.x));
+    const minY=Math.min(...points.map(p=>p.y)),maxY=Math.max(...points.map(p=>p.y));
+    const plotW=dW-24,plotH=dH-38;
+    const scale=Math.min(plotW/Math.max(maxX-minX,GRID_FT),plotH/Math.max(maxY-minY,GRID_FT));
+    const map=p=>({x:dX+dW/2+(p.x-(minX+maxX)/2)*scale,
+      y:drawingY+12+plotH/2+(p.y-(minY+maxY)/2)*scale});
+    const line=(a,b)=>doc.line(a.x,a.y,b.x,b.y);
+    // Darkened type colors and distinct dash patterns also survive grey printing.
+    const typeStyle=key=>{
+      const index=Math.max(0,Object.keys(FENCE_TYPES).indexOf(key));
+      const color=hexToRgb((FENCE_TYPES[key]||FENCE_TYPES.chainlink).color).map(c=>Math.round(c*0.5));
+      return{color,dash:index===0?[]:[1+index,1.5]};
+    };
+    const post=p=>{const q=map(p);doc.setFillColor(255,255,255);doc.setDrawColor(40,40,40);doc.setLineWidth(0.25);doc.circle(q.x,q.y,0.8,'FD');};
+    S.elements.forEach(el=>{
+      if(el.type==='post'){if(validPoint(el.pos))post(el.pos);return;}
+      if(!validPoint(el.start)||!validPoint(el.end))return;
+      const a=map(el.start),b=map(el.end),length=dist(el.start,el.end);
+      if(!length)return;
+      const style=typeStyle(el.fenceType);
+      doc.setDrawColor(...style.color);doc.setLineWidth(0.6);
+      doc.setLineDashPattern(el.type==='boundary'?[3,2]:style.dash,0);
+      if(el.type==='fence'){
+        const layout=runGateLayout(el);
+        layout.sections.forEach(([lo,hi])=>line(map({x:el.start.x+(el.end.x-el.start.x)*lo/length,y:el.start.y+(el.end.y-el.start.y)*lo/length}),
+          map({x:el.start.x+(el.end.x-el.start.x)*hi/length,y:el.start.y+(el.end.y-el.start.y)*hi/length})));
+      }else line(a,b);
+      doc.setLineDashPattern([],0);
+      doc.setTextColor(35,35,35);doc.setFontSize(8);doc.setFont('helvetica','normal');
+      const label=el.type==='gate'?`${(GATE_TYPES[el.gateType]||GATE_TYPES.walk).label} ${ftLbl(length)}`:ftLbl(length);
+      doc.text(label,(a.x+b.x)/2,(a.y+b.y)/2-3,{align:'center'});
+      if(el.type!=='boundary'){post(el.start);post(el.end);}
+      if(el.type==='gate'&&el.gateType!=='cantilever'){
+        // Open leaf direction preserves hinge and swing intent on the printed plan.
+        const h=el.hinge==='end'?b:a,other=el.hinge==='end'?a:b;
+        const leaf=(from,to,fraction)=>line(from,{x:from.x-(to.y-from.y)*fraction*(el.swingDir||1),y:from.y+(to.x-from.x)*fraction*(el.swingDir||1)});
+        doc.setDrawColor(50,50,50);doc.setLineWidth(0.35);
+        if(el.gateType==='doubledrive'){leaf(a,b,0.5);leaf(b,a,-0.5);}else leaf(h,other,1);
+      }
+    });
+    S.labels.forEach(l=>{if(!validPoint(l))return;const p=map(l);doc.setTextColor(35,35,35);doc.setFontSize(9);doc.text(String(l.text||''),p.x,p.y);});
+    // Pick a 1/2/5 interval near 25 mm; both bar and geometry share mm/world-unit scale.
+    const targetFt=25/(scale*GRID_FT),power=10**Math.floor(Math.log10(targetFt));
+    const stepFt=[1,2,5,10].map(n=>n*power).find(n=>n>=targetFt);
+    const barW=2*stepFt*GRID_FT*scale,barX=dX+12,barY=drawingY+dH-12;
+    doc.setDrawColor(35,35,35);doc.setLineWidth(0.5);doc.line(barX,barY,barX+barW,barY);
+    [0,0.5,1].forEach(t=>doc.line(barX+barW*t,barY-1.5,barX+barW*t,barY+1.5));
+    doc.setFontSize(8);doc.setTextColor(35,35,35);
+    const fmt=n=>Number(n.toPrecision(6));
+    doc.text(`Scale: 0 / ${fmt(stepFt)} / ${fmt(2*stepFt)} ft`,barX,barY+4);
+  }else{
+    doc.setTextColor(40,55,65);doc.setFontSize(10);doc.text('No drawing elements',dX+10,drawingY+15);
+  }
+}
+
 function exportPDF(){
   if(!window.jspdf){alert('PDF library not loaded. Check internet connection.');return;}
   const validation=validateProject();
@@ -3322,67 +3388,7 @@ function exportPDF(){
   const dX=5,dY=5,dW=tbX-10;
   const warningH=drawPdfValidationWarning(doc,validation,dX,dY,dW);
   const drawingY=dY+(warningH?warningH+3:0),dH=PH-drawingY-5;
-  doc.setDrawColor(90,90,90);doc.setLineWidth(0.3);doc.rect(dX,drawingY,dW,dH);
-  // Fit world geometry, independent of screen pan, zoom and device pixel ratio.
-  const validPoint=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y);
-  const points=[];
-  S.elements.forEach(el=>{if(el.type==='post'){if(validPoint(el.pos))points.push(el.pos);}
-    else if(validPoint(el.start)&&validPoint(el.end))points.push(el.start,el.end);});
-  S.labels.forEach(l=>{if(validPoint(l))points.push(l);});
-  if(points.length){
-    const minX=Math.min(...points.map(p=>p.x)),maxX=Math.max(...points.map(p=>p.x));
-    const minY=Math.min(...points.map(p=>p.y)),maxY=Math.max(...points.map(p=>p.y));
-    const plotW=dW-24,plotH=dH-38;
-    const scale=Math.min(plotW/Math.max(maxX-minX,GRID_FT),plotH/Math.max(maxY-minY,GRID_FT));
-    const map=p=>({x:dX+dW/2+(p.x-(minX+maxX)/2)*scale,
-      y:drawingY+12+plotH/2+(p.y-(minY+maxY)/2)*scale});
-    const line=(a,b)=>doc.line(a.x,a.y,b.x,b.y);
-    // Darkened type colors and distinct dash patterns also survive grey printing.
-    const typeStyle=key=>{
-      const index=Math.max(0,Object.keys(FENCE_TYPES).indexOf(key));
-      const color=hexToRgb((FENCE_TYPES[key]||FENCE_TYPES.chainlink).color).map(c=>Math.round(c*0.5));
-      return{color,dash:index===0?[]:[1+index,1.5]};
-    };
-    const post=p=>{const q=map(p);doc.setFillColor(255,255,255);doc.setDrawColor(40,40,40);doc.setLineWidth(0.25);doc.circle(q.x,q.y,0.8,'FD');};
-    S.elements.forEach(el=>{
-      if(el.type==='post'){if(validPoint(el.pos))post(el.pos);return;}
-      if(!validPoint(el.start)||!validPoint(el.end))return;
-      const a=map(el.start),b=map(el.end),length=dist(el.start,el.end);
-      if(!length)return;
-      const style=typeStyle(el.fenceType);
-      doc.setDrawColor(...style.color);doc.setLineWidth(0.6);
-      doc.setLineDashPattern(el.type==='boundary'?[3,2]:style.dash,0);
-      if(el.type==='fence'){
-        const layout=runGateLayout(el);
-        layout.sections.forEach(([lo,hi])=>line(map({x:el.start.x+(el.end.x-el.start.x)*lo/length,y:el.start.y+(el.end.y-el.start.y)*lo/length}),
-          map({x:el.start.x+(el.end.x-el.start.x)*hi/length,y:el.start.y+(el.end.y-el.start.y)*hi/length})));
-      }else line(a,b);
-      doc.setLineDashPattern([],0);
-      doc.setTextColor(35,35,35);doc.setFontSize(8);doc.setFont('helvetica','normal');
-      const label=el.type==='gate'?`${(GATE_TYPES[el.gateType]||GATE_TYPES.walk).label} ${ftLbl(length)}`:ftLbl(length);
-      doc.text(label,(a.x+b.x)/2,(a.y+b.y)/2-3,{align:'center'});
-      if(el.type!=='boundary'){post(el.start);post(el.end);}
-      if(el.type==='gate'&&el.gateType!=='cantilever'){
-        // Open leaf direction preserves hinge and swing intent on the printed plan.
-        const h=el.hinge==='end'?b:a,other=el.hinge==='end'?a:b;
-        const leaf=(from,to,fraction)=>line(from,{x:from.x-(to.y-from.y)*fraction*(el.swingDir||1),y:from.y+(to.x-from.x)*fraction*(el.swingDir||1)});
-        doc.setDrawColor(50,50,50);doc.setLineWidth(0.35);
-        if(el.gateType==='doubledrive'){leaf(a,b,0.5);leaf(b,a,-0.5);}else leaf(h,other,1);
-      }
-    });
-    S.labels.forEach(l=>{if(!validPoint(l))return;const p=map(l);doc.setTextColor(35,35,35);doc.setFontSize(9);doc.text(String(l.text||''),p.x,p.y);});
-    // Pick a 1/2/5 interval near 25 mm; both bar and geometry share mm/world-unit scale.
-    const targetFt=25/(scale*GRID_FT),power=10**Math.floor(Math.log10(targetFt));
-    const stepFt=[1,2,5,10].map(n=>n*power).find(n=>n>=targetFt);
-    const barW=2*stepFt*GRID_FT*scale,barX=dX+12,barY=PH-17;
-    doc.setDrawColor(35,35,35);doc.setLineWidth(0.5);doc.line(barX,barY,barX+barW,barY);
-    [0,0.5,1].forEach(t=>doc.line(barX+barW*t,barY-1.5,barX+barW*t,barY+1.5));
-    doc.setFontSize(8);doc.setTextColor(35,35,35);
-    const fmt=n=>Number(n.toPrecision(6));
-    doc.text(`Scale: 0 / ${fmt(stepFt)} / ${fmt(2*stepFt)} ft`,barX,barY+4);
-  }else{
-    doc.setTextColor(40,55,65);doc.setFontSize(10);doc.text('No drawing elements',dX+10,drawingY+15);
-  }
+  drawPdfProjectDrawing(doc,dX,drawingY,dW,dH);
   doc.setDrawColor(...accent);doc.setLineWidth(0.6);doc.rect(2,2,PW-4,PH-4);
   doc.save(`${S.projectName.replace(/\s+/g,'_')}_FencePlan.pdf`);
 }
@@ -5046,17 +5052,19 @@ function exportEstimatePDF(){
   // Line items
   let rowShade=false;
   const addRow=(qty,desc,unit,amount,bold=false)=>{
+    doc.setFont('helvetica',bold?'bold':'normal');doc.setFontSize(8.5);
+    const descLines=doc.splitTextToSize(desc,colW[1]-4);
+    const rowH=Math.max(6,descLines.length*4.5);
+    if(y+rowH>PH-20){doc.addPage();y=MT;}
     if(rowShade){doc.setFillColor(248,248,248);doc.rect(ML,y-1,tableW,6,'F');}
     rowShade=!rowShade;
     doc.setFont('helvetica',bold?'bold':'normal');doc.setFontSize(8.5);doc.setTextColor(28,28,28);
     doc.text(String(qty),ML+2,y+3.5);
-    const descLines=doc.splitTextToSize(desc,colW[1]-4);
     doc.text(descLines,ML+colW[0]+2,y+3.5);
     doc.setTextColor(80,80,80);
     doc.text(String(unit),ML+colW[0]+colW[1]+2,y+3.5);
     doc.setTextColor(28,28,28);
     doc.text(String(amount),PW-MR-2,y+3.5,{align:'right'});
-    const rowH=Math.max(6,descLines.length*4.5);
     y+=rowH;
   };
 
@@ -5102,6 +5110,7 @@ function exportEstimatePDF(){
   if(ucHardDig)addRow('1','Hard Dig / Equipment Required','Est.','Included');
 
   // ── TOTALS ──
+  if(y>PH-60){doc.addPage();y=MT;}
   y+=4;
   doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);doc.line(ML,y,PW-MR,y);y+=5;
 
@@ -5122,6 +5131,31 @@ function exportEstimatePDF(){
     y+=5;
   }
   y+=5;
+
+  // Scope uses the same per-run and per-gate ownership counts as the BOM.
+  doc.addPage();y=MT;
+  doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(...ACC);
+  doc.text('SCOPE OF WORK',ML,y);y+=8;
+  const scopeLine=text=>{
+    doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(28,28,28);
+    doc.splitTextToSize(text,PW-ML-MR).forEach(line=>{
+      if(y>PH-20){doc.addPage();y=MT;}
+      doc.text(line,ML,y);y+=5;
+    });
+    y+=2;
+  };
+  Object.entries(stats.fence).forEach(([type,ft])=>{
+    const runs=S.elements.filter(r=>r.type==='fence'&&r.fenceType===type);
+    const heights=[...new Set(runs.map(r=>hydrateRunSpecs(r.specs||S.specs).heightIn))];
+    const posts=runs.reduce((n,r)=>{const row=stats.byRunId[r.runId];
+      return n+(row?row.lineCt+row.termCt+row.cornerCt:0);},0)+
+      [...(stats.gatePostsByGate||new Map())].reduce((n,[gate,count])=>
+        n+(gateOwnerRun(gate)?.fenceType===type?count:0),0);
+    scopeLine(`${(FENCE_TYPES[type]||{label:type}).label}: ${ft.toFixed(1)} LF | Height: ${heights.join(', ')}" | Posts: ${posts}`);
+  });
+  S.elements.filter(el=>el.type==='gate'&&gateOwnerRun(el)).forEach(gate=>{
+    scopeLine(`${(GATE_TYPES[gate.gateType||'walk']||{label:gate.gateType}).label}: ${(dist(gate.start,gate.end)/GRID_FT).toFixed(1)} ft wide`);
+  });
 
   // ── TERMS ──
   const terms=String(COMPANY.terms||'').split(/\r?\n/).filter(Boolean).map(t=>t
@@ -5159,6 +5193,17 @@ function exportEstimatePDF(){
   // ── FOOTER ──
   doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(160,160,160);
   doc.text(companyContactLine([COMPANY.name,COMPANY.phone,COMPANY.email,COMPANY.location,COMPANY.license?'Lic. '+COMPANY.license:'']),PW/2,PH-8,{align:'center'});
+
+  // Customer drawing uses the exact same vector renderer as the plan export.
+  doc.addPage();
+  doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(...ACC);
+  doc.text('PROJECT DRAWING',ML,MT);
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(28,28,28);
+  doc.text(companyDisplayName(),ML,MT+6);
+  const drawingTop=MT+12;
+  const warningH=drawPdfValidationWarning(doc,stamped,ML,drawingTop,PW-ML-MR);
+  const drawingY=drawingTop+(warningH?warningH+3:0);
+  drawPdfProjectDrawing(doc,ML,drawingY,PW-ML-MR,PH-drawingY-16);
 
   const safeName=(S.jobCustomer||S.projectName).replace(/[^a-z0-9]/gi,'_');
   doc.save(`${companySlug()}_Estimate_${safeName}_${estDate.replace(/,?\s/g,'')}.pdf`);
