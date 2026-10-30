@@ -987,3 +987,42 @@ closeout; their bytes match the previously reviewed repair checkpoint.
   Historical status files retained rather than claiming a committed closeout. No release/doctrine change.
 - **Open:** single-page sidebar retains existing capacity limits for unusually long job fields/material lists.
   No new commit/push/PR by instruction. Result: `handoffs/CODEX-RESULT-plan-pdf1.md` (the owner's requested name).
+## 2026-10-30 — REDO 5: customer estimate PDF (Codex, round 1)
+
+- **Authorization / boundary:** owner authorized all six REDO items and requested this estimate rebuild;
+  explicitly leave changes uncommitted for the coordinator. Actual start is clean
+  `feat/redo5-estimate-pdf` at `c69e650643f256f89147dde12163903080432899`, the committed REDO 4
+  plan exporter. This supersedes the older metadata and two-commit closeout for this task.
+  No CSS/panel edits, price values, counting logic, stores, legal wording, dependencies or release changes.
+- **Implementation:** canonical `index.html` only, within the PDF functions. Extracted REDO 4 vector
+  rendering into `drawPdfProjectDrawing` (named for its shared PDF project-drawing purpose); both exports
+  call it. The estimate adds a white framed drawing page and scale bar. The scale bar's vertical position
+  is relative to the supplied drawing frame, preserving its previous position on the landscape plan.
+  Adds a scope page with each type's gross LF from `stats.fence`, run heights, and allocated posts from
+  `stats.byRunId` plus `stats.gatePostsByGate`, matching BOM ownership without recounting geometry.
+  Lists every owned gate's existing type label and opening width. Existing company terms/placeholders,
+  deposit/validity, acceptance/signature/date, price lines/totals and customer-money formatting remain.
+  Existing DEFAULT_TERMS is empty: no legal text was invented. Price rows/totals gain page-break guards.
+  The drawing page also carries the existing unverified/seed-pricing warning where applicable.
+- **Red / green evidence:** new `tests/estimate-pdf.spec.js`: scope and drawing assertions failed against
+  the original exporter; existing terms/deposit/validity/signature control passed (**2 failed / 1 passed**).
+  Log `/tmp/fencebound-redo5-red.log`. After implementation the same three pass, with existing audit
+  repairs (including F4 and F7a), customer-document sections and REDO 4 plan tests: **27/27 PASS**,
+  `/tmp/fencebound-redo5-targeted.log`. Assertions inspect actual jsPDF output strings and drawing calls;
+  the long-terms control checks all text stays within page height and the last term/signature survive.
+- **Visual check:** rendered actual fixture quote, scope/terms/acceptance and drawing pages inspected:
+  `/tmp/fencebound-redo5-preview.pdf`, `/tmp/fencebound-redo5-preview-{1,2,3}.png`.
+- **Gate:** first full suite **218 passed / 1 failed**: existing F3 asserted one page. Updated only
+  its obsolete layout expectation in `tests/persistence-integrity.spec.js` to three pages plus new section
+  labels; all warning-detail assertions unchanged. Focused F3 then **1/1 PASS**. Logs:
+  `/tmp/fencebound-redo5-full.log`, `/tmp/fencebound-redo5-warning-green.log`.
+  Final `npm test`: **219/219 PASS** in 5.0 min, completed 2026-10-30T17:29:19+00:00;
+  `/tmp/fencebound-redo5-full-final.log`. Persistence matrix **12/12 PASS**,
+  `/tmp/fencebound-redo5-matrix.log`; `git diff --check` PASS. Tested uncommitted runtime on base
+  `c69e650643f256f89147dde12163903080432899`, not a new implementation commit.
+  Result: `handoffs/CODEX-RESULT-estimate-pdf1.md` (owner-requested filename).
+- **Drift:** session:init reports historical October 15 branch/HEAD/upstream metadata; live branch/HEAD
+  and clean start were verified against the owner's REDO 4/5 instructions. Global initiate-repo skill
+  absent after local search; documented entry checks performed directly. Tier 1 hierarchy differs from
+  CLAUDE.md/SOURCE_OF_TRUTH ordering; owner authorization and canonical source control this narrow work.
+  Historical state/handoff files retained for the coordinator's committed closeout.
