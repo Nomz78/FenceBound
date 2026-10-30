@@ -1080,3 +1080,24 @@ closeout; their bytes match the previously reviewed repair checkpoint.
   11/11. The sheet tests first read the panel mid-animation under load (2 failures in a 232-test run);
   they now poll the height. Full suite after merging `main` (REDO 4 + 5): 239/239 (4.3 min).
 - **Handoff (REDO r2 → r3):** `handoffs/CLAUDE-NEXT-redo3.md`. Next: REDO 6, owner choices first.
+
+## 2026-10-30 — REDO r3: REDO 6 platform choices (Claude Code)
+
+- **Owner choices (AskUserQuestion, 2026-10-30):**
+  - Underlay: **image upload** with manual two-point scale. No tiled imagery, no provider or API key.
+  - Accounts/cloud save: **local-first O-5 split**. A project carries a frozen quoted-price snapshot; the company
+    rate card is a separate store; loading a project never writes the rate card. localStorage plus file
+    export/import; no accounts or server in REDO 6.
+  - E-signature: **built-in signature pad** (drawn signature, typed name, date) on the estimate, embedded in the
+    PDF and stored with the frozen quote. No vendor.
+- **Order:** underlay first (smallest, independent), then the O-5 split, then the signature pad (it stores into
+  the frozen quote, so it follows the split).
+- **REDO 6a, site-image underlay:** Job info drawer → "Site image": Add/Replace image, Set scale, Remove,
+  Opacity. Uploads are downscaled to ≤ 2000 px JPEG (localStorage budget) and centred in view; drawn under the
+  grid at the saved opacity. Set scale: two unsnapped clicks, then a prompt for the real distance in feet; the
+  scale changes about the first point. Esc or a tool change cancels. `underlay` rides in `snapshotState()`
+  (autosave, saved jobs, job files); `applyState` drops anything but a base64 png/jpeg/webp/gif data URL with
+  finite placement. An underlay alone now counts as session content to restore. PNG export includes it; the
+  plan PDF does not. Not in undo history.
+- **Tests:** `tests/site-underlay.spec.js` (5). Before (worktree at `344eedf`): 5 failed. After: 5/5.
+  Full suite: 244/244 (4.5 min).

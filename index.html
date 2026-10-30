@@ -1018,7 +1018,7 @@ function snapshotState(){
     specs:{...S.specs,addons:[...S.specs.addons]},
     showCostView:S.showCostView,pan:S.pan,zoom:S.zoom,snapFt:S.snapFt,
     costs:COST_DB,labor:LABOR,markup:MARKUP,footing:FOOTING,postODIn:POST_OD_IN,postEmbedIn:POST_EMBED_IN,
-    autoPost:S.autoPost,postSpacing:S.postSpacing};
+    autoPost:S.autoPost,postSpacing:S.postSpacing,underlay:S.underlay};
 }
 function applyState(st){
   S.elements=Array.isArray(st.elements)?st.elements:[];
@@ -1073,6 +1073,7 @@ function applyState(st){
   if(Number.isFinite(st.snapFt)&&SNAP_OPTIONS.includes(st.snapFt))S.snapFt=st.snapFt;
   if(typeof st.autoPost==='boolean')S.autoPost=st.autoPost;
   if(Number.isFinite(st.postSpacing))S.postSpacing=Math.max(1,Math.min(20,st.postSpacing));
+  S.underlay=sanitizeUnderlay(st.underlay);S.calibrating=null;
   migrateRunOwnership();
   S.selected=null;S.editingGate=null;S.drawing=null;S.moving=null;S.moveStart=null;S.moveOrigEl=null;
 }
@@ -1298,6 +1299,7 @@ const SNAP_OPTIONS=[0.1,0.5,1,6,8,10]; // v5.3: 2' and 5' removed, 0.1' fine sna
 const S={
   tool:'fence', fenceType:'chainlink', gateType:'walk',
   elements:[], labels:[],
+  underlay:null, calibrating:null,
   drawing:null, selected:null, editingGate:null,
   moving:null, moveStart:null, moveOrigEl:null,
   jobId:null,
@@ -2182,7 +2184,7 @@ function calcAutoMaterials(){
   return [...merged.values()].map(withOrderQty);
 }
 
-function toWorld(e){
+function toWorld(e,noSnap){
   const canvas=document.getElementById('canvas');
   const rect=canvas.getBoundingClientRect();
   // Use changedTouches for move/drag reliability; fall back to touches then mouse
@@ -2190,7 +2192,66 @@ function toWorld(e){
          :(e.touches&&e.touches.length)?e.touches:null;
   const cx=_t?_t[0].clientX:e.clientX;
   const cy=_t?_t[0].clientY:e.clientY;
-  return{x:snap((cx-rect.left-S.pan.x)/S.zoom),y:snap((cy-rect.top-S.pan.y)/S.zoom)};
+  const s=noSnap?(v=>v):snap;
+  return{x:s((cx-rect.left-S.pan.x)/S.zoom),y:s((cy-rect.top-S.pan.y)/S.zoom)};
+}
+
+// ── SITE IMAGE UNDERLAY (REDO 6) ─────────────────────────────────────────
+// An uploaded aerial photo or plat drawn under the grid. World placement:
+// top-left (x,y) and world px per image px (scale). Two-point scale sets the
+// scale from a known distance and keeps the first picked point fixed.
+const UNDERLAY_MAX_PX=2000;
+let _underlayImg=null,_underlayImgSrc=null;
+function underlayImage(){
+  const u=S.underlay;if(!u)return null;
+  if(_underlayImgSrc!==u.src){
+    _underlayImgSrc=u.src;_underlayImg=new Image();_underlayImg.onload=()=>draw();_underlayImg.src=u.src;
+  }
+  return _underlayImg.complete&&_underlayImg.naturalWidth?_underlayImg:null;
+}
+function sanitizeUnderlay(u){
+  if(!u||typeof u!=='object'||typeof u.src!=='string'||!/^data:image\/(png|jpeg|webp|gif);base64,/.test(u.src))return null;
+  if(![u.x,u.y,u.scale].every(Number.isFinite)||u.scale<=0)return null;
+  return{src:u.src,x:u.x,y:u.y,scale:u.scale,opacity:Number.isFinite(u.opacity)?Math.max(0.1,Math.min(1,u.opacity)):0.6};
+}
+function loadUnderlayFile(file){
+  const r=new FileReader();
+  r.onload=()=>{
+    const img=new Image();
+    img.onload=()=>{
+      // Downscale large photos so a saved job stays within localStorage.
+      const k=Math.min(1,UNDERLAY_MAX_PX/Math.max(img.naturalWidth,img.naturalHeight));
+      const w=Math.max(1,Math.round(img.naturalWidth*k)),h=Math.max(1,Math.round(img.naturalHeight*k));
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      const cx=c.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,w,h);cx.drawImage(img,0,0,w,h);
+      const cv=document.getElementById('canvas'),dpr=window.devicePixelRatio||1;
+      const vw=cv.width/dpr/S.zoom,vh=cv.height/dpr/S.zoom;
+      const scale=Math.min(vw/w,vh/h)*0.8;
+      S.underlay={src:c.toDataURL('image/jpeg',0.85),scale,opacity:0.6,
+        x:-S.pan.x/S.zoom+(vw-w*scale)/2,y:-S.pan.y/S.zoom+(vh-h*scale)/2};
+      draw();updateDrawers();scheduleAutosave();
+    };
+    img.onerror=()=>alert('That file could not be read as an image.');
+    img.src=r.result;
+  };
+  r.readAsDataURL(file);
+}
+function startUnderlayScale(){
+  S.calibrating=[];S.drawing=null;S.showJobInfo=false;
+  document.getElementById('btn-jobinfo').classList.remove('active');
+  updateDrawers();updateHint();draw();
+}
+function pickUnderlayScalePoint(pt){
+  const c=S.calibrating;c.push(pt);draw();updateHint();
+  if(c.length<2)return;
+  const[a,b]=c,d=Math.hypot(b.x-a.x,b.y-a.y);
+  const ft=parseFloat(prompt('Real distance between the two points, in feet:',''));
+  S.calibrating=null;
+  if(S.underlay&&d>0&&Number.isFinite(ft)&&ft>0){
+    const u=S.underlay,k=ft*GRID_FT/d;
+    u.x=a.x+(u.x-a.x)*k;u.y=a.y+(u.y-a.y)*k;u.scale*=k;scheduleAutosave();
+  }
+  draw();updateHint();
 }
 
 function applyAngleLock(pt,start){
@@ -2310,6 +2371,16 @@ function draw(){
   ctx.save();
   ctx.translate(S.pan.x,S.pan.y);
   ctx.scale(S.zoom,S.zoom);
+
+  const _ul=underlayImage();
+  if(_ul){
+    const u=S.underlay;ctx.globalAlpha=u.opacity;
+    ctx.drawImage(_ul,u.x,u.y,_ul.naturalWidth*u.scale,_ul.naturalHeight*u.scale);ctx.globalAlpha=1;
+  }
+  if(S.calibrating){
+    ctx.strokeStyle=canvasPalette().axis;ctx.lineWidth=2/S.zoom;
+    S.calibrating.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,6/S.zoom,0,Math.PI*2);ctx.stroke();});
+  }
 
   // Grid — FIXED, decoupled from snap setting (v5.3). Minor lines every 1',
   // major lines every 10', regardless of S.snapFt and zoom. The snap setting
@@ -2892,7 +2963,9 @@ function updateHint(){
     label:'Tap to place text label',
     pan:'Drag to pan · Pinch or scroll to zoom'
   };
-  document.getElementById('hint').textContent=hints[S.tool]||'';
+  document.getElementById('hint').textContent=S.calibrating
+    ?`Set scale: click the ${S.calibrating.length?'second':'first'} point of a known distance · Esc to cancel`
+    :(hints[S.tool]||'');
 }
 
 function updateMatList(){
@@ -2962,11 +3035,30 @@ function updateDrawers(){
         <div><label>JOB ADDRESS</label><input id="field-address" value="${esc(S.jobAddress)}" placeholder="e.g. 123 Main St, Albemarle NC"/></div>
         <div><label>NOTES</label><textarea id="field-notes" placeholder="Site notes, permit info, special instructions..." style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:7px;color:var(--text1);font-family:var(--font);font-size:12px;width:100%;height:60px;resize:vertical;outline:none">${esc(S.jobNotes)}</textarea></div>
         <div style="font-size:12px;color:var(--text3)">Appears on PDF title block.</div>
+        <div><label>SITE IMAGE</label>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:6px">Aerial photo or plat under the drawing. Set scale: click two points a known distance apart.</div>
+          <input type="file" id="underlay-file" accept="image/*" style="display:none"/>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn" id="btn-underlay-add">${S.underlay?'Replace image':'Add image'}</button>
+            ${S.underlay?'<button class="btn" id="btn-underlay-scale">Set scale</button><button class="btn" id="btn-underlay-remove">Remove</button>':''}
+          </div>
+          ${S.underlay?`<label for="underlay-opacity" style="margin-top:8px;display:block">OPACITY</label><input type="range" id="underlay-opacity" min="0.1" max="1" step="0.05" value="${S.underlay.opacity}" style="width:100%"/>`:''}
+        </div>
       </div>`;
     document.getElementById('close-jobinfo').addEventListener('click',()=>{S.showJobInfo=false;updateDrawers();});
     document.getElementById('field-customer').addEventListener('input',e=>{S.jobCustomer=e.target.value;scheduleAutosave();});
     document.getElementById('field-address').addEventListener('input',e=>{S.jobAddress=e.target.value;scheduleAutosave();});
     document.getElementById('field-notes').addEventListener('input',e=>{S.jobNotes=e.target.value;scheduleAutosave();});
+    const uf=document.getElementById('underlay-file');
+    uf.addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];e.target.value='';if(f)loadUnderlayFile(f);});
+    document.getElementById('btn-underlay-add').addEventListener('click',()=>uf.click());
+    if(S.underlay){
+      document.getElementById('btn-underlay-scale').addEventListener('click',startUnderlayScale);
+      document.getElementById('btn-underlay-remove').addEventListener('click',()=>{S.underlay=null;draw();updateDrawers();scheduleAutosave();});
+      document.getElementById('underlay-opacity').addEventListener('input',e=>{
+        const v=parseFloat(e.target.value);if(Number.isFinite(v)&&S.underlay){S.underlay.opacity=Math.max(0.1,Math.min(1,v));draw();scheduleAutosave();}
+      });
+    }
   } else {ji.style.display='none';}
   // Jobs drawer
   const jd=document.getElementById('jobs-drawer');
@@ -3063,6 +3155,7 @@ function handleDown(e){
   e.preventDefault();e.stopPropagation();
   // Ignore two-finger touches — handled by dedicated undo gesture listener
   if(e.touches&&e.touches.length>=2){return;}
+  if(S.calibrating){pickUnderlayScalePoint(toWorld(e,true));return;}
   const pt=toWorld(e);
   if(S.tool==='pan'||e.button===1){
     const _t=e.touches&&e.touches.length?e.touches:e.changedTouches;
@@ -3452,7 +3545,7 @@ function init(){
     if(raw){
       const st=JSON.parse(raw);
       const hasContent=st&&st.app==='FenceboundCAD'&&Array.isArray(st.elements)&&
-        (st.elements.length||((st.labels||[]).length)||((st.materials||[]).length)||st.jobCustomer||(st.projectName&&st.projectName!=='Untitled Job'));
+        (st.elements.length||((st.labels||[]).length)||((st.materials||[]).length)||st.jobCustomer||(st.projectName&&st.projectName!=='Untitled Job')||st.underlay);
       if(hasContent){applyState(st);_restoredSession=true;}
     }
   }catch(e){/* corrupt session — start clean rather than crash boot */}
@@ -3554,7 +3647,7 @@ function init(){
   // Toolbar
   document.querySelectorAll('[data-tool]').forEach(b=>{
     b.addEventListener('click',()=>{
-      S.tool=b.dataset.tool;S.selected=null;S.editingGate=null;S.drawing=null;
+      S.tool=b.dataset.tool;S.calibrating=null;S.selected=null;S.editingGate=null;S.drawing=null;
       document.querySelectorAll('[data-tool]').forEach(x=>x.classList.remove('active'));
       b.classList.add('active');
       syncSpecInputs();updateTypeBar();updateHint();updatePanel();updateGateEditor();
@@ -3914,7 +4007,8 @@ function init(){
     // Enter finishes a click-to-chain polyline (Escape below does too)
     if(e.key==='Enter'&&S.drawing&&S.drawing.chain&&!inField){e.preventDefault();endChain();}
     if(e.key==='Escape'){
-      if(S.drawing){endChain();}
+      if(S.calibrating){S.calibrating=null;draw();updateHint();}
+      else if(S.drawing){endChain();}
       else if(S.moving&&S.moveOrigEl&&S.elements[S.moving.idx]){
         S.elements[S.moving.idx]=S.moveOrigEl;
         (S.moveCarried||[]).forEach(c=>{c.gate.start=c.start;c.gate.end=c.end;});
