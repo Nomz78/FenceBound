@@ -592,7 +592,7 @@ label{font-size:10px;color:var(--text2);letter-spacing:0.02em;display:block;marg
             <label style="font-size:10px;color:var(--text2);white-space:nowrap">crew hrs (blank = $/LF default)</label>
             <input type="number" id="labor-hours" value="" min="0" max="500" step="0.5" placeholder="auto" style="width:64px"/>
           </div>
-          <div style="font-size:10px;color:var(--text3);margin-top:4px">Leave blank to use per-type $/LF labor. Enter hours to price labor at $${''}<span id="crew-rate-lbl"></span>/hr instead.</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:4px">Leave blank to use per-type $/LF labor. Enter hours to price labor at $<span id="crew-rate-lbl"></span>/hr instead.</div>
         </div>
         <div class="psec">
           <div class="psec-title">Site upcharges</div>
@@ -841,6 +841,9 @@ function attachGateToRun(gate,run){
   gate.specs=cloneRunSpecs(run.specs);
   return gate;
 }
+// A drawn or moved gate seats onto a run up to 2 ft (or a fingertip on screen) off it;
+// farther off it is refused (owner rulings F6 and r3, 2026-10-29).
+function gateDrawReach(){return Math.max(2*GRID_FT,26/S.zoom,gateSeatReach(S.snapFt));}
 function activeFenceType(){
   const run=selectedFenceRun();
   return run?run.fenceType:S.fenceType;
@@ -1727,6 +1730,12 @@ const ftLbl=px=>`${(px/GRID_FT).toFixed(1)}'`;
 const ptKey=pt=>`${Math.round(pt.x)},${Math.round(pt.y)}`;
 const snap=v=>Math.round(v/(S.snapFt*GRID_FT))*(S.snapFt*GRID_FT);
 
+function closestPointOnSeg(p,a,b){
+  const dx=b.x-a.x,dy=b.y-a.y,lsq=dx*dx+dy*dy;
+  if(!lsq)return{x:a.x,y:a.y};
+  const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/lsq));
+  return{x:a.x+t*dx,y:a.y+t*dy};
+}
 function ptSegDist(p,a,b){
   const dx=b.x-a.x,dy=b.y-a.y,lsq=dx*dx+dy*dy;
   if(!lsq)return dist(p,a);
@@ -1734,8 +1743,11 @@ function ptSegDist(p,a,b){
   return dist(p,{x:a.x+t*dx,y:a.y+t*dy});
 }
 
+// Imported geometry is kept as-is so validation can report it; rendering skips
+// anything without finite coordinates instead of throwing mid-redraw.
+function isPoint(p){return!!p&&Number.isFinite(p.x)&&Number.isFinite(p.y);}
 function buildCornerSet(els){
-  const runs=els.filter(e=>e.type==='fence'),cs=new Set();
+  const runs=els.filter(e=>e.type==='fence'&&isPoint(e.start)&&isPoint(e.end)),cs=new Set();
   for(let i=0;i<runs.length;i++)for(let j=i+1;j<runs.length;j++){
     const a=runs[i],b=runs[j];
     [[a.start,b.start],[a.start,b.end],[a.end,b.start],[a.end,b.end]].forEach(([p1,p2])=>{
@@ -2230,11 +2242,12 @@ function draw(){
   ctx.textAlign='center';
   for(let x=_lx0;x<ge;x+=_labelStep)ctx.fillText(`${(x/GRID_FT).toFixed(0)}'`,x,-8/S.zoom);
   ctx.textAlign='right';
-  for(let y=_ly0;y<gb;y+=_labelStep)ctx.fillText(`${(y/GRID_FT).toFixed(0)}'`,-6/S.zoom,y+4/S.zoom);
+  for(let y=_ly0;y<gb;y+=_labelStep)if(y!==0)ctx.fillText(`${(y/GRID_FT).toFixed(0)}'`,-6/S.zoom,y+4/S.zoom);
 
   const cs=buildCornerSet(S.elements.filter(el=>el.type!=='fence'||(el.start&&el.end)));
   S.elements.forEach((el,i)=>{
     const ft=FENCE_TYPES[el.fenceType]||FENCE_TYPES.chainlink,sel=S.selected===i;
+    if(el.type==='post'?!isPoint(el.pos):!isPoint(el.start)||!isPoint(el.end))return;
     if(el.type==='boundary'){drawBoundary(ctx,el,sel);return;}
     if(el.type==='fence'){drawFenceRun(ctx,el,ft,sel,cs);}
     if(el.type==='post'){drawPost(ctx,el,ft,sel);}
@@ -2533,7 +2546,8 @@ function updatePanel(preserveSpecs=false){
     if(stats.terminalPosts.size)html+=`<div class="stat-row"><span style="color:var(--text2)">Terminal posts</span><span class="stat-val">${stats.terminalPosts.size}</span></div>`;
     if(stats.cornerPosts.size)html+=`<div class="stat-row"><span style="color:#E07B40"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/></svg> Corner posts</span><span class="stat-val">${stats.cornerPosts.size}</span></div>`;
     if(stats.linePosts)html+=`<div class="stat-row"><span style="color:var(--text2)">Line posts</span><span class="stat-val">${stats.linePosts}</span></div>`;
-    const totalPosts=stats.terminalPosts.size+stats.cornerPosts.size+stats.linePosts;
+    if(stats.gatePosts)html+=`<div class="stat-row"><span style="color:var(--text2)">Gate posts</span><span class="stat-val">${stats.gatePosts}</span></div>`;
+    const totalPosts=stats.terminalPosts.size+stats.cornerPosts.size+stats.linePosts+stats.gatePosts;
     html+=`<div class="stat-row"><span style="color:var(--text2)">Total posts</span><span class="stat-val" style="color:var(--accent)">${totalPosts}</span></div>`;
     if(stats.gateTotal){
       if(stats.gates.walk)html+=`<div class="stat-row"><span style="color:#F5A623">Walk gates</span><span class="stat-val">${stats.gates.walk}</span></div>`;
@@ -3065,9 +3079,9 @@ function handleUp(e){
     if(changed){
       if(el.type==='fence')rebuildRunAutoPosts(el);
       if(el.type==='gate'){
-        const {prev,next}=rebindGate(el);
-        if(prev&&prev!==next)rebuildRunAutoPosts(prev);
-        rebuildRunAutoPosts(next);
+        const {prev,next}=rebindGate(el,gateDrawReach());
+        if(!next){S.elements[movingIdx]=orig;showToast('Keep the gate on a fence run');}
+        else{if(prev&&prev!==next)rebuildRunAutoPosts(prev);rebuildRunAutoPosts(next);}
       }
     }
     S.moving=null;S.moveStart=null;S.moveOrigEl=null;S.moveCarried=null;
@@ -3086,10 +3100,10 @@ function handleUp(e){
         if(!S.elements.some(el=>el.type==='fence')){showToast('Draw a fence run before placing a gate');S.drawing=null;S._snapTarget=null;draw();updatePanel();return;}
         const gate={type:'gate',start:S.drawing.start,end:S.drawing.end,
           gateType:S.gateType,hinge:'start',swingDir:1,fenceType:S.fenceType};
-        const {next:owner}=rebindGate(gate);
+        const {next:owner}=rebindGate(gate,gateDrawReach());
+        if(!owner){showToast('Draw the gate on a fence run');S.drawing=null;S._snapTarget=null;draw();updatePanel();return;}
         S.elements.push(gate);
-        if(owner)rebuildRunAutoPosts(owner);
-        else showToast('This gate is not on a fence run, so it is not priced. Draw it on the fence line.',true);
+        rebuildRunAutoPosts(owner);
       }else{
         const newEls=[{type:S.drawing.type,start:S.drawing.start,end:S.drawing.end,
           fenceType:S.drawing.type!=='boundary'?S.fenceType:undefined,
@@ -3172,11 +3186,12 @@ function exportPDF(){
     doc.setDrawColor(60,80,100);doc.setLineWidth(0.2);doc.line(tbX+4,sy,tbX+tbW-4,sy);sy+=4;
     doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(245,166,35);
     doc.text('TOTAL LF',tbX+4,sy);doc.text(`${stats.totalFt.toFixed(1)}'`,tbX+tbW-4,sy,{align:'right'});sy+=6;
-    const tp=stats.terminalPosts.size+stats.cornerPosts.size+stats.linePosts;
+    const tp=stats.terminalPosts.size+stats.cornerPosts.size+stats.linePosts+stats.gatePosts;
     doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(200,200,200);
     if(stats.terminalPosts.size){doc.text(`Terminal: ${stats.terminalPosts.size}`,tbX+4,sy);sy+=4;}
     if(stats.cornerPosts.size){doc.text(`Corner: ${stats.cornerPosts.size}`,tbX+4,sy);sy+=4;}
     if(stats.linePosts){doc.text(`Line: ${stats.linePosts}`,tbX+4,sy);sy+=4;}
+    if(stats.gatePosts){doc.text(`Gate: ${stats.gatePosts}`,tbX+4,sy);sy+=4;}
     doc.setTextColor(245,166,35);doc.text(`Total Posts: ${tp}`,tbX+4,sy);sy+=6;
   }
   if(stats.gateTotal){
@@ -3201,7 +3216,8 @@ function exportPDF(){
   // Legend
   doc.setDrawColor(40,55,75);doc.setLineWidth(0.2);doc.line(tbX+4,PH-28,tbX+tbW-4,PH-28);
   let ly=PH-23;doc.setFont('helvetica','bold');doc.setFontSize(6.5);doc.setTextColor(100,120,150);doc.text('TYPES',tbX+4,ly);ly+=4;
-  Object.entries(FENCE_TYPES).forEach(([,ft])=>{
+  const usedTypes=new Set(S.elements.filter(el=>el.type==='fence').map(el=>el.fenceType));
+  Object.entries(FENCE_TYPES).filter(([key])=>usedTypes.has(key)).forEach(([,ft])=>{
     if(ly>PH-6)return;
     const c=parseInt(ft.color.slice(1),16);
     doc.setDrawColor((c>>16)&255,(c>>8)&255,c&255);doc.setLineWidth(1);doc.line(tbX+4,ly,tbX+12,ly);
@@ -4084,7 +4100,11 @@ function updatePricing(){
       <span style="color:var(--text2);font-weight:600;font-size:10px">MARGIN</span>
       <span class="stat-val" style="color:${mCol};font-weight:800;font-size:21px">${P.marginPct.toFixed(1)}%</span>
     </div>`;
-    tHtml+=`<div class="stat-row"><span style="font-size:10px;color:${P.isFinalReady?'#5FBF7F':'#E8A33D'}">${P.isFinalReady?'FINAL-READY':'QUICK REFERENCE · incomplete pricing'}</span></div>`;
+    // FINAL-READY also needs a passing validation and the user's own rate card,
+    // not just a cost on every BOM line.
+    const verified=P.isFinalReady&&!usingSeedPrices()&&validateProject().ok;
+    const badge=verified?'FINAL-READY':P.isFinalReady?'Pricing complete · not verified':'QUICK REFERENCE · incomplete pricing';
+    tHtml+=`<div class="stat-row"><span style="font-size:10px;color:${verified?'#5FBF7F':'#E8A33D'}">${badge}</span></div>`;
     const deposit=P.clientTotal*(COMPANY.depositPct/100);
     tHtml+=`<div class="stat-row"><span style="color:var(--text3);font-size:10px">${COMPANY.depositPct}% Deposit Due</span><span style="color:var(--text3);font-size:10px">${mc(deposit)}</span></div>`;
     totalsEl.innerHTML=tHtml;
@@ -4770,7 +4790,8 @@ function projectExportWarning(validation){
     NO_BOM:'The materials and labor list could not be produced.',
     MISSING_COST:'One or more materials do not have a saved price.',
     ZERO_COST:'One or more materials have a zero-dollar price.',
-    TOTAL_INVALID:'The estimate total could not be verified.'
+    TOTAL_INVALID:'The estimate total could not be verified.',
+    PLACEHOLDER_PRICING:'Prices are the shipped placeholder baseline, not this company\'s saved rate card.'
   })[item.code]||'Required project information could not be verified.';
   const all=validation.errors.map(customerMessage),shown=all.slice(0,4);
   if(all.length>shown.length)shown.push(`And ${all.length-shown.length} more item${all.length-shown.length===1?'':'s'} need review.`);
@@ -4804,6 +4825,7 @@ function exportEstimatePDF(){
   try{stats=pricingUnavailable?emptyExportStats():getStats();}catch(e){stats=emptyExportStats();}
   try{P=pricingUnavailable?unavailableExportPricing():computePricing();}catch(e){P=unavailableExportPricing();}
   const quickReference=false;
+  const usd0=v=>`$${Number(v.toFixed(0)).toLocaleString('en-US')}`;
   const ucDemo=document.getElementById('uc-demo')?.checked;
   const ucSlope=document.getElementById('uc-slope')?.checked;
   const ucUrban=document.getElementById('uc-urban')?.checked;
@@ -4826,7 +4848,11 @@ function exportEstimatePDF(){
   doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(160,160,160);
   doc.text(companyContactLine([COMPANY.phone,COMPANY.email]),PW-MR,18,{align:'right'});
   y=30;
-  if(!validation.ok)y+=drawPdfValidationWarning(doc,validation,ML,y,PW-ML-MR)+5;
+  // A customer estimate priced on the shipped baseline is not verified even
+  // when the project itself validates.
+  const stamped=usingSeedPrices()?{...validation,ok:false,errors:[...validation.errors,
+    {severity:'error',code:'PLACEHOLDER_PRICING',message:'Pricing is the shipped placeholder baseline.',ref:null}]}:validation;
+  if(!stamped.ok)y+=drawPdfValidationWarning(doc,stamped,ML,y,PW-ML-MR)+5;
 
   // ── ESTIMATE LABEL ──
   doc.setFont('helvetica','bold');doc.setFontSize(20);doc.setTextColor(...ACC);
@@ -4933,7 +4959,7 @@ function exportEstimatePDF(){
 
   // Deposit line
   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(100,100,100);
-  doc.text(P.pricingUnavailable?`${COMPANY.depositPct}% Deposit: NOT CALCULATED`:`${COMPANY.depositPct}% Deposit Due at Signing: $${(P.clientTotal*(COMPANY.depositPct/100)).toFixed(0)}`,PW-MR-2,y,{align:'right'});
+  doc.text(P.pricingUnavailable?`${COMPANY.depositPct}% Deposit: NOT CALCULATED`:`${COMPANY.depositPct}% Deposit Due at Signing: ${usd0(P.clientTotal*(COMPANY.depositPct/100))}`,PW-MR-2,y,{align:'right'});
   y+=5;
   if(P.unknown&&P.unknown.length){
     doc.setFontSize(7.5);doc.setTextColor(200,80,40);

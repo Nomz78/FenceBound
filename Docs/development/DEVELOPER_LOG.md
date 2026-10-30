@@ -779,3 +779,178 @@ closeout; their bytes match the previously reviewed repair checkpoint.
   integrity verified), UMD 364463 bytes, SHA-256
   `98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875`, matching the
   2026-10-15 records. HANDOFF.md's copy reads `98ccf17ae10c…`, a one-character typo.
+## 2026-10-29 — v5.4.0 launch-readiness, UI and market audit (Claude Code, docs only)
+
+- **Observed gate on `main` @ `82a148f`:** `npm test` 95/96; persistence matrix 12/12. R9 "imported null start"
+  threw `Cannot read properties of null (reading 'x')` once in the full suite and passed 3/3 alone (intermittent).
+- **Findings (unrepaired):** literal `$${''}` in the labor hint (`index.html:595`); FINAL-READY badge ignores
+  validation and placeholder pricing; customer estimate PDF exports on the placeholder baseline; gate-post and
+  off-line gate accounting questions (need owner ruling); plan PDF dark/unbranded; mobile layout unusable.
+- **Owner direction:** fix as many as possible and sort each into fix or redo. The plan is in root `HANDOFF.md`.
+
+## 2026-10-29 — audit-repairs r1: F1 intermittent null-start crash (Claude Code)
+
+- **Root cause (captured stack):** `ResizeObserver → resizeCanvas → draw → drawFenceRun` read `el.start.x` on an
+  imported run whose `start` is null. Import keeps malformed runs on purpose (R9 expects `PRICING_RUNTIME`), so the
+  crash surfaced whenever a layout change redrew the canvas, which made R9 intermittent.
+- **Fix:** `isPoint()` guard; `draw()` and `buildCornerSet()` skip elements without finite coordinates. Import and
+  validation unchanged (did not sanitize at import, which would contradict R9's accepted expectations).
+- **Test:** `Audit F1 canvas redraw survives imported null start` failed before (page-error stack above) and passes
+  after. Full suite 97/97; `persistence-integrity.spec.js
+  --repeat-each=20` 1000/1000.
+## 2026-10-29 — audit-repairs r1: F2 labor-hint literal (Claude Code)
+
+- **F2:** the labor-hours hint (`index.html`, static HTML) rendered `$${''}55/hr`; the `${''}` was a template-literal
+  fragment that never runs in markup. Replaced with `$`. New `tests/audit-repairs.spec.js` F2 failed before
+  (received `$${''}55/hr`) and passes after. Full suite 97/97.
+
+## 2026-10-29 — audit-repairs r1: F3 FINAL-READY badge (Claude Code)
+
+- **F3:** the totals badge showed FINAL-READY whenever `P.isFinalReady` (every BOM line costed), even with validation
+  errors open and the shipped placeholder rate card. The badge now needs `P.isFinalReady`, `!usingSeedPrices()`
+  and `validateProject().ok`; costed-but-unverified shows "Pricing complete · not verified". `P.isFinalReady`
+  itself is unchanged (C1 and persistence tests assert it). No pricing values or math touched.
+- **Tests:** `F3 badge is not FINAL-READY…` failed before (badge read FINAL-READY) and passes after; the green-path
+  test guards FINAL-READY with a saved rate card and passing validation. Full suite 98/99: the one failure was R9
+  null start, the F1 flake fixed separately in PR #30 and absent from this branch. Persistence matrix 12/12.
+
+## 2026-10-29 — audit-repairs r1: defect record F4 (Claude Code)
+
+- **Defect F4 (pricing behavior):** `exportEstimatePDF()` stamps NOT FULLY VERIFIED only when `validateProject()`
+  fails. A job that passes validation while `usingSeedPrices()` is true (no saved rate card) exports a customer
+  estimate priced on the shipped North Carolina placeholder baseline with no warning on the PDF.
+  Recorded in `CURRENT_STATE.json` `knownDefects` before any repair, per the working rules.
+
+## 2026-10-29 — audit-repairs r1: F4 repair (Claude Code)
+
+- **Fix:** `exportEstimatePDF()` adds a `PLACEHOLDER_PRICING` item to the copy of validation used for the PDF stamp
+  when `usingSeedPrices()` is true, so the existing NOT FULLY VERIFIED block appears with "Prices are the shipped
+  placeholder baseline, not this company's saved rate card." `validateProject()`, the plan PDF, the portable
+  export and all pricing values are unchanged. Removed the F4 `knownDefects` entry.
+- **Tests:** `F4 estimate PDF on placeholder pricing carries the NOT FULLY VERIFIED stamp` failed before and passes
+  after; `F4 estimate PDF on a saved rate card is not stamped` guards the clean path. Full suite 101/101.
+
+## 2026-10-29 — audit-repairs r1: F7 cosmetics (Claude Code)
+
+- **F7a:** estimate PDF whole-dollar amounts (line totals, urban premium, total, deposit) keep their `toFixed(0)`
+  rounding and gain thousands separators (`$1,209`, matching the app). Two-decimal PDF amounts are unchanged.
+  On the test job the PDF total equals the app total; the audit's `$1,541`/`$1559` gap was not reproduced.
+- **F7b:** the canvas draws one `0'` label at the origin (the y-axis label at 0 is skipped).
+- **F7c:** the plan PDF TYPES legend lists only fence types used by the job's runs.
+- **F7d NOT repaired — conflict recorded:** hiding raw codes in the validation modal breaks accepted tests
+  `phase-one-acceptance.spec.js` test 5 and `v5.4-port.spec.js:135`, which require `CUSTOMER_NAME` and
+  `COMPANY_PROFILE` in the modal. Reverted; owner decision needed.
+- **Tests:** F7a–c failed before and pass after; screenshots of the origin, modal, plan PDF and estimate PDF
+  were checked (session scratchpad, not committed). Full suite with F7d: 103 passed, 2 failed (both F7d);
+  after the revert, the three affected spec files pass 28/28.
+
+## 2026-10-29 — audit-repairs r2: defect record F5 (Claude Code)
+
+- **Defect F5 (pricing behavior):** `getStats()` counts every run end as a terminal or corner post and every gate
+  as two gate posts. When a gate post sits on a run end, that post is counted twice. That run end also counts as
+  a fabric end (tension bar, bands, brace bands, rail ends, bolts, truss), and the gate adds a bay, although the
+  run's fabric stops at the gate's other post. Recorded in `CURRENT_STATE.json` `knownDefects` before any repair.
+- **Owner rules applied:** the gate post replaces the end post (counts once, as a gate post). Hardware follows the
+  fabric: each run whose fabric reaches a post gets termination hardware there, so another run that continues
+  from that post (a corner) keeps its hardware.
+- **Correction to the r2 ruling entry:** hand-placed (non-auto) posts are not counted in the materials list, so a
+  hand-placed post under a gate post cannot double count. F5 covers run-end posts only.
+
+## 2026-10-29 — audit-repairs r2: F5 gate-post de-duplication (Claude Code)
+
+- **Repair:** `getStats()` collects gate post points. A run end at a gate post is no longer counted as a
+  terminal/corner post. If the gate belongs to that run, the end is recorded as `gateEndCt`. It is then removed
+  from fabric ends (termination hardware), truss assemblies and bays, because that run's fabric stops at the
+  gate's other post. Other runs ending at the same post keep their fabric end. No pricing values changed.
+  Removed the F5 `knownDefects` entry.
+- **Tests:** `F5 gate post on a run end…` and `F5 gate post on a corner…` failed before (2 and 3 end posts) and
+  pass after. `F5 mid-run gate counting is unchanged` guards the existing case. Full suite 107/107.
+- **Open for the owner:** the side panel's post summary also omits gate posts from Total posts; the ruling named
+  the plan PDF only.
+
+## 2026-10-29 — audit-repairs r2: F5 plan PDF gate posts (Claude Code)
+
+- **Repair (owner ruling):** the plan PDF post summary adds a `Gate: N` line, and Total Posts includes gate posts,
+  matching the line, terminal/corner and gate post quantities in the materials list. The side panel is unchanged
+  pending an owner answer.
+- **Tests:** `F5 plan PDF post summary shows gate posts…` failed before (no `Gate:` line) and passes after.
+  Full suite 108/108.
+
+## 2026-10-29 — audit-repairs r2: F6 gate snap and refuse (Claude Code)
+
+- **Repair (owner ruling):** a newly drawn gate is projected onto its nearest run (`closestPointOnSeg`). It is
+  refused with "Draw the gate on a fence run" when either end is more than 2 ft from the run (or 26 screen px
+  when zoomed far out), or when the snapped gate is shorter than the minimum run. The fabric deduction is the
+  snapped width. The 2 ft tolerance is an agent choice (drawing snaps to a 1 ft grid); the owner may change it.
+- **Not covered:** moving an existing gate with the Move tool can still take it off its run. A refused gate
+  leaves one empty undo step, as the existing "no run" refusal already does.
+- **Tests:** `F6 a gate drawn just off its run snaps…` and `F6 … clearly off any run is refused` failed before
+  and pass after. Full suite 110/110.
+
+## 2026-10-29 — audit-repairs r3 F5 side panel (Claude Code)
+
+- **F5 side panel (owner ruling r3 Q1):** the side panel's post summary shows a `Gate posts` row and includes gate
+  posts in Total posts, matching the plan PDF (#35). Red-before test `F5 side panel post summary shows gate posts
+  in Total posts like the plan PDF` failed (Total posts 6, no gate row), then passed. Suite 111/111.
+
+## 2026-10-29 — audit-repairs r3 F6 Move tool (Claude Code)
+
+- **F6 Move tool (owner ruling r3 Q3):** moving a gate (body drag or end drag) snaps it onto its own run; a move
+  that ends more than 2 ft off is refused and the gate returns to where it was. The F6 rule is now one helper,
+  `snapGateToRun`, shared by drawing and moving. A gate dragged onto a different run is refused rather than
+  reattached (before, it kept deducting from its old run). Three red-before tests failed (gate left where
+  dropped), then passed. Suite 114/114.
+## 2026-10-29 — audit-repairs r1 closeout and owner rulings (Claude Code)
+
+- **PRs:** #29 F2, #30 F1, #31 F3, #32 F4, #33 F7a–c (merge order and details in root `HANDOFF.md`).
+- **Owner rulings:** F5: a gate post coincident with a run end post replaces it (counts once, as a gate post).
+  F5: the plan PDF post summary shows gate posts and includes them in Total Posts.
+- **Open for the owner (asked in r2):** F6 off-line gate handling (recommended: snap onto the run); F7d hiding
+  validation codes, which conflicts with two accepted tests.
+- **Handoff:** `HANDOFF.md` rewritten for audit-repairs r2.
+
+## 2026-10-29 — audit-repairs r2 owner rulings (Claude Code)
+
+- **F6 off-line gate (owner: yes):** a gate drawn off its run snaps onto the nearest run; a gate too far from any
+  run is refused with a message. Owner asked about starting from a known gate post location: still supported by
+  placing a post and starting the run from it (run starts snap to standalone posts), then drawing the gate.
+  A hand-placed post under a gate post must count once, so F5 de-duplication covers that case too.
+- **F7d validation codes (owner: keep for now):** codes stay visible in the validation modal for debugging.
+  Hide them before release; whether the beta shows them is undecided. No code or test change now.
+
+## 2026-10-29 — audit-repairs r2 closeout (Claude Code)
+
+- **PRs:** #34 F5 de-duplication, #35 F5 plan PDF, #36 F6 snap/refuse (stacked on #33 in that order). F7d deferred
+  by owner ruling. Open owner questions and the merge order are in root `HANDOFF.md` (r3).
+
+## 2026-10-29 — audit-repairs r3 owner rulings (Claude Code)
+
+- **Q1 side-panel Total posts (owner: yes):** the side panel's post summary includes gate posts in Total posts,
+  matching the plan PDF (#35). Fixed on its own `fix/` branch with a red-before test.
+- **Q2 F6 snap tolerance (owner: keep 2 ft):** no change.
+- **Q3 Move tool (owner: yes):** moving an existing gate snaps it onto its run, and refuses the move if it ends
+  more than 2 ft off, same rule as F6 for new gates. Fixed on its own `fix/` branch with a red-before test.
+
+## 2026-10-29 — audit-repairs r3 merges (Claude Code)
+
+- **Owner: merge in order.** Merged #29, #30, #31–#36, #39, #38 into `audit/v540-launch-review`. Each branch had a
+  developer-log conflict only; both sides kept. #37's retarget failed (`gh pr edit` hit the classic-Projects
+  deprecation error), so it merged into `fix/f6-gate-snap`; #39 re-landed `fix/f5-panel-gate-posts` on the audit
+  branch, and #38 was retargeted via the REST API. Merged suite 115/115.
+
+## 2026-10-29 — audit-repairs r3: audit branch reconciled into main (Claude Code)
+
+- **Owner: put results in main; reconcile onto main's code.** `main` had 49 commits the audit branch lacked,
+  re-implementing gate ownership (`rebindGate`, seating), gate-post counting (`runGateLayout`) and customer money
+  (`customerMoney`). The 9 `index.html` conflicts took main's side; non-conflicting audit fixes (F1–F4, F7b, F7c,
+  side-panel gate posts) kept.
+- **F5:** main's counting model passes every audit F5 test unchanged.
+- **F6 / r3 Q3 ported:** a drawn or moved gate seats onto a run within `gateDrawReach()` (2 ft, or 26 px on
+  screen, or main's snap reach, whichever is larger) and is refused otherwise (draw: not added; move: reverted).
+  A moved gate may re-bind to another run (main supports it, so the #38 cross-run refusal is dropped).
+- **Tests changed to match owner rulings:** `gate-run-ownership` test 1 (off-run, perpendicular and oversized
+  gates are refused, so no ORPHAN_GATE / GATE_LONGER_THAN_RUN from drawing; those codes remain for saved jobs and
+  now lack a drawing-path test). F7a now expects main's cents format with separators. Audit F1 uses main's
+  legacy-state loader because malformed imports are now rejected atomically.
+- **Handoff:** main's `HANDOFF.md` (Codex counting accuracy) kept; audit handoff moved to
+  `handoffs/CLAUDE-NEXT-audit-repairs3.md`. Suite 212/212.

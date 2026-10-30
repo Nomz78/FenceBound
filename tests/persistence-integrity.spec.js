@@ -611,6 +611,24 @@ test('F4 plan warning occupies reserved space above the drawing',async({page})=>
   expect(geometry.warning.y+geometry.warning.height).toBeLessThanOrEqual(geometry.drawing.y);
 });
 
+// F1 (2026-10-29 audit): R9 failed intermittently with "Cannot read properties
+// of null (reading 'x')". The import keeps the malformed run so validation can
+// report it, but any later canvas redraw (ResizeObserver, startup resize timer)
+// dereferenced run.start and threw outside the export call. On main a malformed
+// import is rejected, so the run arrives from an older saved session instead.
+test('Audit F1 canvas redraw survives imported null start',async({page})=>{
+  await cleanOpen(page);
+  await rejectImportThenLoadMalformedLegacyState(page,run=>{run.start=null;});
+  const pageErrors=[];
+  page.on('pageerror',error=>pageErrors.push(error.stack||error.message));
+  await page.setViewportSize({width:1100,height:700});
+  await page.setViewportSize({width:1280,height:800});
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  expect(pageErrors).toEqual([]);
+  expect(await state(page,'(()=>{try{draw();return "ok";}catch(e){return e.stack;}})()')).toBe('ok');
+  expect(await state(page,"validateProject().errors.map(item=>item.code)")).toContain('PRICING_RUNTIME');
+});
+
 for(const malformed of [
   {name:'null start',mutate:run=>{run.start=null;}},
   {name:'constructor fence type',mutate:run=>{run.fenceType='constructor';}},
