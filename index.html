@@ -3261,6 +3261,72 @@ function showLabelOverlay(){
 }
 
 // ── PDF EXPORT ─────────────────────────────────────────────────────────────
+// Shared paper-space vector plan; all dimensions are in millimetres.
+function drawPdfProjectDrawing(doc,dX,drawingY,dW,dH){
+  doc.setFillColor(255,255,255);doc.rect(dX,drawingY,dW,dH,'F');
+  doc.setDrawColor(90,90,90);doc.setLineWidth(0.3);doc.rect(dX,drawingY,dW,dH);
+  // Fit world geometry, independent of screen pan, zoom and device pixel ratio.
+  const validPoint=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y);
+  const points=[];
+  S.elements.forEach(el=>{if(el.type==='post'){if(validPoint(el.pos))points.push(el.pos);}
+    else if(validPoint(el.start)&&validPoint(el.end))points.push(el.start,el.end);});
+  S.labels.forEach(l=>{if(validPoint(l))points.push(l);});
+  if(points.length){
+    const minX=Math.min(...points.map(p=>p.x)),maxX=Math.max(...points.map(p=>p.x));
+    const minY=Math.min(...points.map(p=>p.y)),maxY=Math.max(...points.map(p=>p.y));
+    const plotW=dW-24,plotH=dH-38;
+    const scale=Math.min(plotW/Math.max(maxX-minX,GRID_FT),plotH/Math.max(maxY-minY,GRID_FT));
+    const map=p=>({x:dX+dW/2+(p.x-(minX+maxX)/2)*scale,
+      y:drawingY+12+plotH/2+(p.y-(minY+maxY)/2)*scale});
+    const line=(a,b)=>doc.line(a.x,a.y,b.x,b.y);
+    // Darkened type colors and distinct dash patterns also survive grey printing.
+    const typeStyle=key=>{
+      const index=Math.max(0,Object.keys(FENCE_TYPES).indexOf(key));
+      const color=hexToRgb((FENCE_TYPES[key]||FENCE_TYPES.chainlink).color).map(c=>Math.round(c*0.5));
+      return{color,dash:index===0?[]:[1+index,1.5]};
+    };
+    const post=p=>{const q=map(p);doc.setFillColor(255,255,255);doc.setDrawColor(40,40,40);doc.setLineWidth(0.25);doc.circle(q.x,q.y,0.8,'FD');};
+    S.elements.forEach(el=>{
+      if(el.type==='post'){if(validPoint(el.pos))post(el.pos);return;}
+      if(!validPoint(el.start)||!validPoint(el.end))return;
+      const a=map(el.start),b=map(el.end),length=dist(el.start,el.end);
+      if(!length)return;
+      const style=typeStyle(el.fenceType);
+      doc.setDrawColor(...style.color);doc.setLineWidth(0.6);
+      doc.setLineDashPattern(el.type==='boundary'?[3,2]:style.dash,0);
+      if(el.type==='fence'){
+        const layout=runGateLayout(el);
+        layout.sections.forEach(([lo,hi])=>line(map({x:el.start.x+(el.end.x-el.start.x)*lo/length,y:el.start.y+(el.end.y-el.start.y)*lo/length}),
+          map({x:el.start.x+(el.end.x-el.start.x)*hi/length,y:el.start.y+(el.end.y-el.start.y)*hi/length})));
+      }else line(a,b);
+      doc.setLineDashPattern([],0);
+      doc.setTextColor(35,35,35);doc.setFontSize(8);doc.setFont('helvetica','normal');
+      const label=el.type==='gate'?`${(GATE_TYPES[el.gateType]||GATE_TYPES.walk).label} ${ftLbl(length)}`:ftLbl(length);
+      doc.text(label,(a.x+b.x)/2,(a.y+b.y)/2-3,{align:'center'});
+      if(el.type!=='boundary'){post(el.start);post(el.end);}
+      if(el.type==='gate'&&el.gateType!=='cantilever'){
+        // Open leaf direction preserves hinge and swing intent on the printed plan.
+        const h=el.hinge==='end'?b:a,other=el.hinge==='end'?a:b;
+        const leaf=(from,to,fraction)=>line(from,{x:from.x-(to.y-from.y)*fraction*(el.swingDir||1),y:from.y+(to.x-from.x)*fraction*(el.swingDir||1)});
+        doc.setDrawColor(50,50,50);doc.setLineWidth(0.35);
+        if(el.gateType==='doubledrive'){leaf(a,b,0.5);leaf(b,a,-0.5);}else leaf(h,other,1);
+      }
+    });
+    S.labels.forEach(l=>{if(!validPoint(l))return;const p=map(l);doc.setTextColor(35,35,35);doc.setFontSize(9);doc.text(String(l.text||''),p.x,p.y);});
+    // Pick a 1/2/5 interval near 25 mm; both bar and geometry share mm/world-unit scale.
+    const targetFt=25/(scale*GRID_FT),power=10**Math.floor(Math.log10(targetFt));
+    const stepFt=[1,2,5,10].map(n=>n*power).find(n=>n>=targetFt);
+    const barW=2*stepFt*GRID_FT*scale,barX=dX+12,barY=drawingY+dH-12;
+    doc.setDrawColor(35,35,35);doc.setLineWidth(0.5);doc.line(barX,barY,barX+barW,barY);
+    [0,0.5,1].forEach(t=>doc.line(barX+barW*t,barY-1.5,barX+barW*t,barY+1.5));
+    doc.setFontSize(8);doc.setTextColor(35,35,35);
+    const fmt=n=>Number(n.toPrecision(6));
+    doc.text(`Scale: 0 / ${fmt(stepFt)} / ${fmt(2*stepFt)} ft`,barX,barY+4);
+  }else{
+    doc.setTextColor(40,55,65);doc.setFontSize(10);doc.text('No drawing elements',dX+10,drawingY+15);
+  }
+}
+
 function exportPDF(){
   if(!window.jspdf){alert('PDF library not loaded. Check internet connection.');return;}
   const validation=validateProject();
@@ -3269,20 +3335,27 @@ function exportPDF(){
   const pricingUnavailable=validation.errors.some(item=>item.code==='PRICING_RUNTIME');
   const{jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'letter'});
-  const PW=279,PH=216;
-  doc.setFillColor(13,17,23);doc.rect(0,0,PW,PH,'F');
+  const PW=doc.internal.pageSize.getWidth(),PH=doc.internal.pageSize.getHeight();
+  const accent=hexToRgb(COMPANY.accent);
+  doc.setFillColor(255,255,255);doc.rect(0,0,PW,PH,'F');
   const tbX=PW-76,tbW=76;
-  doc.setFillColor(17,24,39);doc.rect(tbX,0,tbW,PH,'F');
-  doc.setDrawColor(245,166,35);doc.setLineWidth(0.4);doc.line(tbX,0,tbX,PH);
-  doc.setFillColor(245,166,35);doc.rect(tbX,0,tbW,14,'F');
-  doc.setTextColor(13,17,23);doc.setFontSize(12);doc.setFont('helvetica','bold');
-  doc.text('FENCEBOUND',tbX+tbW/2,9.5,{align:'center'});
-  let sy=20;
+  doc.setFillColor(255,255,255);doc.rect(tbX,0,tbW,PH,'F');
+  doc.setDrawColor(...accent);doc.setLineWidth(0.4);doc.line(tbX,0,tbX,PH);
+  doc.setTextColor(...accent);doc.setFont('helvetica','bold');
+  doc.setFontSize(11);
+  // Measure with the same font size used to print, including long company names.
+  const heading=doc.splitTextToSize(companyDisplayName(),tbW-8);
+  doc.text(heading,tbX+4,9);
+  let sy=9+heading.length*4.5;
+  doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(40,55,65);
+  const contact=companyContactLine([COMPANY.phone,COMPANY.email,COMPANY.location,COMPANY.license?'Lic. '+COMPANY.license:'']);
+  if(contact){const lines=doc.splitTextToSize(contact,tbW-8);doc.text(lines,tbX+4,sy);sy+=lines.length*3.5;}
+  sy+=5;
   const field=(label,val)=>{
     if(!val)return;
-    doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(100,120,150);
+    doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(40,55,65);
     doc.text(label,tbX+4,sy);sy+=5;
-    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(240,237,232);
+    doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(40,55,65);
     const lines=doc.splitTextToSize(val,tbW-8);doc.text(lines,tbX+4,sy);sy+=lines.length*5+3;
     doc.setDrawColor(40,55,75);doc.setLineWidth(0.2);doc.line(tbX+4,sy,tbX+tbW-4,sy);sy+=5;
   };
@@ -3291,8 +3364,8 @@ function exportPDF(){
   field('DATE',new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}));
   // Specs block
   const sp=S.specs;
-  doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(100,120,150);doc.text('FENCE SPECS',tbX+4,sy);sy+=5;
-  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(200,200,200);
+  doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(40,55,65);doc.text('FENCE SPECS',tbX+4,sy);sy+=5;
+  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(40,55,65);
   doc.text(`Height: ${sp.heightIn}" · Clear: ${sp.clearanceIn}"`,tbX+4,sy);sy+=5;
   doc.text(`Post: ${sp.postHeightIn}" OA · Embed: ${sp.embedDepthIn}"`,tbX+4,sy);sy+=5;
   doc.text(`Grade: ${sp.grade}${sp.slopePercent?` @ ${sp.slopePercent}%`:''}`,tbX+4,sy);sy+=5;
@@ -3302,26 +3375,26 @@ function exportPDF(){
   // Stats
   let stats;
   try{stats=pricingUnavailable?emptyExportStats():getStats();}catch(e){stats=emptyExportStats();}
-  doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(100,120,150);doc.text('SUMMARY',tbX+4,sy);sy+=5;
+  doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(40,55,65);doc.text('SUMMARY',tbX+4,sy);sy+=5;
   Object.entries(stats.fence).forEach(([type,ft])=>{
     const c=FENCE_TYPES[type];if(!c)return;
-    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(200,200,200);
+    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(40,55,65);
     doc.text(c.label,tbX+4,sy);doc.text(`${ft.toFixed(1)} ft`,tbX+tbW-4,sy,{align:'right'});sy+=5;
   });
   if(stats.totalFt>0){
     doc.setDrawColor(60,80,100);doc.setLineWidth(0.2);doc.line(tbX+4,sy,tbX+tbW-4,sy);sy+=4;
-    doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(245,166,35);
+    doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(40,55,65);
     doc.text('TOTAL LF',tbX+4,sy);doc.text(`${stats.totalFt.toFixed(1)}'`,tbX+tbW-4,sy,{align:'right'});sy+=6;
     const tp=stats.terminalPosts.size+stats.cornerPosts.size+stats.linePosts+stats.gatePosts;
-    doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(200,200,200);
+    doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(40,55,65);
     if(stats.terminalPosts.size){doc.text(`Terminal: ${stats.terminalPosts.size}`,tbX+4,sy);sy+=4;}
     if(stats.cornerPosts.size){doc.text(`Corner: ${stats.cornerPosts.size}`,tbX+4,sy);sy+=4;}
     if(stats.linePosts){doc.text(`Line: ${stats.linePosts}`,tbX+4,sy);sy+=4;}
     if(stats.gatePosts){doc.text(`Gate: ${stats.gatePosts}`,tbX+4,sy);sy+=4;}
-    doc.setTextColor(245,166,35);doc.text(`Total Posts: ${tp}`,tbX+4,sy);sy+=6;
+    doc.setTextColor(40,55,65);doc.text(`Total Posts: ${tp}`,tbX+4,sy);sy+=6;
   }
   if(stats.gateTotal){
-    if(stats.gates.walk){doc.setTextColor(200,200,200);doc.text(`Walk: ${stats.gates.walk}`,tbX+4,sy);sy+=4;}
+    if(stats.gates.walk){doc.setTextColor(40,55,65);doc.text(`Walk: ${stats.gates.walk}`,tbX+4,sy);sy+=4;}
     if(stats.gates.doubledrive){doc.text(`Dbl Drive: ${stats.gates.doubledrive}`,tbX+4,sy);sy+=4;}
     if(stats.gates.cantilever){doc.text(`Cantilever: ${stats.gates.cantilever}`,tbX+4,sy);sy+=4;}
     sy+=2;
@@ -3331,34 +3404,33 @@ function exportPDF(){
   try{autoItems=pricingUnavailable?[]:calcAutoMaterials();}catch(e){autoItems=[];}
   if(autoItems.length&&sy<PH-50){
     doc.setDrawColor(40,55,75);doc.setLineWidth(0.2);doc.line(tbX+4,sy,tbX+tbW-4,sy);sy+=4;
-    doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(100,120,150);doc.text('AUTO MATERIALS',tbX+4,sy);sy+=5;
-    autoItems.forEach(m=>{if(sy>PH-32)return;doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(200,200,200);doc.text(m.name.length>20?m.name.slice(0,19)+'…':m.name,tbX+4,sy);doc.text(`${m.qty} ${m.unit}`,tbX+tbW-4,sy,{align:'right'});sy+=4;});
+    doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(40,55,65);doc.text('AUTO MATERIALS',tbX+4,sy);sy+=5;
+    autoItems.forEach(m=>{if(sy>PH-32)return;doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(40,55,65);doc.text(m.name.length>20?m.name.slice(0,19)+'…':m.name,tbX+4,sy);doc.text(`${m.qty} ${m.unit}`,tbX+tbW-4,sy,{align:'right'});sy+=4;});
   }
   if(S.materials.length&&sy<PH-20){
     doc.setDrawColor(40,55,75);doc.setLineWidth(0.2);doc.line(tbX+4,sy,tbX+tbW-4,sy);sy+=4;
-    doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(100,120,150);doc.text('MANUAL ITEMS',tbX+4,sy);sy+=4;
-    S.materials.forEach(m=>{if(sy>PH-20)return;doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(200,200,200);doc.text(m.name.length>20?m.name.slice(0,19)+'…':m.name,tbX+4,sy);doc.text(`${m.qty} ${m.unit}`,tbX+tbW-4,sy,{align:'right'});sy+=4;});
+    doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(40,55,65);doc.text('MANUAL ITEMS',tbX+4,sy);sy+=4;
+    S.materials.forEach(m=>{if(sy>PH-20)return;doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(40,55,65);doc.text(m.name.length>20?m.name.slice(0,19)+'…':m.name,tbX+4,sy);doc.text(`${m.qty} ${m.unit}`,tbX+tbW-4,sy,{align:'right'});sy+=4;});
   }
   // Legend
   doc.setDrawColor(40,55,75);doc.setLineWidth(0.2);doc.line(tbX+4,PH-28,tbX+tbW-4,PH-28);
-  let ly=PH-23;doc.setFont('helvetica','bold');doc.setFontSize(6.5);doc.setTextColor(100,120,150);doc.text('TYPES',tbX+4,ly);ly+=4;
+  let ly=PH-23;doc.setFont('helvetica','bold');doc.setFontSize(6.5);doc.setTextColor(40,55,65);doc.text('TYPES',tbX+4,ly);ly+=4;
   const usedTypes=new Set(S.elements.filter(el=>el.type==='fence').map(el=>el.fenceType));
   Object.entries(FENCE_TYPES).filter(([key])=>usedTypes.has(key)).forEach(([,ft])=>{
     if(ly>PH-6)return;
-    const c=parseInt(ft.color.slice(1),16);
-    doc.setDrawColor((c>>16)&255,(c>>8)&255,c&255);doc.setLineWidth(1);doc.line(tbX+4,ly,tbX+12,ly);
-    doc.setFont('helvetica','normal');doc.setFontSize(5.5);doc.setTextColor(160,160,160);doc.text(ft.label,tbX+14,ly+1);ly+=4;
+    const index=Object.values(FENCE_TYPES).indexOf(ft);
+    doc.setDrawColor(...hexToRgb(ft.color).map(c=>Math.round(c*0.5)));doc.setLineWidth(0.6);
+    doc.setLineDashPattern(index===0?[]:[1+index,1.5],0);doc.line(tbX+4,ly,tbX+12,ly);doc.setLineDashPattern([],0);
+    doc.setFont('helvetica','normal');doc.setFontSize(5.5);doc.setTextColor(40,55,65);doc.text(ft.label,tbX+14,ly+1);ly+=4;
   });
   doc.setDrawColor(40,55,75);doc.setLineWidth(0.2);doc.line(tbX+4,PH-6,tbX+tbW-4,PH-6);
   doc.setFont('helvetica','normal');doc.setFontSize(6);doc.setTextColor(60,80,100);
-  doc.text(`FenceboundCAD v${APP_VERSION} · Grid: ${S.snapFt}ft/cell`,tbX+tbW/2,PH-2,{align:'center'});
-  const canvas=document.getElementById('canvas');
+  doc.text(`Made with FenceBound · v${APP_VERSION}`,tbX+tbW/2,PH-2,{align:'center'});
   const dX=5,dY=5,dW=tbX-10;
   const warningH=drawPdfValidationWarning(doc,validation,dX,dY,dW);
   const drawingY=dY+(warningH?warningH+3:0),dH=PH-drawingY-5;
-  doc.setDrawColor(40,55,75);doc.setLineWidth(0.3);doc.rect(dX,drawingY,dW,dH);
-  doc.addImage(canvas.toDataURL('image/png'),'PNG',dX,drawingY,dW,dH,'','FAST');
-  doc.setDrawColor(245,166,35);doc.setLineWidth(0.6);doc.rect(2,2,PW-4,PH-4);
+  drawPdfProjectDrawing(doc,dX,drawingY,dW,dH);
+  doc.setDrawColor(...accent);doc.setLineWidth(0.6);doc.rect(2,2,PW-4,PH-4);
   doc.save(`${S.projectName.replace(/\s+/g,'_')}_FencePlan.pdf`);
 }
 
@@ -5071,17 +5143,19 @@ function exportEstimatePDF(){
   // Line items
   let rowShade=false;
   const addRow=(qty,desc,unit,amount,bold=false)=>{
+    doc.setFont('helvetica',bold?'bold':'normal');doc.setFontSize(8.5);
+    const descLines=doc.splitTextToSize(desc,colW[1]-4);
+    const rowH=Math.max(6,descLines.length*4.5);
+    if(y+rowH>PH-20){doc.addPage();y=MT;}
     if(rowShade){doc.setFillColor(248,248,248);doc.rect(ML,y-1,tableW,6,'F');}
     rowShade=!rowShade;
     doc.setFont('helvetica',bold?'bold':'normal');doc.setFontSize(8.5);doc.setTextColor(28,28,28);
     doc.text(String(qty),ML+2,y+3.5);
-    const descLines=doc.splitTextToSize(desc,colW[1]-4);
     doc.text(descLines,ML+colW[0]+2,y+3.5);
     doc.setTextColor(80,80,80);
     doc.text(String(unit),ML+colW[0]+colW[1]+2,y+3.5);
     doc.setTextColor(28,28,28);
     doc.text(String(amount),PW-MR-2,y+3.5,{align:'right'});
-    const rowH=Math.max(6,descLines.length*4.5);
     y+=rowH;
   };
 
@@ -5127,6 +5201,7 @@ function exportEstimatePDF(){
   if(ucHardDig)addRow('1','Hard Dig / Equipment Required','Est.','Included');
 
   // ── TOTALS ──
+  if(y>PH-60){doc.addPage();y=MT;}
   y+=4;
   doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);doc.line(ML,y,PW-MR,y);y+=5;
 
@@ -5147,6 +5222,31 @@ function exportEstimatePDF(){
     y+=5;
   }
   y+=5;
+
+  // Scope uses the same per-run and per-gate ownership counts as the BOM.
+  doc.addPage();y=MT;
+  doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(...ACC);
+  doc.text('SCOPE OF WORK',ML,y);y+=8;
+  const scopeLine=text=>{
+    doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(28,28,28);
+    doc.splitTextToSize(text,PW-ML-MR).forEach(line=>{
+      if(y>PH-20){doc.addPage();y=MT;}
+      doc.text(line,ML,y);y+=5;
+    });
+    y+=2;
+  };
+  Object.entries(stats.fence).forEach(([type,ft])=>{
+    const runs=S.elements.filter(r=>r.type==='fence'&&r.fenceType===type);
+    const heights=[...new Set(runs.map(r=>hydrateRunSpecs(r.specs||S.specs).heightIn))];
+    const posts=runs.reduce((n,r)=>{const row=stats.byRunId[r.runId];
+      return n+(row?row.lineCt+row.termCt+row.cornerCt:0);},0)+
+      [...(stats.gatePostsByGate||new Map())].reduce((n,[gate,count])=>
+        n+(gateOwnerRun(gate)?.fenceType===type?count:0),0);
+    scopeLine(`${(FENCE_TYPES[type]||{label:type}).label}: ${ft.toFixed(1)} LF | Height: ${heights.join(', ')}" | Posts: ${posts}`);
+  });
+  S.elements.filter(el=>el.type==='gate'&&gateOwnerRun(el)).forEach(gate=>{
+    scopeLine(`${(GATE_TYPES[gate.gateType||'walk']||{label:gate.gateType}).label}: ${(dist(gate.start,gate.end)/GRID_FT).toFixed(1)} ft wide`);
+  });
 
   // ── TERMS ──
   const terms=String(COMPANY.terms||'').split(/\r?\n/).filter(Boolean).map(t=>t
@@ -5184,6 +5284,17 @@ function exportEstimatePDF(){
   // ── FOOTER ──
   doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(160,160,160);
   doc.text(companyContactLine([COMPANY.name,COMPANY.phone,COMPANY.email,COMPANY.location,COMPANY.license?'Lic. '+COMPANY.license:'']),PW/2,PH-8,{align:'center'});
+
+  // Customer drawing uses the exact same vector renderer as the plan export.
+  doc.addPage();
+  doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(...ACC);
+  doc.text('PROJECT DRAWING',ML,MT);
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(28,28,28);
+  doc.text(companyDisplayName(),ML,MT+6);
+  const drawingTop=MT+12;
+  const warningH=drawPdfValidationWarning(doc,stamped,ML,drawingTop,PW-ML-MR);
+  const drawingY=drawingTop+(warningH?warningH+3:0);
+  drawPdfProjectDrawing(doc,ML,drawingY,PW-ML-MR,PH-drawingY-16);
 
   const safeName=(S.jobCustomer||S.projectName).replace(/[^a-z0-9]/gi,'_');
   doc.save(`${companySlug()}_Estimate_${safeName}_${estDate.replace(/,?\s/g,'')}.pdf`);
