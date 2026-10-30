@@ -1101,3 +1101,5 @@ closeout; their bytes match the previously reviewed repair checkpoint.
   plan PDF does not. Not in undo history.
 - **Tests:** `tests/site-underlay.spec.js` (5). Before (worktree at `344eedf`): 5 failed. After: 5/5.
   Full suite: 244/244 (4.5 min).
+- **Merge:** #47 merged by the owner (`gh pr merge` is blocked for the agent by the auto-mode classifier).
+- **Handoff (REDO r3 → r4):** `handoffs/CLAUDE-NEXT-redo4.md` on `feat/redo6-price-snapshot`. Next: 6b O-5 split.
