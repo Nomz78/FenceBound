@@ -67,19 +67,20 @@ test('1 a gate is owned only by the run it lies on; off-run, stacked and oversiz
   const base = await take(page);
   expect(base.final).toBe(true);
 
-  // 20 ft away from the run: not deducted, not priced, reported.
+  // 20 ft away from the run: refused when drawn (owner ruling F6, 2026-10-29),
+  // so nothing is deducted or priced. Off-run gates in older saved jobs still report ORPHAN_GATE.
   await drawEl(page, 'gate', 20, 30, 24, 30);
   let r = await take(page);
   expect({ net: r.net, gates: r.gates, kits: r.gateKits, posts: r.gatePosts }).toEqual({ net: 40, gates: 0, kits: 0, posts: 0 });
-  expect(r.errors).toContain('ORPHAN_GATE');
-  expect(r.final).toBe(false);
+  expect(r.errors).not.toContain('ORPHAN_GATE');
+  expect(r.final).toBe(true);
   await undo(page);
 
-  // Drawn across the run (perpendicular): not on it.
+  // Drawn across the run (perpendicular): not on it, so refused.
   await drawEl(page, 'gate', 22, 8, 22, 12);
   r = await take(page);
   expect({ net: r.net, gates: r.gates, kits: r.gateKits }).toEqual({ net: 40, gates: 0, kits: 0 });
-  expect(r.errors).toContain('ORPHAN_GATE');
+  expect(r.errors).not.toContain('ORPHAN_GATE');
   await undo(page);
 
   // Stacked gates on the same run: an overlap error; the opening is removed once.
@@ -98,12 +99,13 @@ test('1 a gate is owned only by the run it lies on; off-run, stacked and oversiz
   expect(r.gates).toBe(1);
   expect(r.errors).not.toContain('ORPHAN_GATE');
 
-  // A gate longer than its run: error, never deducted to zero and priced.
+  // A gate longer than its run: refused when drawn (its far end is past the 2 ft
+  // F6 limit), never deducted to zero and priced. Saved jobs still report GATE_LONGER_THAN_RUN.
   await open(page);
   await drawEl(page, 'fence', 0, 0, 10, 0);
   await drawEl(page, 'gate', 0, 0, 20, 0, 'doubledrive');
   r = await take(page);
-  expect(r.errors).toContain('GATE_LONGER_THAN_RUN');
+  expect(r.errors).not.toContain('GATE_LONGER_THAN_RUN');
   expect({ net: r.net, gates: r.gates, kits: r.gateKits, posts: r.gatePosts, bars: r.bars }).toEqual({ net: 10, gates: 0, kits: 0, posts: 0, bars: 2 });
 });
 
