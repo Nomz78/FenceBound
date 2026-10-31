@@ -691,6 +691,7 @@ label{font-size:12px;color:var(--text2);letter-spacing:0.02em;display:block;marg
         <div class="psec">
           <button class="btn" id="btn-company-profile" style="width:100%;padding:7px;font-size:12px;margin-bottom:6px">Company Profile</button>
           <div id="seed-price-note" style="display:none;font-size:12px;color:var(--accent);line-height:1.5;margin-bottom:6px">Pricing is still the shipped placeholder baseline. Load your own costs before quoting.</div>
+          <div id="quote-price-note" style="display:none;align-items:center;gap:8px;font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:6px"><span id="quote-price-text" style="flex:1"></span><button class="btn" id="btn-reprice" style="font-size:12px;padding:3px 8px" title="Replace this job's quoted prices with the company rate card">Re-price</button></div>
           <button class="btn" id="btn-cost-editor" style="width:100%;padding:7px;font-size:12px;margin-bottom:6px">Edit Costs & Margin</button>
           <button class="btn accent" id="btn-gen-estimate" style="width:100%;padding:8px;font-size:12px;letter-spacing:0.08em">GENERATE ESTIMATE PDF</button>
           <button class="btn" id="btn-validate-job" style="width:100%;padding:7px;font-size:12px;margin-top:6px">✓ VALIDATE JOB</button>
@@ -1018,7 +1019,10 @@ function snapshotState(){
     specs:{...S.specs,addons:[...S.specs.addons]},
     showCostView:S.showCostView,pan:S.pan,zoom:S.zoom,snapFt:S.snapFt,
     costs:COST_DB,labor:LABOR,markup:MARKUP,footing:FOOTING,postODIn:POST_OD_IN,postEmbedIn:POST_EMBED_IN,
-    autoPost:S.autoPost,postSpacing:S.postSpacing,underlay:S.underlay};
+    autoPost:S.autoPost,postSpacing:S.postSpacing,underlay:S.underlay,
+    // A quoted job's frozen prices are the costs…postEmbedIn above; a draft's
+    // are the rate card at save time and are not read back (REDO 6b).
+    quote:S.quote?{frozenAt:S.quote.frozenAt,total:S.quote.total}:null};
 }
 function applyState(st){
   S.elements=Array.isArray(st.elements)?st.elements:[];
@@ -1035,9 +1039,29 @@ function applyState(st){
   applyJobPricingInputs(st);
   _defaultTypeSpecs={};
   S.jobCustomer=st.jobCustomer||'';S.jobAddress=st.jobAddress||'';S.jobNotes=st.jobNotes||'';
-  if(st.footing)mergeFooting(st.footing);
-  if(st.postODIn)mergePostOD(st.postODIn);
-  if(st.postEmbedIn)mergePostEmbed(st.postEmbedIn);
+  // O-5 split (REDO 6b): `quote: null` is a draft, priced from the company
+  // rate card. A quote object, or a file from before the split that carries
+  // prices (no `quote` key), is a frozen quote: its embedded prices are the
+  // snapshot, laid over the company card only to fill keys the file lacks.
+  // The company rate card is never written here.
+  // Boundary coercion: legacy bare-number costs become {cost,unit} and plain
+  // decimal strings become numbers; anything invalid stays and is reported by
+  // computePricing/validateProject rather than priced silently.
+  const legacyQuote=!('quote' in st)&&!!(st.costs||st.labor||st.markup);
+  const q=st.quote&&typeof st.quote==='object'?st.quote:(legacyQuote?{frozenAt:st.savedAt}:null);
+  useCompanyRateCard(false);
+  S.quote=null;
+  if(q){
+    const pin=sanitizePricingInputs(st);
+    if(pin.costs)COST_DB={...COST_DB,...pin.costs};
+    if(pin.labor)LABOR={...LABOR,...pin.labor,perLF:{...LABOR.perLF,...(pin.labor.perLF||{})},gate:{...LABOR.gate,...(pin.labor.gate||{})}};
+    if(pin.markup)MARKUP={...MARKUP,...pin.markup};
+    if(st.footing)mergeFooting(st.footing);
+    if(st.postODIn)mergePostOD(st.postODIn);
+    if(st.postEmbedIn)mergePostEmbed(st.postEmbedIn);
+    S.quote={frozenAt:typeof q.frozenAt==='string'?q.frozenAt:null,total:Number.isFinite(q.total)?q.total:null,pricing:clonePricing()};
+    _pricingFromLoadedProject=true;
+  }
   if(st.specs){
     const savedSpecs=hydrateSavedRunSpecs(st.specs);
     S.specs={...S.specs,...st.specs,
@@ -1058,16 +1082,6 @@ function applyState(st){
     S.specs=hydrateRunSpecs(S.specs);
   }
   if(typeof st.showCostView==='boolean')S.showCostView=st.showCostView;
-  // Prices ride along inside the job file → a reopened quote shows the costs it
-  // was built on. Merge over current so partial/old files don't wipe categories.
-  // Boundary coercion: legacy bare-number costs become {cost,unit} and plain
-  // decimal strings become numbers; anything invalid stays and is reported by
-  // computePricing/validateProject rather than priced silently.
-  const pin=sanitizePricingInputs(st);
-  if(pin.costs)COST_DB={...COST_DB,...pin.costs};
-  if(pin.labor)LABOR={...LABOR,...pin.labor,perLF:{...LABOR.perLF,...(pin.labor.perLF||{})},gate:{...LABOR.gate,...(pin.labor.gate||{})}};
-  if(pin.markup)MARKUP={...MARKUP,...pin.markup};
-  _pricingFromLoadedProject=!!(st.costs||st.labor||st.markup);
   if(st.pan&&Number.isFinite(st.pan.x)&&Number.isFinite(st.pan.y))S.pan={x:st.pan.x,y:st.pan.y};
   if(Number.isFinite(st.zoom))S.zoom=Math.max(0.05,Math.min(4,st.zoom));
   if(Number.isFinite(st.snapFt)&&SNAP_OPTIONS.includes(st.snapFt))S.snapFt=st.snapFt;
@@ -1309,6 +1323,7 @@ const S={
   materials:[],
   projectName:'Untitled Job', jobAddress:'', jobCustomer:'', jobNotes:'',
   savedJobs:[], pendingLabel:null,
+  quote:null,// frozen quoted prices of the open job (REDO 6b); null = draft
   panelWidth:288, isDraggingPanel:false, panelCollapsed:false,
   history:[], future:[], showJobInfo:false, showJobs:false, saveMsg:'',
   activeTab:'draw',
@@ -1597,7 +1612,35 @@ function refreshSiteAdderLabels(){
 let COST_DB = JSON.parse(JSON.stringify(DEFAULT_COST_DB));
 let LABOR   = JSON.parse(JSON.stringify(DEFAULT_LABOR));
 let MARKUP  = JSON.parse(JSON.stringify(DEFAULT_MARKUP));
+// O-5 split (REDO 6b). The company rate card is localStorage[COSTDB_KEY], else
+// the shipped defaults. A quoted job carries its own frozen prices in
+// S.quote.pricing, taken at its first estimate PDF export (or, for job files
+// saved before the split, the prices embedded in the file). The globals above
+// hold whichever store prices the open job: _pricingFromLoadedProject is true
+// while they hold a quote, and saveCostDB refuses to write them.
 let _pricingFromLoadedProject=false;
+function clonePricing(){
+  return JSON.parse(JSON.stringify({costs:COST_DB,labor:LABOR,markup:MARKUP,footing:FOOTING,postODIn:POST_OD_IN,postEmbedIn:POST_EMBED_IN}));
+}
+function useCompanyRateCard(refreshSpecs=true){
+  COST_DB=JSON.parse(JSON.stringify(DEFAULT_COST_DB));
+  LABOR=JSON.parse(JSON.stringify(DEFAULT_LABOR));
+  MARKUP=JSON.parse(JSON.stringify(DEFAULT_MARKUP));
+  FOOTING=JSON.parse(JSON.stringify(DEFAULT_FOOTING));
+  POST_OD_IN={...DEFAULT_POST_OD_IN};
+  POST_EMBED_IN={...DEFAULT_POST_EMBED_IN};
+  const saved=readSavedCostDB();
+  if(saved.status==='loaded')mergeSavedCostDB(saved.data,false);
+  _pricingFromLoadedProject=false;
+  if(refreshSpecs)refreshPostDiaDefaults();
+  return saved.status;
+}
+function useQuotePricing(){
+  const p=JSON.parse(JSON.stringify(S.quote.pricing));
+  COST_DB=p.costs;LABOR=p.labor;MARKUP=p.markup;FOOTING=p.footing;POST_OD_IN=p.postODIn;POST_EMBED_IN=p.postEmbedIn;
+  _pricingFromLoadedProject=true;
+  refreshPostDiaDefaults();
+}
 
 const COSTDB_KEY='fencebound_costdb_v1';
 function mergeFooting(src){
@@ -1747,16 +1790,7 @@ function reloadSavedCostDB(){
 // at boot. Reads the rate card only; never writes it.
 function restoreCompanyRateCard(){
   if(!_pricingFromLoadedProject)return;
-  if(reloadSavedCostDB()!=='loaded'){
-    COST_DB=JSON.parse(JSON.stringify(DEFAULT_COST_DB));
-    LABOR=JSON.parse(JSON.stringify(DEFAULT_LABOR));
-    MARKUP=JSON.parse(JSON.stringify(DEFAULT_MARKUP));
-    FOOTING=JSON.parse(JSON.stringify(DEFAULT_FOOTING));
-    POST_OD_IN={...DEFAULT_POST_OD_IN};
-    POST_EMBED_IN={...DEFAULT_POST_EMBED_IN};
-    refreshPostDiaDefaults();
-    _pricingFromLoadedProject=false;
-  }
+  S.quote=null;useCompanyRateCard();
   refreshSiteAdderLabels();
   const crl=document.getElementById('crew-rate-lbl');if(crl)crl.textContent=LABOR.crewHourlyRate;
 }
@@ -3685,6 +3719,16 @@ function init(){
     el.addEventListener(el.type==='number'?'input':'change',()=>{if(S.activeTab==='pricing')updatePricing();scheduleAutosave();});
   });
   document.getElementById('btn-gen-estimate').addEventListener('click',exportEstimatePDF);
+  // Re-price (REDO 6b): drop the quote; the job is a draft on the company rate
+  // card again until its next estimate export freezes it.
+  document.getElementById('btn-reprice').addEventListener('click',()=>{
+    if(!S.quote)return;
+    const before=computePricing().clientTotal;
+    useCompanyRateCard();const after=computePricing().clientTotal;useQuotePricing();
+    if(!confirm(`Re-price this job from the company rate card?\n\nEstimate total $${before.toFixed(2)} → $${after.toFixed(2)}. The job's quoted prices will be replaced.`))return;
+    restoreCompanyRateCard();
+    draw();updatePanel();updatePricing();scheduleAutosave();showToast('Re-priced from the company rate card');
+  });
   document.getElementById('btn-validate-job').addEventListener('click',runValidationReport);
   const _ce=document.getElementById('btn-cost-editor');if(_ce)_ce.addEventListener('click',openCostEditor);
   const _cp=document.getElementById('btn-company-profile');if(_cp)_cp.addEventListener('click',openCompanyEditor);
@@ -4387,6 +4431,12 @@ function updatePricing(){
   refreshSiteAdderLabels();
   const _spn=document.getElementById('seed-price-note');
   if(_spn)_spn.style.display=usingSeedPrices()?'block':'none';
+  const _qpn=document.getElementById('quote-price-note');
+  if(_qpn){
+    _qpn.style.display=S.quote?'flex':'none';
+    const d=S.quote&&S.quote.frozenAt?new Date(S.quote.frozenAt):null;
+    document.getElementById('quote-price-text').textContent=S.quote?`Quoted prices${d?` · ${isNaN(d)?S.quote.frozenAt:d.toLocaleDateString()}`:''}`:'';
+  }
   const P=computePricing();
   const showCost=S.showCostView; // employee/internal toggle
 
@@ -4596,7 +4646,6 @@ function openRestoreDialog(payload){
     const badPricing=state.doPricing&&payload.pricing?sanitizePricingInputs(payload.pricing).problems:[];
     if(badPricing.length){showToast(`Restore failed — ${badPricing[0]} is not a number of 0 or more`,true);return;}
     if(state.doJobs&&state.mode==='replace'&&existing.length&&!confirm(`Delete all ${existing.length} job(s) on this device and replace with ${incomingJobs.length} from the backup?\n\nThis cannot be undone.`))return;
-    if(state.doPricing&&_pricingFromLoadedProject&&!confirm('These displayed prices came from the loaded project. Restoring will replace your company rate card. Continue?'))return;
     const done=[];
     if(state.doJobs){
       if(state.mode==='replace')S.savedJobs=incomingJobs.slice();
@@ -4606,14 +4655,18 @@ function openRestoreDialog(payload){
       done.push(`${incomingJobs.length} job${incomingJobs.length===1?'':'s'}`);
     }
     if(state.doPricing&&payload.pricing){
+      // Restore writes the company card; an open quote keeps its prices (REDO 6b).
+      const quoteOpen=!!S.quote;if(quoteOpen)useCompanyRateCard();
       const priorPricing={costs:JSON.parse(JSON.stringify(COST_DB)),labor:JSON.parse(JSON.stringify(LABOR)),markup:JSON.parse(JSON.stringify(MARKUP)),footing:JSON.parse(JSON.stringify(FOOTING)),postODIn:{...POST_OD_IN},postEmbedIn:{...POST_EMBED_IN}};
       const savedRateCard=readSavedCostDB();
       COST_DB=JSON.parse(JSON.stringify(DEFAULT_COST_DB));LABOR=JSON.parse(JSON.stringify(DEFAULT_LABOR));MARKUP=JSON.parse(JSON.stringify(DEFAULT_MARKUP));FOOTING=JSON.parse(JSON.stringify(DEFAULT_FOOTING));POST_OD_IN={...DEFAULT_POST_OD_IN};POST_EMBED_IN={...DEFAULT_POST_EMBED_IN};
       if(savedRateCard.status==='loaded')mergeSavedCostDB(savedRateCard.data);
       mergeSavedCostDB(payload.pricing);
       const priorPricingProvenance=_pricingFromLoadedProject;_pricingFromLoadedProject=false;
-      if(!saveCostDB()){
-        COST_DB=priorPricing.costs;LABOR=priorPricing.labor;MARKUP=priorPricing.markup;FOOTING=priorPricing.footing;POST_OD_IN=priorPricing.postODIn;POST_EMBED_IN=priorPricing.postEmbedIn;refreshPostDiaDefaults();_pricingFromLoadedProject=priorPricingProvenance;
+      const saved=saveCostDB();
+      if(!saved){COST_DB=priorPricing.costs;LABOR=priorPricing.labor;MARKUP=priorPricing.markup;FOOTING=priorPricing.footing;POST_OD_IN=priorPricing.postODIn;POST_EMBED_IN=priorPricing.postEmbedIn;refreshPostDiaDefaults();_pricingFromLoadedProject=priorPricingProvenance;}
+      if(quoteOpen)useQuotePricing();
+      if(!saved){
         showToast(`Prices could not be restored — storage full or blocked${done.length?`; ${done.join(' + ')} restored`:''}`,true);return;
       }
       done.push('prices');
@@ -4730,10 +4783,8 @@ function openCsvImporter(rows){
   ov.querySelector('#cs-name').onchange=e=>{state.map.name=+e.target.value;refresh();};ov.querySelector('#cs-cost').onchange=e=>{state.map.cost=+e.target.value;refresh();};ov.querySelector('#cs-unit').onchange=e=>{state.map.unit=+e.target.value;refresh();};ov.querySelector('#cs-header').onchange=e=>{state.hasHeader=e.target.checked;refresh();};ov.querySelectorAll('[data-dupe]').forEach(c=>{c.onclick=()=>{state.dupeMode=c.dataset.dupe;refresh();};});ov.querySelector('#cs-cancel').onclick=close;ov.onclick=e=>{if(e.target===ov)close();};
   ov.querySelector('#cs-apply').onclick=()=>{
     if(!preview.entries.length){showToast('Nothing to import — check your column mapping',true);return;}
-    if(_pricingFromLoadedProject&&!confirm('These displayed prices came from the loaded project. Importing will replace your company rate card. Continue?'))return;
     const snapshot=JSON.parse(JSON.stringify(COST_DB));preview.entries.forEach(e=>{COST_DB[e.key]={cost:e.cost,unit:e.unit};});
-    const priorPricingProvenance=_pricingFromLoadedProject;_pricingFromLoadedProject=false;
-    if(!saveCostDB()){COST_DB=snapshot;_pricingFromLoadedProject=priorPricingProvenance;showToast('Import failed — storage full or blocked',true);return;}
+    if(!saveCostDB()){COST_DB=snapshot;showToast('Import failed — storage full or blocked',true);return;}
     close();const ce=document.getElementById('cost-editor');if(ce)ce.style.display='none';openCostEditor();updatePricing();showToast(`Imported — ${preview.matched} updated, ${preview.added} new${preview.rejected.length?`, ${preview.rejected.length} skipped`:''}`);
   };
   refresh();
@@ -4754,6 +4805,9 @@ function usingSeedPrices(){
 }
 
 function openCostEditor(){
+  // The editor always edits the company rate card (REDO 6b): with a quote open,
+  // the card is swapped in while the editor is open and the quote back on close.
+  if(S.quote&&_pricingFromLoadedProject)useCompanyRateCard();
   let ov=document.getElementById('cost-editor');
   if(!ov){
     ov=document.createElement('div');
@@ -4830,7 +4884,7 @@ function openCostEditor(){
     <input type="file" id="ce-import-file" accept=".json,.fbprices.json" style="display:none"/>
     <input type="file" id="ce-csv-file" accept=".csv,.tsv,.txt,text/csv" style="display:none"/>`;
   ov.style.display='flex';
-  const close=()=>{ov.style.display='none';};
+  const close=()=>{ov.style.display='none';if(S.quote&&!_pricingFromLoadedProject)useQuotePricing();};
   ov.querySelector('#ce-cancel').onclick=close;
   // New materials are staged here and join COST_DB only on Save, so Cancel discards them.
   const addedCosts={};
@@ -4869,7 +4923,6 @@ function openCostEditor(){
     const rateFields=[...ov.querySelectorAll('[data-cost],[data-labor],[data-gatelabor]'),...['#ce-mat-markup','#ce-lab-markup','#ce-crew-rate'].map(sel=>ov.querySelector(sel))];
     if(rateFields.some(i=>coerceNonNegNumber(String(i.value))===null)){showToast('Costs, labor rates and markups must be numbers of 0 or more',true);return;}
     if([...ov.querySelectorAll('[data-pack]')].some(i=>coercePackSize(String(i.value))===null)){showToast('Pack sizes must be numbers of 1 or more',true);return;}
-    if(_pricingFromLoadedProject&&!confirm('These displayed prices came from the loaded project. Saving will replace your company rate card with these prices. Continue?'))return;
     LABOR.demoPerLF=adders.demoPerLF;LABOR.slopePerLF=adders.slopePerLF;LABOR.hardDigPct=adders.hardDigPct;MARKUP.urbanPct=adders.urbanPct;
     Object.entries(addedCosts).forEach(([k,e])=>{if(!COST_DB[k])COST_DB[k]={...e};});
     ov.querySelectorAll('[data-cost]').forEach(i=>{const k=i.dataset.cost;const v=parseFloat(i.value);if(Number.isFinite(v)&&COST_DB[k])COST_DB[k].cost=v;});
@@ -4886,14 +4939,10 @@ function openCostEditor(){
     ov.querySelectorAll('[data-post-od]').forEach(i=>{const v=parseFloat(i.value);if(Number.isFinite(v)&&v>0)POST_OD_IN[i.dataset.postOd]=v;});
     ov.querySelectorAll('[data-post-embed]').forEach(i=>{const v=parseFloat(i.value);if(Number.isFinite(v)&&v>=0)POST_EMBED_IN[i.dataset.postEmbed]=v;});
     refreshPostDiaDefaults();
-    const priorPricingProvenance=_pricingFromLoadedProject;
-    _pricingFromLoadedProject=false;
-    if(!saveCostDB()){
-      _pricingFromLoadedProject=priorPricingProvenance;
-      showToast('Save failed — storage full or blocked',true);return;
-    }
+    if(!saveCostDB()){showToast('Save failed — storage full or blocked',true);return;}
+    close();
     const crl=document.getElementById('crew-rate-lbl');if(crl)crl.textContent=LABOR.crewHourlyRate;
-    close();updatePricing();showToast('Costs & margin saved');
+    updatePricing();showToast(S.quote?'Rate card saved — this job keeps its quoted prices (Re-price to update)':'Costs & margin saved');
   };
   ov.querySelector('#ce-reset').onclick=()=>{
     if(!confirm('Reset all costs, labor, and markup to defaults?'))return;
@@ -4904,12 +4953,7 @@ function openCostEditor(){
     POST_OD_IN={...DEFAULT_POST_OD_IN};
     POST_EMBED_IN={...DEFAULT_POST_EMBED_IN};
     refreshPostDiaDefaults();
-    const priorPricingProvenance=_pricingFromLoadedProject;
-    _pricingFromLoadedProject=false;
-    if(!saveCostDB()){
-      _pricingFromLoadedProject=priorPricingProvenance;
-      showToast('Save failed — storage full or blocked',true);return;
-    }
+    if(!saveCostDB()){showToast('Save failed — storage full or blocked',true);return;}
     close();openCostEditor();showToast('Reset to defaults');
   };
   ov.querySelector('#ce-reload-rate-card').onclick=()=>{
@@ -4941,7 +4985,6 @@ function openCostEditor(){
       // Refuse the whole file before anything is applied if any rate is invalid.
       const bad=sanitizePricingInputs(o).problems;
       if(bad.length)throw new Error(`${bad[0]} is not a number of 0 or more${bad.length>1?` (+${bad.length-1} more)`:''}`);
-      if(_pricingFromLoadedProject&&!confirm('These displayed prices came from the loaded project. Importing will merge the file into your saved company rate card and use that card for this project. Continue?'))return;
       importCompanyPrices(o);
       imported=true;
       refreshPostDiaDefaults();refreshSiteAdderLabels();
@@ -5392,6 +5435,13 @@ function exportEstimatePDF(){
 
   const safeName=(S.jobCustomer||S.projectName).replace(/[^a-z0-9]/gi,'_');
   doc.save(`${companySlug()}_Estimate_${safeName}_${estDate.replace(/,?\s/g,'')}.pdf`);
+  // O-5 split (REDO 6b): the first estimate export freezes the job's prices.
+  // Later exports keep them and record the latest quoted total.
+  if(!pricingUnavailable){
+    S.quote={frozenAt:S.quote?S.quote.frozenAt:new Date().toISOString(),total:P.clientTotal,pricing:S.quote?S.quote.pricing:clonePricing()};
+    _pricingFromLoadedProject=true;
+    updatePricing();scheduleAutosave();
+  }
 }
 
 // ── BOOT ──────────────────────────────────────────────────────────────────

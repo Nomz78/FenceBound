@@ -94,6 +94,7 @@ test('2 Clear after viewing a loaded job returns to the company rate card withou
   await state(page, `(()=>{const st=JSON.parse(JSON.stringify(snapshotState()));
     Object.keys(st.costs).forEach(k=>{st.costs[k]={...st.costs[k],cost:+(st.costs[k].cost/2).toFixed(2)};});
     st.markup={...st.markup,materialPct:10,laborPct:10};
+    st.quote={frozenAt:'then',total:null};// a quoted job keeps its own prices (REDO 6b)
     S.savedJobs=[{...st,id:1,name:'Old Job',projectName:'Old Job',savedAt:'then'}];
     localStorage.setItem(STORAGE_KEY,JSON.stringify(S.savedJobs));})()`);
   await clearCanvas(page);

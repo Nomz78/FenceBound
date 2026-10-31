@@ -45,15 +45,24 @@ const pricingSnapshot = `JSON.stringify({costs:COST_DB,labor:LABOR,markup:MARKUP
   od:POST_OD_IN,embed:POST_EMBED_IN,specs:serializeRunSpecs(S.specs),
   provenance:_pricingFromLoadedProject,stored:localStorage.getItem(COSTDB_KEY)})`;
 
-test('MR2 JSON price import can be cancelled without changing borrowed prices or company card', async ({ page }) => {
-  await borrowedPrices(page);
-  const before = await state(page, pricingSnapshot);
+test('MR2 JSON price import with a quote open changes only the company card (REDO 6b)', async ({ page }) => {
+  await state(page, `(()=>{
+    COST_DB['chain link fabric']={cost:222,unit:'lf'};saveCostDB();
+    COST_DB['chain link fabric']={cost:111,unit:'coil'};LABOR.crewHourlyRate=777;
+    S.quote={frozenAt:'then',total:null,pricing:clonePricing()};_pricingFromLoadedProject=true;openCostEditor();
+  })()`);
+  const quote = await state(page, 'JSON.stringify(S.quote)');
+  expect(await state(page, `COST_DB['chain link fabric']`)).toEqual({ cost: 222, unit: 'lf' });
   let confirmations = 0;
   page.on('dialog', async dialog => { confirmations++; await dialog.dismiss(); });
   await upload(page, '#ce-import-file', { markup: { materialPct: 40 } });
-  await expect(page.locator('#ce-import-file')).toHaveValue('');
-  expect(await state(page, pricingSnapshot)).toBe(before);
-  expect(confirmations).toBe(1);
+  await expect(page.locator('#app-toast')).toContainText('Prices imported');
+  expect(await state(page, `JSON.parse(localStorage.getItem(COSTDB_KEY)).markup.materialPct`)).toBe(40);
+  await page.locator('#ce-cancel').click();
+  expect(confirmations).toBe(0);
+  expect(await state(page, 'JSON.stringify(S.quote)')).toBe(quote);
+  expect(await state(page, `COST_DB['chain link fabric']`)).toEqual({ cost: 111, unit: 'coil' });
+  expect(await state(page, `LABOR.crewHourlyRate`)).toBe(777);
 });
 
 test('MR3 partial JSON import merges onto company prices and uses company units for legacy numbers', async ({ page }) => {

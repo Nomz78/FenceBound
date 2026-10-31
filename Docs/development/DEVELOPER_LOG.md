@@ -1101,3 +1101,80 @@ closeout; their bytes match the previously reviewed repair checkpoint.
   plan PDF does not. Not in undo history.
 - **Tests:** `tests/site-underlay.spec.js` (5). Before (worktree at `344eedf`): 5 failed. After: 5/5.
   Full suite: 244/244 (4.5 min).
+- **Merge:** #47 merged by the owner (`gh pr merge` is blocked for the agent by the auto-mode classifier).
+- **Handoff (REDO r3 → r4):** `handoffs/CLAUDE-NEXT-redo4.md` on `feat/redo6-price-snapshot`. Next: 6b O-5 split.
+
+## 2026-10-30 — REDO r4: 6b O-5 price-snapshot design (Claude Code)
+
+Requirement (CLAUDE.md, v6.0): "A project carries a frozen quoted-price snapshot. The company rate card is a
+separate store. Loading a project never writes to the company rate card."
+
+**Today (`aa889b9`).** The live globals `COST_DB/LABOR/MARKUP/FOOTING/POST_OD_IN/POST_EMBED_IN` are both the
+rate card and the current job's prices. `snapshotState()` copies them into every job file; `applyState()`
+merges a job's copy over whatever is live and sets `_pricingFromLoadedProject` (the D-1 guard), which makes
+`saveCostDB()` refuse and makes five rate-card write paths (cost editor save/reset, CSV import, price-file
+import, backup restore) ask "These displayed prices came from the loaded project…". The two stores are one
+store with a guard flag.
+
+**Design (proposed; owner decisions below).**
+1. *Two stores.* Company rate card = `localStorage[COSTDB_KEY]` (else shipped defaults), unchanged format.
+   Project snapshot = new `quote` field in the job state:
+   `{frozenAt, pricing:{costs,labor,markup,footing,postODIn,postEmbedIn}, total}`, deep-cloned. The snapshot
+   holds *rates*, so a geometry edit to a quoted job reprices at the frozen rates; `total` records what was quoted.
+2. *Active pricing.* The globals stay as "prices in effect for the open job" (no rewrite of the 57 read
+   sites): `S.quote ? quote.pricing : company card`. `applyState()` builds them from the company card, then
+   the snapshot over it (never over whatever was live), and never calls `saveCostDB()`.
+3. *Rate-card edits.* The cost editor, CSV/price-file import and backup restore always operate on the company
+   card: with a quote open they swap the company card into the globals (`capturePricingState` /
+   `restorePricingState`), write it, and swap the quote back. The open job's prices do not change, so the five
+   "came from the loaded project" confirms go away; a toast says the job keeps its quoted prices.
+4. *Re-price.* An explicit "Re-price from rate card" action on a quoted job (confirm shows old → new total)
+   replaces the snapshot with the current card. Never automatic.
+5. *UI.* A quoted job shows "Quoted prices · <date>" by the estimate total; a draft shows "Rate card prices".
+6. *Undo.* `quote` rides in undo snapshots (deep clone, per the undo-label invariant pattern).
+7. *Pricing values* are never altered; only which store a number is read from.
+
+**Tests (red-before).** Replace T-P1/T-P2/T-P5/F1 flag assertions with stricter store assertions: loading any
+job leaves `COSTDB_KEY` byte-identical; cost-editor save with a quote open writes the card and leaves the
+estimate total unchanged; re-price adopts the card; legacy job files load per the owner's legacy choice;
+undo/redo restores `quote`; T10 isolation still holds.
+
+**Owner decisions (AskUserQuestion, 2026-10-30).**
+- Freeze point: **on Estimate PDF export.** Drafts price from the company card and follow its changes; the
+  export freezes the snapshot (and is where 6c's signature will be stored). Re-exporting a quoted job keeps
+  its snapshot.
+- Legacy job files (prices, no `quote`): **load as frozen quotes**, snapshot = their embedded prices,
+  `frozenAt` = their `savedAt`. Their totals on open are unchanged from today.
+- Cost editor with a quoted job open: **edits the company card only.** The job keeps its quoted prices; a
+  toast points to Re-price.
+
+**Implementation (6b), with corrections to the proposal above.**
+- `index.html`: `S.quote = null | {frozenAt, total, pricing}`. Helpers by the rate-card store:
+  `clonePricing`, `useCompanyRateCard` (defaults + saved card into the globals), `useQuotePricing`.
+  `_pricingFromLoadedProject` now means "the globals hold the open job's quote"; `saveCostDB()` still refuses
+  while it is true.
+- File format: `snapshotState()` adds `quote: {frozenAt,total} | null`. The frozen prices stay in the existing
+  top-level `costs…postEmbedIn` fields (no duplication); a draft's copies are not read back. `schemaVersion`
+  stays 3 (the acceptance suite pins it): `quote` present-but-null vs. absent tells a new draft from a
+  pre-split file.
+- `applyState()`: always starts from the company card (never from whatever was live), then lays a quote's
+  prices over it. Never writes the card.
+- Freeze: after a successful `exportEstimatePDF()` with pricing available. Later exports keep `frozenAt` and
+  the prices and update `total`.
+- Re-price (pricing tab, "Quoted prices · date" note): confirm shows old → new total; the job returns to being
+  a **draft** on the company card until its next estimate export. Clear also drops the quote.
+- Rate-card writes: the cost editor swaps the card in on open and the quote back on close, so its save, reset,
+  reload, CSV import and price-file import act on the card; their five "came from the loaded project" confirms
+  are removed. Backup restore swaps the same way.
+- Not in undo history (history holds drawings only; a job load clears it), so design point 6 is dropped. No
+  "Rate card prices" label for drafts; only quotes are labelled.
+- Known gap: the freeze reaches autosave immediately but a Saved Jobs record only on its next Save.
+- **Tests:** new `tests/price-snapshot.spec.js` (5). Before (worktree at `36ca3df`): 5 failed. After: 5/5.
+  Full suite: 249/249 (4.3 min). Rewritten for the two-store model: T-P1, F1, T-P5 (`persistence-integrity`), MR2 (`market-readiness-repairs`);
+  marked as quotes / pre-split files: T-P2, O4, job-state-isolation 2, IB2/IB4 (`input-boundary-validation`).
+  `fixture-168lf` "ratified footing parameters": a pre-split file without post sizes now fills them from the
+  company card (1.625) instead of unsaved live globals (3); expectation updated, deliberate.
+- **PR:** #48 (`20db9bf`), awaiting owner merge. Open question to owner: should the estimate export also write
+  the quote into the job's Saved Jobs record?
+- **Handoff (REDO r4 → r5):** `handoffs/CLAUDE-NEXT-redo5.md` on `feat/redo6-price-snapshot`. Next: merge #48,
+  the Saved Jobs question, then 6c signature pad on `feat/redo6-signature`.

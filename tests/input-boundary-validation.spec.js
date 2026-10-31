@@ -34,6 +34,7 @@ async function seedRun(page) {
 // Load a job built from the current state with the given overrides via applyState.
 const loadJobWith = overrides => `(()=>{
   const st=JSON.parse(JSON.stringify(snapshotState()));
+  delete st.quote;// a job file from before the REDO 6b split: its prices load as a quote
   Object.assign(st,${overrides});
   applyState(st);
   const P=computePricing(),v=validateProject({requireClient:false});

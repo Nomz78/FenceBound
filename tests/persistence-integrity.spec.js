@@ -107,40 +107,40 @@ async function editMarkupAndSave(page, value, onDialog) {
   await page.locator('#ce-save').click();
 }
 
-test('T-P1 loaded project pricing cannot silently replace the company rate card', async ({ page }) => {
+test('T-P1 a loaded quote keeps its prices while the cost editor writes the company rate card', async ({ page }) => {
   await cleanOpen(page);
   await seedRun(page, 'Historical Quote');
   await state(page, `COST_DB[${JSON.stringify(RATE_KEY)}].cost=111;MARKUP.materialPct=31`);
+  // REDO 6b: the estimate export freezes these prices into the job's quote.
+  await exportEstimateAndRead(page, 'tp1');
+  await state(page, `(()=>{const ov=document.getElementById('validation-overlay');if(ov)ov.style.display='none';})()`);
   await saveCurrentJob(page);
   // Cross a real persistence boundary so this case isolates D-1 from D-3's
   // save-side reference leak.
   await state(page, 'saveSession()');
   await page.reload();
-  page.once('dialog', dialog => dialog.accept());
+  const dialogs = [];
+  page.on('dialog', dialog => { dialogs.push(dialog.message()); dialog.dismiss(); });
   await state(page, 'openCostEditor()');
+  await expect(page.locator(`[data-cost="${RATE_KEY}"]`)).not.toHaveValue('111');
   await page.locator(`[data-cost="${RATE_KEY}"]`).fill('222');
   await page.locator('#ce-mat-markup').fill('42');
   await page.locator('#ce-save').click();
   await loadJob(page);
-
-  let warning = '';
-  await editMarkupAndSave(page, 32, dialog => {
-    warning = dialog.message();
-    dialog.dismiss();
-  });
+  await editMarkupAndSave(page, 32);
   const observed = await state(page, `({
-    live:COST_DB[${JSON.stringify(RATE_KEY)}].cost,
-    stored:JSON.parse(localStorage.getItem(COSTDB_KEY)).costs[${JSON.stringify(RATE_KEY)}].cost
+    live:COST_DB[${JSON.stringify(RATE_KEY)}].cost,liveMarkup:MARKUP.materialPct,
+    stored:JSON.parse(localStorage.getItem(COSTDB_KEY)).costs[${JSON.stringify(RATE_KEY)}].cost,
+    storedMarkup:JSON.parse(localStorage.getItem(COSTDB_KEY)).markup.materialPct
   })`);
-  console.log('D1_1A', JSON.stringify({ ...observed, warning }));
-  expect(observed.live).toBe(111);
-  expect(observed.stored).toBe(222);
-  expect(warning).toContain('company rate card');
+  expect(observed).toEqual({ live: 111, liveMarkup: 31, stored: 222, storedMarkup: 32 });
+  expect(dialogs).toEqual([]);
 
   await state(page, 'openCostEditor()');
-  await expect(page.locator('#ce-reload-rate-card')).toBeVisible();
   await page.locator('#ce-reload-rate-card').click();
-  expect(await state(page, `COST_DB[${JSON.stringify(RATE_KEY)}].cost`)).toBe(222);
+  await expect(page.locator(`[data-cost="${RATE_KEY}"]`)).toHaveValue('222');
+  await page.locator('#ce-cancel').click();
+  expect(await state(page, `COST_DB[${JSON.stringify(RATE_KEY)}].cost`)).toBe(111);
 });
 
 test('T-P2 autosave boot restore preserves the company store and project provenance', async ({ page }) => {
@@ -150,6 +150,7 @@ test('T-P2 autosave boot restore preserves the company store and project provena
   await state(page, `(()=>{
     const historical=snapshotState();
     historical.costs[${JSON.stringify(RATE_KEY)}]={...historical.costs[${JSON.stringify(RATE_KEY)}],cost:111};
+    delete historical.quote;// a job file from before the REDO 6b split loads as a quote
     applyState(historical);
     saveSession();
   })()`);
@@ -193,12 +194,13 @@ test('T-P4 cost-editor save reports a localStorage write failure', async ({ page
   await expect(page.locator('#cost-editor')).toBeVisible();
 });
 
-test('F1 failed deliberate pricing write preserves loaded-project provenance', async ({ page }) => {
+test('F1 a failed rate-card write with a quote open keeps the quote and the stored card', async ({ page }) => {
   await cleanOpen(page);
   await state(page, `COST_DB[${JSON.stringify(RATE_KEY)}].cost=222;saveCostDB()`);
   await state(page, `(()=>{
     const historical=snapshotState();
     historical.costs[${JSON.stringify(RATE_KEY)}].cost=111;
+    historical.quote={frozenAt:'then',total:null};
     applyState(historical);
     const original=Storage.prototype.setItem;
     window.__restoreRateCardWrite=()=>{Storage.prototype.setItem=original;};
@@ -207,42 +209,37 @@ test('F1 failed deliberate pricing write preserves loaded-project provenance', a
       return original.call(this,key,value);
     };
   })()`);
-
-  let firstConfirmation = '';
-  await editMarkupAndSave(page, 41, dialog => {
-    firstConfirmation = dialog.message();
-    dialog.accept();
-  });
-  const afterFailure = await state(page, `({
+  const dialogs = [];
+  page.on('dialog', dialog => { dialogs.push(dialog.message()); dialog.dismiss(); });
+  await editMarkupAndSave(page, 41);
+  await expect(page.locator('#app-toast')).toContainText('Save failed — storage full or blocked');
+  await page.locator('#ce-cancel').click();
+  expect(await state(page, `({
+    live:COST_DB[${JSON.stringify(RATE_KEY)}].cost,
     stored:JSON.parse(localStorage.getItem(COSTDB_KEY)).costs[${JSON.stringify(RATE_KEY)}].cost,
     provenance:_pricingFromLoadedProject
-  })`);
+  })`)).toEqual({ live: 111, stored: 222, provenance: true });
 
   await state(page, '__restoreRateCardWrite()');
-  let nextConfirmation = '';
-  await editMarkupAndSave(page, 42, dialog => {
-    nextConfirmation = dialog.message();
-    dialog.dismiss();
-  });
-
-  expect(firstConfirmation).toContain('company rate card');
-  expect(afterFailure).toEqual({ stored: 222, provenance: true });
-  expect(nextConfirmation).toContain('company rate card');
-  expect(await state(page, `JSON.parse(localStorage.getItem(COSTDB_KEY)).costs[${JSON.stringify(RATE_KEY)}].cost`)).toBe(222);
+  await editMarkupAndSave(page, 42);
+  expect(await state(page, `JSON.parse(localStorage.getItem(COSTDB_KEY)).markup.materialPct`)).toBe(42);
+  expect(await state(page, `COST_DB[${JSON.stringify(RATE_KEY)}].cost`)).toBe(111);
+  expect(dialogs).toEqual([]);
 });
 
-test('T-P5 pricing provenance clears when applied state contains no pricing', async ({ page }) => {
+test('T-P5 only a quote or a pre-split priced file loads as quoted prices', async ({ page }) => {
   await cleanOpen(page);
   const observed = await state(page, `(()=>{
-    const priced=snapshotState();
-    applyState(priced);
-    const afterPriced=_pricingFromLoadedProject;
-    const withoutPricing=JSON.parse(JSON.stringify(priced));
-    delete withoutPricing.costs;delete withoutPricing.labor;delete withoutPricing.markup;
-    applyState(withoutPricing);
-    return {afterPriced,afterWithoutPricing:_pricingFromLoadedProject};
+    const priced=JSON.parse(JSON.stringify(snapshotState()));
+    applyState(priced);const draft=_pricingFromLoadedProject;
+    applyState({...priced,quote:{frozenAt:'then'}});const quoted=_pricingFromLoadedProject;
+    const legacy={...priced};delete legacy.quote;
+    applyState(legacy);const afterLegacy=_pricingFromLoadedProject;
+    delete legacy.costs;delete legacy.labor;delete legacy.markup;
+    applyState(legacy);
+    return {draft,quoted,afterLegacy,afterWithoutPricing:_pricingFromLoadedProject};
   })()`);
-  expect(observed).toEqual({ afterPriced: true, afterWithoutPricing: false });
+  expect(observed).toEqual({ draft: false, quoted: true, afterLegacy: true, afterWithoutPricing: false });
 });
 
 test('T-P6 rate-card reload distinguishes missing and corrupt storage', async ({ page }) => {
