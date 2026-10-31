@@ -1289,3 +1289,10 @@ undo/redo restores `quote`; T10 isolation still holds.
 - Owner product input: owners quote from types, footage, equipment and crew; the drawing comes last, for the
   foreman. Labor is priced per foot, crew × days or multiplier; equipment itemized until rates are familiar.
   Next: quote-without-a-drawing design (Claude) and footage takeoff survey (Codex, `CODEX-NEXT-footage-survey1`).
+- Codex footage survey (`handoffs/CODEX-RESULT-footage-survey1.md`, committed "Implemented by Codex"): typed
+  totals don't fix the BOM (gate position and side split change posts, rails, pickets). Spot-checked: fence
+  elements are `type:'fence'`; line posts are counted from stored auto-post elements.
+- Design: `Docs/planning/QUICK_QUOTE_DESIGN_2026-10-31.md` (typed sides build a schematic layout priced by the
+  unchanged takeoff; `layout: 'typed'` banner/PDF/warning; equipment and crew × days need owner rulings). Ranking
+  #2 now points to it. No code changed.
+- Handoff (duo r1 → r2): `handoffs/CLAUDE-NEXT-duo2.md` on `docs/quick-quote1` (PR #53).
