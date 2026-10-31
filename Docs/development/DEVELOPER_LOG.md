@@ -1372,3 +1372,32 @@ undo/redo restores `quote`; T10 isolation still holds.
   `npx playwright test` 277/277, matrix 12/12, `git diff --check` clean. Pricing untouched.
 - F13 (Codex) not started: `/tmp/duo/f13-gate1.log` absent; the owner's launch printed the old qq-parity1 result
   and `stdin is not a terminal`.
+
+## 2026-10-31 — F13: retain gate install labor under hours override (Codex)
+
+- Owner ruling, as supplied by coordinator handoff `handoffs/CODEX-NEXT-f13-gate1.md` (duo r2):
+  hours-based labor still adds the per-gate install fee. This ruling was not already in this branch's log;
+  the supplied handoff is the provenance. It also records that `crewHourlyRate` is per person-hour;
+  crew × days belongs to quick quote Q2. No hours relabelling is part of this repair.
+- `index.html` `computePricing`: moved existing gate-install labor and owning-run section allocation
+  outside the per-LF `else`. Hours still replace per-LF labor; gate labor now applies in both modes.
+  No pricing values changed.
+- New `tests/f13-hours-gate-labor.spec.js`: one run and one walk gate at 0.5 hours; checks Crew labor and
+  Walk Gate install lines, exact crew-plus-gate labor cents, and the owning section's material/labor total.
+  Red before: 1 failed (missing Walk Gate install). Green after: 1 passed.
+- Full gate on the uncommitted working tree over `f4ece25be17ea5e9ba951212246b9735158222b1`, 2026-10-31:
+  `npx playwright test` 258/258 passed (4.2m); `node scripts/cad-persistence-matrix.js` 12/12 passed;
+  `git diff --check` clean. No existing tests needed old-drop expectation changes.
+  Logs: `/tmp/f13-gate1-{red,green,playwright,matrix}.log`.
+- F13 empty-drawing hours total with no PDF lines remains out of scope. No release, dependency or scope change.
+- Startup drift: requested branch/base match; tracked state and current handoff still record main at
+  `56c5d9f`, local origin/main is five commits ahead, and supplied NEXT handoff was initially untracked.
+  Runtime/schema verified 5.4.0/3. Owner requested uncommitted changes; coordinator owns commits and normal
+  state/handoff closeout. Result: `handoffs/CODEX-RESULT-f13-gate1.md` (F13 repair, round 1).
+
+### 2026-10-31 — F13 review and closeout (Claude Code, duo r3)
+
+- Reviewed Codex `f13-gate1`: the gate-install block moved unchanged out of the per-LF branch; no rate values
+  changed. Applied onto `main` `8009553` (log entry conflict only, both kept). Red on `main` (no "Walk Gate
+  install" line) → green. Gate: `npx playwright test` 278/278, matrix 12/12. Handoff duo r3 → r4:
+  `handoffs/CLAUDE-NEXT-duo4.md`.
