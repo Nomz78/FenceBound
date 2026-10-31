@@ -159,3 +159,28 @@ test('backup restore with a quote open writes the rate card and keeps the quote'
   expect(await live(page)).toBe(2.22);
   expect(await state(page, '_pricingFromLoadedProject')).toBe(true);
 });
+
+test('estimate export writes the quote into the job\'s Saved Jobs record, and only the quote', async ({ page }) => {
+  await cleanOpen(page);
+  await setCard(page, 2.22);
+  await page.reload();
+  await seedRun(page);
+  await state(page, 'S.showJobs=true;updateDrawers()');
+  await page.locator('#do-save').click();
+  // An edit made after Save must not reach the record through the export.
+  await state(page, `S.elements.push({...S.elements[0],start:{x:0,y:100},end:{x:400,y:100},runId:'run_unsaved'});draw()`);
+  await exportEstimate(page);
+  const rec = await state(page, `(()=>{const j=JSON.parse(localStorage.getItem(STORAGE_KEY)).find(r=>r.id===S.jobId);
+    return {quote:j.quote,elements:j.elements.length,live:S.savedJobs.find(r=>r.id===S.jobId).quote};})()`);
+  const quote = await state(page, 'S.quote');
+  expect(rec.quote).toEqual(quote);
+  expect(rec.live).toEqual(quote);
+  expect(rec.elements).toBe(1);
+  expect(await state(page, 'S.savedJobs.find(r=>r.id===S.jobId).quote===S.quote')).toBe(false);
+
+  // A job that was never saved gets no record from an export.
+  await cleanOpen(page);
+  await seedRun(page);
+  await exportEstimate(page);
+  expect(await state(page, 'localStorage.getItem(STORAGE_KEY)')).toBeNull();
+});

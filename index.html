@@ -5440,6 +5440,14 @@ function exportEstimatePDF(){
   if(!pricingUnavailable){
     S.quote={frozenAt:S.quote?S.quote.frozenAt:new Date().toISOString(),total:P.clientTotal,pricing:S.quote?S.quote.pricing:clonePricing()};
     _pricingFromLoadedProject=true;
+    // Owner, REDO r5: the job's Saved Jobs record carries the quote at once.
+    // Only the quote is written; other unsaved edits wait for Save.
+    const rec=S.jobId!=null&&S.savedJobs.find(j=>j&&j.id===S.jobId);
+    if(rec){
+      const prev=rec.quote;rec.quote=JSON.parse(JSON.stringify(S.quote));
+      try{localStorage.setItem(STORAGE_KEY,JSON.stringify(S.savedJobs));}
+      catch(err){rec.quote=prev;showToast('Quote not written to Saved Jobs — storage full or blocked',true);}
+    }
     updatePricing();scheduleAutosave();
   }
 }
