@@ -15,7 +15,7 @@ Status: **recommendation for owner decision.** Nothing here is authorized by bei
 | # | Track | Why here | Size |
 |---|---|---|---|
 | 1 | **Field capture P1–P2** (`FIELD_CAPTURE_DESIGN_2026-10-31.md`): day log with run taps, materials per estimate line, save-failure flag | Starts the data clock; every later pricing improvement depends on it | 2 PRs |
-| 2 | **Time-to-quote pass**: measure taps/seconds from a blank job to the estimate PDF on the phone, then fix the slowest steps. Candidates already recorded: typed dimensions/angles, shared corners, house-wall termination, equal bays; job templates (last job's specs) | The edge the owner named. Measure first so fixes are chosen by evidence | measure 1 session, fixes 1–3 PRs |
+| 2 | **Quick quote** (`QUICK_QUOTE_DESIGN_2026-10-31.md`, owner input 2026-10-31): typed sides build a schematic layout priced by the existing takeoff; then equipment lines and crew × days labor; the drawing comes last, for the foreman. Replaces the earlier "time-to-quote pass": owners quote before they draw | The edge the owner named; joint first with #1 | Q1 1 PR + parity tests; Q2 after rulings |
 | 3 | **CAD audit reconciliation**: reproduce the 11 historical CAD items (T-junction duplicate posts, preview post counts, zoom anchor, Move touch undo…) and close or repair each | Wrong post counts are wrong money; also feeds #2 | 1 audit + repairs |
 | 4 | **F13 hours override drops gate labor**: owner ruling, then a defect repair if confirmed | Field data will make hours-based labor more common, so this edge case becomes common | small |
 | 5 | **Field capture P3–P4**: job report, "Your numbers" | Only useful once a few jobs are logged; build them while that data comes in | 2 PRs |
