@@ -1295,3 +1295,4 @@ undo/redo restores `quote`; T10 isolation still holds.
 - Design: `Docs/planning/QUICK_QUOTE_DESIGN_2026-10-31.md` (typed sides build a schematic layout priced by the
   unchanged takeoff; `layout: 'typed'` banner/PDF/warning; equipment and crew × days need owner rulings). Ranking
   #2 now points to it. No code changed.
+- Handoff (duo r1 → r2): `handoffs/CLAUDE-NEXT-duo2.md` on `docs/quick-quote1` (PR #53).
