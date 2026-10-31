@@ -1261,3 +1261,9 @@ undo/redo restores `quote`; T10 isolation still holds.
   corrected. Matrix 12/12. Lesson: run `node scripts/cad-persistence-matrix.js` with any pricing or persistence
   change.
 - CLAUDE.md now lists no open integrity defect from the 2026-08-01 handoff.
+
+## 2026-10-31 — Handoff to the duo (Claude Code)
+
+- #50 merged (`eddb986`). Owner: hand off to a session that uses both Claude Code and Codex; tethering
+  problems slowed this session. Handoff: `handoffs/CLAUDE-NEXT-duo1.md` on `docs/duo-handoff1`. No next track
+  authorized yet.
