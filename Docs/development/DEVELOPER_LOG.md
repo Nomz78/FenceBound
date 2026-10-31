@@ -1224,3 +1224,18 @@ undo/redo restores `quote`; T10 isolation still holds.
    refused when the total changed since export; Re-price and Clear drop it; a changed job's export drops it;
    `applyState` drops a non-PNG, oversized or nameless signature; the signed export calls `addImage` with the
    PNG.
+
+### 6c implementation notes
+
+- As designed, with one addition: signing and **Remove signature** also write the quote to the job's Saved Jobs
+  record. The r5 write moved into `writeQuoteToSavedJob()` (export, sign, remove). A signature is part of the
+  quote the owner wanted in the record at once. Re-price and Clear still wait for Save, as in 6b.
+- `exportEstimatePDF` checks the signature against `P.clientTotal` before drawing (tolerance $0.005) and
+  passes it into the freeze block, so the quote keeps it across exports. With pricing unavailable it is
+  neither drawn nor dropped.
+- Tests click `#btn-sign` through the DOM: the quote note is in the pricing panel, off screen at the test
+  viewport (same as the 6b Re-price tests).
+- Red before: all 5 `tests/signature.spec.js` tests fail on the missing `#btn-sign`. Green after; full suite
+  255/255. Visual check: rendered the pad and a signed estimate (pdftoppm). The signature, date and name sit
+  over their lines, and the "Signed electronically" line comes after Printed Name.
+- **Handoff (REDO r5 → r6):** `handoffs/CLAUDE-NEXT-redo6.md`.
