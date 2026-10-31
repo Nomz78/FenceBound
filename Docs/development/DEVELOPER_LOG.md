@@ -1239,3 +1239,25 @@ undo/redo restores `quote`; T10 isolation still holds.
   255/255. Visual check: rendered the pad and a signed estimate (pdftoppm). The signature, date and name sit
   over their lines, and the "Signed electronically" line comes after Printed Name.
 - **Handoff (REDO r5 → r6):** `handoffs/CLAUDE-NEXT-redo6.md`.
+
+## 2026-10-30 — REDO r5 (cont.): import atomicity check, CLAUDE.md correction (Claude Code)
+
+- #49 (6c) merged by the owner (`7cc2ac0`).
+- Owner asked to fix "failed portable import is not atomic". Finding: already repaired on 2026-10-15
+  (market-readiness repairs, MR5); CLAUDE.md still listed it. No code change, since no test can fail first.
+- Owner approved: (1) CLAUDE.md Known defects corrected; (2) MR5 extended with a quoted, signed job open (render
+  and storage failures). That is coverage, not a repair: it passes on the current runtime, 17/17 in the spec.
+- Next: matrix route 10 / migrated-job pricing.
+- **Matrix route 10 (owner: "then route 10").** Unknown legacy types were already repaired (`4813e49`,
+  2026-10-15: reported, never FINAL-READY). The gap left was coverage. Route 10 now prices the migrated legacy
+  job and requires it to equal the same job in the current schema (total, material lines and unit costs, labor
+  lines), every line costed, no unknown/unsupported/unit-mismatch. It also loads a legacy run with an unknown
+  type and requires `unsupportedTypes`, `FENCE_TYPE` and not FINAL-READY. Mutation check: switching off
+  `unsupportedTypes` fails route 10 with "unknown legacy type priced silently".
+- **Matrix had been red since 6b (`20db9bf`).** 6b ran only the Playwright suite; `36ca3df` passes 12/12 and
+  `20db9bf` fails route 3. The matrix expectations predated the O-5 split; no runtime defect. Route 3 now
+  checks both 6b cases (a draft follows the card edit, a quoted job keeps its price, the card is never written
+  by a load). Route 5's "old job" now drops `quote` so it is a true pre-split file. Route 4's result text is
+  corrected. Matrix 12/12. Lesson: run `node scripts/cad-persistence-matrix.js` with any pricing or persistence
+  change.
+- CLAUDE.md now lists no open integrity defect from the 2026-08-01 handoff.

@@ -115,13 +115,27 @@ async function run() {
     invariant(sameProject(record), 'route 2 re-load retained live edit');
     results.push({ route: 2, name: 'Save → Load → edit → Load', status: 'pass', differences: [{ classification: 'changed', detail: 'unsaved extra run discarded as expected' }] });
 
+    // O-5 split (REDO 6b): a draft prices from the company card; a quoted job
+    // (frozen at its first estimate export) keeps its prices. Loading never
+    // writes the card.
+    const cardCost = () => evaluate(`JSON.parse(localStorage.getItem(COSTDB_KEY)).costs[${JSON.stringify(RATE_KEY)}].cost`);
+    const editCard = () => evaluate(`(()=>{const d=JSON.parse(localStorage.getItem(COSTDB_KEY));d.costs[${JSON.stringify(RATE_KEY)}].cost=444;
+      localStorage.setItem(COSTDB_KEY,JSON.stringify(d));})()`);
     await restore();
     await saveJob();
-    await evaluate(`COST_DB[${JSON.stringify(RATE_KEY)}].cost=444;_pricingFromLoadedProject=false;saveCostDB()`);
+    await editCard();
     await loadJob();
-    invariant((await evaluate(`COST_DB[${JSON.stringify(RATE_KEY)}].cost`)) === baselineCompany[RATE_KEY].cost, 'route 3 job pricing not restored');
-    invariant((await evaluate(`JSON.parse(localStorage.getItem(COSTDB_KEY)).costs[${JSON.stringify(RATE_KEY)}].cost`)) === 444, 'route 3 company card changed by load');
-    results.push({ route: 3, name: 'Save → cost edit → Load', status: 'pass', differences: [{ classification: 'changed', detail: 'company card deliberately changed to 444; loaded project retained quoted price' }] });
+    invariant((await evaluate(`S.quote===null&&COST_DB[${JSON.stringify(RATE_KEY)}].cost`)) === 444, 'route 3 draft did not price from the company card');
+    invariant((await cardCost()) === 444, 'route 3 company card changed by draft load');
+    await restore();
+    // Same freeze as exportEstimatePDF, without the PDF.
+    await evaluate(`S.quote={frozenAt:new Date().toISOString(),total:computePricing().clientTotal,pricing:clonePricing()};_pricingFromLoadedProject=true`);
+    await saveJob();
+    await editCard();
+    await loadJob();
+    invariant((await evaluate(`!!S.quote&&COST_DB[${JSON.stringify(RATE_KEY)}].cost`)) === baselineCompany[RATE_KEY].cost, 'route 3 quoted job pricing not restored');
+    invariant((await cardCost()) === 444, 'route 3 company card changed by quoted load');
+    results.push({ route: 3, name: 'Save → cost edit → Load', status: 'pass', differences: [{ classification: 'changed', detail: 'company card deliberately changed to 444; a draft follows it, a quoted job keeps its quoted price (6b)' }] });
 
     await restore();
     await saveJob();
@@ -132,11 +146,12 @@ async function run() {
     await page.locator('#ce-mat-markup').fill('41');
     await page.locator('#ce-save').click();
     invariant((await evaluate(`JSON.parse(localStorage.getItem(COSTDB_KEY)).costs[${JSON.stringify(RATE_KEY)}].cost`)) === 222, 'route 4 company card overwritten');
-    results.push({ route: 4, name: 'old job → editor save → company card', status: 'pass', differences: [{ classification: 'changed', detail: 'save canceled by explicit provenance warning; company card remained 222' }] });
+    results.push({ route: 4, name: 'old job → editor save → company card', status: 'pass', differences: [{ classification: 'changed', detail: 'saved job loads as a draft priced from the card (6b); markup-only editor save left the card cost at 222' }] });
 
     await restore();
     await evaluate(`COST_DB[${JSON.stringify(RATE_KEY)}].cost=222;saveCostDB();
-      const old=${JSON.stringify(baseline)};old.costs[${JSON.stringify(RATE_KEY)}].cost=111;applyState(old);saveSession()`);
+      const old=${JSON.stringify(baseline)};delete old.quote;// pre-split file: loads as a quote (6b)
+      old.costs[${JSON.stringify(RATE_KEY)}].cost=111;applyState(old);saveSession()`);
     await page.reload();
     invariant((await evaluate(`COST_DB[${JSON.stringify(RATE_KEY)}].cost`)) === 111, 'route 5 project pricing not restored');
     invariant((await evaluate(`JSON.parse(localStorage.getItem(COSTDB_KEY)).costs[${JSON.stringify(RATE_KEY)}].cost`)) === 222, 'route 5 company card overwritten');
@@ -185,7 +200,43 @@ async function run() {
       addons:S.elements.filter(x=>x.type==='fence').every(x=>x.specs.addons instanceof Set)
     })`);
     invariant(migrated.runIds && migrated.gateOwners && migrated.addons, 'route 10 migration incomplete');
-    results.push({ route: 10, name: 'legacy schema/run/gate migration', status: 'pass', differences: [{ classification: 'changed', detail: 'missing run IDs and gate ownership migrated; add-ons hydrated to Set' }] });
+    // Migrated pricing (2026-08-01 handoff gap): the migrated legacy job must
+    // price exactly like the same job saved in the current schema, with every
+    // line costed. A pre-split file has no `quote` key, so it loads as a quote
+    // carrying its embedded prices (6b); those equal the card here.
+    const pricingRecord = `(()=>{const P=computePricing();return JSON.stringify({total:P.clientTotal,
+      materials:P.matLines.map(m=>[m.name,m.qty,m.unitCost]),labor:P.laborLines.map(l=>[l.label,l.extC]),
+      unknown:P.unknown,unsupported:P.unsupportedTypes,unitMismatch:P.unitMismatch});})()`;
+    await evaluate(`(()=>{
+      const legacy=${JSON.stringify(baseline)};
+      legacy.schemaVersion=1;delete legacy.quote;
+      legacy.elements.forEach(el=>{delete el.runId;if(el.specs)el.specs.addons=['top-wire','barbed-wire'];});
+      applyState(JSON.parse(JSON.stringify(legacy)));
+    })()`);
+    const migratedPricing = JSON.parse(await evaluate(pricingRecord));
+    await evaluate(`(()=>{
+      const current=${JSON.stringify(baseline)};
+      current.elements.forEach(el=>{if(el.specs)el.specs.addons=['top-wire','barbed-wire'];});
+      applyState(JSON.parse(JSON.stringify(current)));
+    })()`);
+    const currentPricing = JSON.parse(await evaluate(pricingRecord));
+    invariant(JSON.stringify(migratedPricing) === JSON.stringify(currentPricing), 'route 10 migrated pricing differs from the current schema');
+    invariant(migratedPricing.total > 0 && migratedPricing.materials.every(m => m[2] > 0) &&
+      !migratedPricing.unknown.length && !migratedPricing.unsupported.length && !migratedPricing.unitMismatch.length,
+      'route 10 migrated pricing is incomplete');
+    // An unknown legacy type is never priced silently: it is reported, and the job is not FINAL-READY.
+    const unknownType = await evaluate(`(()=>{
+      const legacy=${JSON.stringify(baseline)};
+      legacy.schemaVersion=1;delete legacy.quote;
+      legacy.elements.forEach(el=>{delete el.runId;});
+      legacy.elements[0].fenceType='retired-style';
+      applyState(JSON.parse(JSON.stringify(legacy)));
+      const P=computePricing();
+      return {unsupported:P.unsupportedTypes,final:P.isFinalReady,errors:validateProject().errors.map(x=>x.code)};
+    })()`);
+    invariant(unknownType.unsupported.includes('retired-style') && unknownType.final === false &&
+      unknownType.errors.includes('FENCE_TYPE'), 'route 10 unknown legacy type priced silently');
+    results.push({ route: 10, name: 'legacy schema/run/gate migration and pricing', status: 'pass', differences: [{ classification: 'changed', detail: 'missing run IDs and gate ownership migrated; add-ons hydrated to Set; migrated pricing equals the current schema; unknown type reported' }] });
 
     await restore();
     await saveJob(); await loadJob();

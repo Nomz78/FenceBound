@@ -48,10 +48,13 @@ Phase 1 remediation audit found no unguarded provenance caller and no persisted
 Set outside `specs`/`runSpecs`; R1 and R2 were predictions, not defects. Do not
 restate them as confirmed findings.
 
-Manual `S.materials` pricing was repaired after `8836b61`. Remaining integrity
-defects: failed portable import is not atomic; matrix route 10 does not price
-migrated jobs and unknown legacy types can produce incomplete/zero pricing. See
-the 2026-08-01 persistence handoff.
+Manual `S.materials` pricing was repaired after `8836b61`. Failed portable
+import was made atomic on 2026-10-15 (developer log, market-readiness repairs;
+MR5 tests in `tests/market-readiness-repairs.spec.js`, extended to quoted jobs
+in REDO r5). Unknown legacy fence types are reported (`FENCE_TYPE`,
+`unsupportedTypes`) and never FINAL-READY since `4813e49` (2026-10-15). Matrix
+route 10 prices migrated jobs against the current schema since REDO r5. No
+integrity defect from the 2026-08-01 persistence handoff remains open.
 
 FenceScraper public-market evidence is deferred in favor of field data capture.
 Preserve its context and accepted statewide/regional design; resume only under
