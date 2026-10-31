@@ -1309,3 +1309,38 @@ undo/redo restores `quote`; T10 isolation still holds.
   Two-track limit: track 1 = quick quote Q1/Q1t; track 2 = F13 repair, then field capture P1.
 - Codex job `qq-parity1`: `handoffs/CODEX-NEXT-qq-parity1.md` (contract `buildTypedLayout`), worktree on
   `codex/qq-parity1` off `f4ece25`; owner launches `bash /tmp/duo/qq-parity1.run`.
+
+## 2026-10-31 — Quick quote Q1t parity tests (Codex, uncommitted)
+
+- Owner-authorized scope: Q1t test work from `handoffs/CODEX-NEXT-qq-parity1.md`; no `index.html`
+  edits, only the new spec run, leave changes uncommitted for coordinator attribution "Implemented by Codex".
+- Added `tests/quick-quote-parity.spec.js`: survey U/offset walk gate, chainlink L, closed rectangle/centered
+  double gate, flush end gate, mixed side types/heights; oversized-gate rejection preserves populated elements.
+- Drawn oracle uses explicit coordinates and the drawing UI spec path (`selectFenceType`, height assignment,
+  `applyHeightDrivenSpecs`, `updateSpecsForFenceType`, `cloneRunSpecs`); gates attached and auto posts rebuilt.
+  Compare normalized BOM, priced quantities, full labor lines, all money cents and section allocations.
+- Scoped red run at `f4ece25` on `codex/qq-parity1`: 6 failed, all `buildTypedLayout is not defined`,
+  after successful drawn setup. Log `/tmp/fencebound-qq-parity1.log`; syntax and `git diff --check` PASS.
+  Existing suite/matrix not run per owner; coordinator implements Q1 and verifies green.
+- State docs report an older main/head; audited intervening changes as documentation only, canonical runtime
+  unchanged. Global initiate-repo skill unavailable. Owner's scoped handoff supersedes routine closeout.
+- Result and contract choices: `handoffs/CODEX-RESULT-qq-parity1.md`. Closed fixture supplies all four sides;
+  U uses required drawing defaults rather than the survey's illustrative hardcoded post/rail specification.
+- Coordinator review of Codex Q1t: fixture `gateType:'double'` is not a gate type (`doubledrive`); corrected in
+  both paths. The flag is read as `jobLayout()`, not `S.layout` (contract drift, see Q1 entry).
+
+### 2026-10-31 — Quick quote Q1 (Claude Code)
+
+- `index.html`: `buildTypedLayout(spec)` lays typed sides out at right angles (east, south, west, north),
+  completes a closed loop when one side closes it at a right angle, places gates by side/offset (centered by
+  default) with `attachGateToRun`, and rebuilds auto posts per run; specs follow the drawing tool's path
+  (`selectFenceType`, then height). Validation is up front: bad sides, unknown types, gates that don't fit or
+  overlap, or an unclosable loop return `ok:false` with nothing changed. Undoable (`pushHistory`).
+- Layout flag: typed runs carry `schematic:true`; `jobLayout()` is `'typed'` while every run has it. It rides
+  with the elements through save, load and undo, so no new persisted field. Brief said `S.layout`; a derived
+  value avoided a second store that import/undo/clear would each need to sync. First geometry edit (draw a
+  run or gate, move, delete) calls `markLayoutDrawn()`.
+- UI: Job drawer "Quick quote — typed sides" form; canvas banner "Typed footage — not to scale"; plan PDF title
+  block "SCHEMATIC — NOT TO SCALE"; validation warning `LAYOUT_TYPED` (warning, not a block).
+- Tests: `tests/quick-quote.spec.js` 5 red (`buildTypedLayout is not defined`) → green; Codex parity 6 red →
+  green. Gate: `npx playwright test` 268/268, matrix 12/12, `git diff --check` clean. Pricing untouched.
