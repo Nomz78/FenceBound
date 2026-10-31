@@ -3,10 +3,10 @@
 ## Current state
 
 - `main` `8009553`: #54 quick quote Q1 + Q1t and #55 **field capture P1** (`cb226a7`) merged.
-- Open: **F13 PR** on `fix/f13-hours-gate-labor` (Implemented by Codex, reviewed by Claude Code): hours-based
+- Open: **#56** F13 on `fix/f13-hours-gate-labor` (Implemented by Codex, reviewed by Claude Code): hours-based
   labor keeps the per-gate install fee and its owning-section allocation (`computePricing`, gate block moved
   out of the per-LF branch, no rate values changed). Red on `main` (no "Walk Gate install" line) → green;
-  gate figures in the PR body. Owner merges: `! gh pr merge <n> --merge`.
+  gate figures in the PR body. Owner merges: `! gh pr merge 56 --merge`.
 - Authorizations used up: field capture P1 and F13 are done. **Nothing further is authorized.** Candidates for
   the owner: field capture **P2** (materials actuals per estimate line, design §4/§6), the Q1 leftovers below,
   F13 bullet 3 (hours-only total on an empty drawing, no PDF lines; Codex result "Open").
