@@ -1344,3 +1344,5 @@ undo/redo restores `quote`; T10 isolation still holds.
   block "SCHEMATIC — NOT TO SCALE"; validation warning `LAYOUT_TYPED` (warning, not a block).
 - Tests: `tests/quick-quote.spec.js` 5 red (`buildTypedLayout is not defined`) → green; Codex parity 6 red →
   green. Gate: `npx playwright test` 268/268, matrix 12/12, `git diff --check` clean. Pricing untouched.
+- PR #54 opened. Codex job `f13-gate1` briefed (`handoffs/CODEX-NEXT-f13-gate1.md`, worktree `codex/f13-gate1`).
+  Handoff duo r2 → r3: `handoffs/CLAUDE-NEXT-duo3.md` (next: field capture P1, F13 review).
