@@ -1296,3 +1296,16 @@ undo/redo restores `quote`; T10 isolation still holds.
   unchanged takeoff; `layout: 'typed'` banner/PDF/warning; equipment and crew × days need owner rulings). Ranking
   #2 now points to it. No code changed.
 - Handoff (duo r1 → r2): `handoffs/CLAUDE-NEXT-duo2.md` on `docs/quick-quote1` (PR #53).
+
+### 2026-10-31 — duo r2 (Claude Code coordinator)
+
+- PR #53 merged by owner request (`main` `f4ece25`).
+- **Owner rulings (2026-10-31):** quick quote Q1 typed sides build a schematic layout (not one LF total per
+  type); Q2 `crewHourlyRate` is **per person-hour**; Q3 equipment lines get **their own markup**; Q4/F13
+  hours-based labor **still adds the per-gate install fee** (confirms F13 as a defect). Field capture Q1-Q3
+  **all as designed**: the drawing is the timesheet (run taps), two stages per run (posts set, finished),
+  "Your numbers" panel inside the rate-card editor.
+- **Authorized:** quick quote Q1 (Claude) + Q1t parity tests (Codex), F13 gate-fee repair, field capture P1.
+  Two-track limit: track 1 = quick quote Q1/Q1t; track 2 = F13 repair, then field capture P1.
+- Codex job `qq-parity1`: `handoffs/CODEX-NEXT-qq-parity1.md` (contract `buildTypedLayout`), worktree on
+  `codex/qq-parity1` off `f4ece25`; owner launches `bash /tmp/duo/qq-parity1.run`.
