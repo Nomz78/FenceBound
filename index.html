@@ -4673,17 +4673,17 @@ function computePricing(){
       const extC=centsOf(r,ft); laborCostC+=extC; laborBySecC[type]=(laborBySecC[type]||0)+extC;
       laborLines.push({label:`${(FENCE_TYPES[type]||{}).label||type} labor (${ft.toFixed(0)} LF × $${r})`,ext:dollars(extC),extC});
     });
-    const gateUnitC={};
-    Object.entries(stats.gates||{}).forEach(([gt,cnt])=>{
-      if(!cnt)return; const r=LABOR.gate[gt]!==undefined&&LABOR.gate[gt]!==null?rate(LABOR.gate[gt],`Gate labor for ${(GATE_TYPES[gt]||{}).label||gt}`):0; const extC=toCents(r)*cnt; laborCostC+=extC; gateUnitC[gt]=toCents(r);
-      if(extC)laborLines.push({label:`${(GATE_TYPES[gt]||{}).label||gt} install (${cnt} × $${r})`,ext:dollars(extC),extC});
-    });
-    // Gate install labor belongs to the gate's owning run (stats.gates counts only owned gates).
-    S.elements.filter(el=>el.type==='gate').forEach(gate=>{
-      const owner=gateOwnerRun(gate); if(!owner)return;
-      const c=gateUnitC[gate.gateType||'walk']||0; if(c)laborBySecC[owner.fenceType]=(laborBySecC[owner.fenceType]||0)+c;
-    });
   }
+  const gateUnitC={};
+  Object.entries(stats.gates||{}).forEach(([gt,cnt])=>{
+    if(!cnt)return; const r=LABOR.gate[gt]!==undefined&&LABOR.gate[gt]!==null?rate(LABOR.gate[gt],`Gate labor for ${(GATE_TYPES[gt]||{}).label||gt}`):0; const extC=toCents(r)*cnt; laborCostC+=extC; gateUnitC[gt]=toCents(r);
+    if(extC)laborLines.push({label:`${(GATE_TYPES[gt]||{}).label||gt} install (${cnt} × $${r})`,ext:dollars(extC),extC});
+  });
+  // Gate install labor belongs to the gate's owning run (stats.gates counts only owned gates).
+  S.elements.filter(el=>el.type==='gate').forEach(gate=>{
+    const owner=gateOwnerRun(gate); if(!owner)return;
+    const c=gateUnitC[gate.gateType||'walk']||0; if(c)laborBySecC[owner.fenceType]=(laborBySecC[owner.fenceType]||0)+c;
+  });
 
   // ── 3. SITE UPCHARGES — applied to COST (they raise your real cost) ──
   let totalFt=stats.totalFt||0;
