@@ -1346,3 +1346,29 @@ undo/redo restores `quote`; T10 isolation still holds.
   green. Gate: `npx playwright test` 268/268, matrix 12/12, `git diff --check` clean. Pricing untouched.
 - PR #54 opened. Codex job `f13-gate1` briefed (`handoffs/CODEX-NEXT-f13-gate1.md`, worktree `codex/f13-gate1`).
   Handoff duo r2 → r3: `handoffs/CLAUDE-NEXT-duo3.md` (next: field capture P1, F13 review).
+
+### 2026-10-31 — Field capture P1 (Claude Code, duo r3)
+
+- Authorized by the owner (duo r2 rulings: field capture all as designed). Scope per
+  `Docs/planning/FIELD_CAPTURE_DESIGN_2026-10-31.md` §6 P1; materials (P2), report (P3), "Your numbers" (P4) not
+  started.
+- `index.html`: `S.actuals = {crewDefault, days[]}`, a sibling of `quote` in `snapshotState`, so Saved Jobs,
+  autosave, portable export and backup carry it with no new store. `applyState` runs `sanitizeActuals` after
+  `migrateRunOwnership`: crew 1–20, real ISO dates, HH:MM times, break 0–600, tags from a fixed list, note ≤ 500,
+  ≤ 365 days, one mark per run per day, marks on runs/gates no longer drawn dropped; bad fields drop one by one
+  and the job loads. Not in undo history; never reaches the company card; Re-price leaves it. Clear resets it.
+  Boot `hasContent` counts an actuals-only session.
+- Field tab (FIELD): Start day (crew from `crewDefault`, start time now), End day, add a past day, day chips,
+  crew stepper, start/end/break, condition chips, note, delete day. While the tab is open a canvas tap (raw,
+  unsnapped point) marks the selected day: run posts set → finished → clear (a run set on an earlier day goes
+  straight to finished); gate toggles done. Progress colors draw only on this tab; the fence-type bar is hidden
+  there (it covered runs at phone height). Every change writes the autosave at once.
+- Design deviation, recorded: gates had no id, so a gate gets `gateId` on its first field tap; it rides with the
+  element. An undo that restores a gate from before that tap loses the id, and the gate shows not done until
+  tapped again (the stale id drops on next load).
+- Save-failure flag: `saveSession` records `_autosaveFailed`; the Field tab shows "Last change not saved on this
+  device" until a write succeeds. Autosave stays silent elsewhere.
+- Tests: `tests/field-capture.spec.js` (phone 390×844, touch) 9 red before (no Field tab) → 9 green. Gate:
+  `npx playwright test` 277/277, matrix 12/12, `git diff --check` clean. Pricing untouched.
+- F13 (Codex) not started: `/tmp/duo/f13-gate1.log` absent; the owner's launch printed the old qq-parity1 result
+  and `stdin is not a terminal`.

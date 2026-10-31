@@ -448,6 +448,7 @@ label{font-size:12px;color:var(--text2);letter-spacing:0.02em;display:block;marg
         <button class="ptab" data-tab="materials">MATL</button>
         <button class="ptab" data-tab="summary">JOB</button>
         <button class="ptab" data-tab="pricing">PRICE</button>
+        <button class="ptab" data-tab="field">FIELD</button>
       </div>
 
       <!-- TAB: DRAW -->
@@ -650,6 +651,15 @@ label{font-size:12px;color:var(--text2);letter-spacing:0.02em;display:block;marg
         <div class="psec">
           <div class="psec-title">Fence specs summary</div>
           <div id="specs-summary" style="font-size:12px;color:var(--text2);line-height:1.7"></div>
+        </div>
+      </div>
+
+      <!-- TAB: FIELD -->
+      <div class="panel-body" id="tab-field" style="display:none">
+        <div class="psec">
+          <div class="psec-title">Field log</div>
+          <div id="field-save-flag" role="alert" style="display:none;font-size:12px;color:var(--red);margin-bottom:8px">⚠ Last change not saved on this device — storage is full or blocked.</div>
+          <div id="field-content"></div>
         </div>
       </div>
 
@@ -1029,7 +1039,8 @@ function snapshotState(){
     autoPost:S.autoPost,postSpacing:S.postSpacing,underlay:S.underlay,
     // A quoted job's frozen prices are the costs…postEmbedIn above; a draft's
     // are the rate card at save time and are not read back (REDO 6b).
-    quote:S.quote?{frozenAt:S.quote.frozenAt,total:S.quote.total,...(S.quote.signature?{signature:{...S.quote.signature}}:{})}:null};
+    quote:S.quote?{frozenAt:S.quote.frozenAt,total:S.quote.total,...(S.quote.signature?{signature:{...S.quote.signature}}:{})}:null,
+    actuals:JSON.parse(JSON.stringify(S.actuals))};
 }
 function applyState(st){
   S.elements=Array.isArray(st.elements)?st.elements:[];
@@ -1097,10 +1108,16 @@ function applyState(st){
   if(Number.isFinite(st.postSpacing))S.postSpacing=Math.max(1,Math.min(20,st.postSpacing));
   S.underlay=sanitizeUnderlay(st.underlay);S.calibrating=null;
   migrateRunOwnership();
+  S.actuals=sanitizeActuals(st.actuals);_fieldDay=S.actuals.days.length-1;
   S.selected=null;S.editingGate=null;S.drawing=null;S.moving=null;S.moveStart=null;S.moveOrigEl=null;
 }
 let _autosaveT=null;
-function saveSession(){try{localStorage.setItem(AUTOSAVE_KEY,JSON.stringify(snapshotState()));}catch(e){}}
+// Autosave stays silent, but the Field tab shows a failed write (field capture P1).
+let _autosaveFailed=false;
+function saveSession(){
+  try{localStorage.setItem(AUTOSAVE_KEY,JSON.stringify(snapshotState()));_autosaveFailed=false;}catch(e){_autosaveFailed=true;}
+  updateFieldSaveFlag();
+}
 function scheduleAutosave(){clearTimeout(_autosaveT);_autosaveT=setTimeout(saveSession,1000);}
 window.addEventListener('pagehide',saveSession);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveSession();});
@@ -1332,6 +1349,7 @@ const S={
   projectName:'Untitled Job', jobAddress:'', jobCustomer:'', jobNotes:'',
   savedJobs:[], pendingLabel:null,
   quote:null,// frozen quoted prices of the open job (REDO 6b); null = draft
+  actuals:emptyActuals(),// field log of the open job (field capture P1)
   panelWidth:288, isDraggingPanel:false, panelCollapsed:false,
   history:[], future:[], showJobInfo:false, showJobs:false, saveMsg:'',
   activeTab:'draw',
@@ -1637,6 +1655,45 @@ function sanitizeSignature(sig){
   if(typeof image!=='string'||image.length>SIGNATURE_MAX_CHARS||!/^data:image\/png;base64,[A-Za-z0-9+/]+=*$/.test(image))return null;
   if(typeof name!=='string'||!name.trim()||typeof signedAt!=='string'||!Number.isFinite(total))return null;
   return{image,name:name.trim().slice(0,100),signedAt,total};
+}
+// Field capture P1 (FIELD_CAPTURE_DESIGN_2026-10-31 §2-3): the drawing is the
+// timesheet. S.actuals is job evidence beside the quote, not inside it: it rides
+// with the job snapshot, survives Re-price and Clear-of-quote, is not in undo
+// history and never touches the company rate card.
+const FIELD_TAGS=['rock','slope','rain','access','other'];
+const FIELD_STAGES=['posts','finished'];
+const FIELD_MAX_DAYS=365,FIELD_NOTE_MAX=500;
+function emptyActuals(){return{crewDefault:2,days:[]};}
+function isFieldDate(v){
+  if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;
+  const d=new Date(v+'T00:00:00Z');return !isNaN(d)&&d.toISOString().slice(0,10)===v;
+}
+const isFieldTime=v=>typeof v==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+const fieldCrew=v=>Number.isInteger(v)&&v>=1&&v<=20?v:null;
+// Bad fields are dropped one by one and the job still loads. Marks on runs or
+// gates the drawing no longer has are dropped, so this runs after S.elements.
+function sanitizeActuals(a){
+  const out=emptyActuals();
+  if(!a||typeof a!=='object')return out;
+  if(fieldCrew(a.crewDefault))out.crewDefault=a.crewDefault;
+  const runIds=new Set(S.elements.filter(el=>el.type==='fence'&&el.runId).map(el=>el.runId));
+  const gateIds=new Set(S.elements.filter(el=>el.type==='gate'&&el.gateId).map(el=>el.gateId));
+  (Array.isArray(a.days)?a.days:[]).slice(0,FIELD_MAX_DAYS).forEach(d=>{
+    if(!d||typeof d!=='object'||!isFieldDate(d.date))return;
+    const done=[];
+    (Array.isArray(d.done)?d.done:[]).forEach(m=>{
+      if(!m||!runIds.has(m.runId)||!FIELD_STAGES.includes(m.stage)||done.some(x=>x.runId===m.runId))return;
+      done.push({runId:m.runId,stage:m.stage});
+    });
+    out.days.push({date:d.date,crew:fieldCrew(d.crew)??out.crewDefault,
+      start:isFieldTime(d.start)?d.start:null,end:isFieldTime(d.end)?d.end:null,
+      breakMin:Number.isFinite(d.breakMin)&&d.breakMin>=0&&d.breakMin<=600?Math.round(d.breakMin):0,
+      tags:FIELD_TAGS.filter(t=>Array.isArray(d.tags)&&d.tags.includes(t)),
+      note:typeof d.note==='string'?d.note.slice(0,FIELD_NOTE_MAX):'',
+      done,gatesDone:[...new Set((Array.isArray(d.gatesDone)?d.gatesDone:[]).filter(id=>gateIds.has(id)))]});
+  });
+  out.days.sort((x,y)=>x.date<y.date?-1:x.date>y.date?1:0);
+  return out;
 }
 function clonePricing(){
   return JSON.parse(JSON.stringify({costs:COST_DB,labor:LABOR,markup:MARKUP,footing:FOOTING,postODIn:POST_OD_IN,postEmbedIn:POST_EMBED_IN}));
@@ -2595,6 +2652,8 @@ function draw(){
     }
   }
 
+  if(S.activeTab==='field')drawFieldProgress(ctx);
+
   // Labels
   S.labels.forEach(lbl=>{
     ctx.font=`${lbl.size/S.zoom}px monospace`;ctx.fillStyle=labelInk(lbl.color);ctx.textAlign='left';ctx.fillText(lbl.text,lbl.x,lbl.y);
@@ -3304,7 +3363,7 @@ function updateDrawers(){
       S.history=[];S.future=[];updateUndoButtons();
       S.showJobs=false;
       syncSpecInputs();// keep SPECS tab controls in step with loaded state
-      draw();updatePanel();updateMatList();updateDrawers();scheduleAutosave();
+      draw();updatePanel();updateMatList();updateDrawers();updateFieldTab();scheduleAutosave();
     }));
     jd.querySelectorAll('[data-jdel]').forEach(b=>b.addEventListener('click',e=>{
       e.stopPropagation();S.savedJobs.splice(+b.dataset.jdel,1);
@@ -3315,6 +3374,139 @@ function updateDrawers(){
 }
 
 // ── INPUT EVENTS ──────────────────────────────────────────────────────────
+// ── FIELD TAB (field capture P1) ─────────────────────────────────────────
+// While the Field tab is open, a tap on a run marks the selected day's progress:
+// posts set, then finished, then cleared. A run marked on an earlier day starts
+// from there. A tap on a gate toggles it done. Every change is written at once:
+// a day's log lost on site is the failure this tab exists to prevent.
+let _fieldDay=-1;// index of the day taps go to; runtime only
+const fieldPad=n=>String(n).padStart(2,'0');
+function fieldToday(){const d=new Date();return d.getFullYear()+'-'+fieldPad(d.getMonth()+1)+'-'+fieldPad(d.getDate());}
+function fieldNow(){const d=new Date();return fieldPad(d.getHours())+':'+fieldPad(d.getMinutes());}
+function fieldActiveDay(){return S.actuals.days[_fieldDay]||null;}
+// The furthest stage a run reached on the days before `upto` (all days if omitted).
+function fieldRunStage(runId,upto=S.actuals.days.length){
+  let rank=-1;
+  S.actuals.days.slice(0,upto).forEach(d=>d.done.forEach(m=>{if(m.runId===runId)rank=Math.max(rank,FIELD_STAGES.indexOf(m.stage));}));
+  return FIELD_STAGES[rank]||null;
+}
+function fieldGateDone(gateId,upto=S.actuals.days.length){
+  return !!gateId&&S.actuals.days.slice(0,upto).some(d=>d.gatesDone.includes(gateId));
+}
+function fieldChanged(){saveSession();draw();updateFieldTab();}
+function fieldAddDay(date){
+  let i=S.actuals.days.findIndex(d=>d.date===date);
+  if(i<0){
+    S.actuals.days.push({date,crew:S.actuals.crewDefault,start:null,end:null,breakMin:0,tags:[],note:'',done:[],gatesDone:[]});
+    S.actuals.days.sort((x,y)=>x.date<y.date?-1:x.date>y.date?1:0);
+    i=S.actuals.days.findIndex(d=>d.date===date);
+  }
+  _fieldDay=i;return S.actuals.days[i];
+}
+function fieldTap(pt){
+  const day=fieldActiveDay();
+  if(!day){showToast('Tap Start day first');return;}
+  const tol=14/S.zoom;
+  let gate=null,run=null;
+  S.elements.forEach(el=>{if(el.type==='gate'&&el.start&&el.end&&ptSegDist(pt,el.start,el.end)<tol)gate=el;});
+  if(!gate)S.elements.forEach(el=>{if(el.type==='fence'&&el.runId&&el.start&&el.end&&ptSegDist(pt,el.start,el.end)<tol)run=el;});
+  if(gate){
+    // Gates carry no id until their first field tap; the id rides with the element.
+    if(!gate.gateId)gate.gateId='gate_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
+    if(fieldGateDone(gate.gateId,_fieldDay))return;
+    const k=day.gatesDone.indexOf(gate.gateId);
+    if(k<0)day.gatesDone.push(gate.gateId);else day.gatesDone.splice(k,1);
+  }else if(run){
+    const prior=FIELD_STAGES.indexOf(fieldRunStage(run.runId,_fieldDay));
+    const next=FIELD_STAGES.slice(prior+1);
+    if(!next.length)return;
+    const k=day.done.findIndex(m=>m.runId===run.runId);
+    const stage=k<0?next[0]:next[next.indexOf(day.done[k].stage)+1];
+    if(k>=0)day.done.splice(k,1);
+    if(stage)day.done.push({runId:run.runId,stage});
+  }else return;
+  fieldChanged();
+}
+// Runs and gates colored by progress, drawn only while the Field tab is open.
+function drawFieldProgress(ctx){
+  const col={posts:ink('#F5A623'),finished:ink('#4DB87A')};
+  ctx.save();ctx.lineCap='round';
+  S.elements.forEach(el=>{
+    if(!el.start||!el.end)return;
+    const stage=el.type==='fence'?fieldRunStage(el.runId):el.type==='gate'&&fieldGateDone(el.gateId)?'finished':null;
+    if(!stage)return;
+    ctx.strokeStyle=col[stage]+'99';ctx.lineWidth=10/S.zoom;
+    ctx.beginPath();ctx.moveTo(el.start.x,el.start.y);ctx.lineTo(el.end.x,el.end.y);ctx.stroke();
+  });
+  ctx.restore();
+}
+function updateFieldSaveFlag(){
+  const f=document.getElementById('field-save-flag');
+  if(f)f.style.display=_autosaveFailed?'':'none';
+}
+function updateFieldTab(){
+  updateFieldSaveFlag();
+  const box=document.getElementById('field-content');
+  if(!box)return;
+  if(_fieldDay>=S.actuals.days.length)_fieldDay=S.actuals.days.length-1;
+  const day=fieldActiveDay(),today=fieldToday();
+  const runs=day?day.done:[];
+  const n=s=>runs.filter(m=>m.stage===s).length;
+  box.innerHTML=`
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+      <button class="btn" id="field-start">Start day</button>
+      ${day&&day.start&&!day.end?'<button class="btn" id="field-end">End day</button>':''}
+      <input type="date" id="field-add-date" max="${today}" aria-label="Add a past day" style="flex:1;min-width:120px"/>
+    </div>
+    ${S.actuals.days.length?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">${S.actuals.days.map((d,i)=>
+      `<button class="chip${i===_fieldDay?' active':''}" data-field-day="${i}">${d.date}</button>`).join('')}</div>`:''}
+    ${day?`
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 8px;align-items:center;font-size:12px;color:var(--text2)">
+      <span>Date</span><input type="date" data-field="date" value="${day.date}" max="${today}"/>
+      <span>Crew</span><span style="display:flex;align-items:center;gap:6px">
+        <button class="btn" data-field-crew="-1" aria-label="One fewer">−</button>
+        <b id="field-crew" style="color:var(--text1);min-width:2ch;text-align:center">${day.crew}</b>
+        <button class="btn" data-field-crew="1" aria-label="One more">+</button></span>
+      <span>Start</span><input type="time" data-field="start" value="${day.start||''}"/>
+      <span>End</span><input type="time" data-field="end" value="${day.end||''}"/>
+      <span>Break (min)</span><input type="number" data-field="breakMin" min="0" max="600" step="5" value="${day.breakMin}"/>
+    </div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap;margin:8px 0">${FIELD_TAGS.map(t=>
+      `<button class="chip${day.tags.includes(t)?' active':''}" data-field-tag="${t}">${t}</button>`).join('')}</div>
+    <textarea data-field="note" maxlength="${FIELD_NOTE_MAX}" rows="2" placeholder="Note" style="width:100%;box-sizing:border-box">${esc(day.note)}</textarea>
+    <div style="font-size:12px;color:var(--text2);margin-top:6px">This day: ${n('posts')} run(s) posts set, ${n('finished')} finished, ${day.gatesDone.length} gate(s).</div>
+    <div style="font-size:11px;color:var(--text3);margin-top:4px">Tap a run on the drawing: posts set → finished → clear. Tap a gate: done.</div>
+    <button class="btn" data-field-delete style="margin-top:8px;color:var(--red)">Delete this day</button>`
+    :'<div style="font-size:12px;color:var(--text3)">Start a day, then tap the runs that got done.</div>'}`;
+  box.querySelector('#field-start').onclick=()=>{
+    const d=fieldAddDay(today);if(!d.start)d.start=fieldNow();fieldChanged();
+  };
+  const end=box.querySelector('#field-end');
+  if(end)end.onclick=()=>{day.end=fieldNow();fieldChanged();};
+  box.querySelector('#field-add-date').onchange=e=>{if(isFieldDate(e.target.value)){fieldAddDay(e.target.value);fieldChanged();}};
+  box.querySelectorAll('[data-field-day]').forEach(b=>b.onclick=()=>{_fieldDay=+b.dataset.fieldDay;draw();updateFieldTab();});
+  if(!day)return;
+  box.querySelectorAll('[data-field-crew]').forEach(b=>b.onclick=()=>{
+    day.crew=Math.max(1,Math.min(20,day.crew+ +b.dataset.fieldCrew));S.actuals.crewDefault=day.crew;fieldChanged();
+  });
+  box.querySelectorAll('[data-field-tag]').forEach(b=>b.onclick=()=>{
+    const t=b.dataset.fieldTag;day.tags=day.tags.includes(t)?day.tags.filter(x=>x!==t):FIELD_TAGS.filter(x=>x===t||day.tags.includes(x));fieldChanged();
+  });
+  box.querySelectorAll('[data-field]').forEach(inp=>inp.onchange=()=>{
+    const k=inp.dataset.field,v=inp.value;
+    if(k==='date'){
+      if(!isFieldDate(v)||S.actuals.days.some(d=>d!==day&&d.date===v)){inp.value=day.date;return;}
+      day.date=v;S.actuals.days.sort((x,y)=>x.date<y.date?-1:x.date>y.date?1:0);_fieldDay=S.actuals.days.indexOf(day);
+    }else if(k==='start'||k==='end')day[k]=isFieldTime(v)?v:null;
+    else if(k==='breakMin'){const m=Number(v);day.breakMin=Number.isFinite(m)?Math.max(0,Math.min(600,Math.round(m))):0;}
+    else if(k==='note')day.note=v.slice(0,FIELD_NOTE_MAX);
+    fieldChanged();
+  });
+  box.querySelector('[data-field-delete]').onclick=()=>{
+    if(!confirm('Delete the log for '+day.date+'?'))return;
+    S.actuals.days.splice(_fieldDay,1);_fieldDay=S.actuals.days.length-1;fieldChanged();
+  };
+}
 function handleDown(e){
   e.preventDefault();e.stopPropagation();
   // Ignore two-finger touches — handled by dedicated undo gesture listener
@@ -3327,6 +3519,7 @@ function handleDown(e){
     const cy=_t&&_t.length?_t[0].clientY:e.clientY;
     S.isPanning=true;S.panStart={x:cx-S.pan.x,y:cy-S.pan.y};return;
   }
+  if(S.activeTab==='field'){fieldTap(toWorld(e,true));return;}// a tap, not a drawn point: no snap
   if(S.tool==='select'){
     let found=null;
     S.elements.forEach((el,i)=>{
@@ -3713,7 +3906,8 @@ function init(){
     if(raw){
       const st=JSON.parse(raw);
       const hasContent=st&&st.app==='FenceboundCAD'&&Array.isArray(st.elements)&&
-        (st.elements.length||((st.labels||[]).length)||((st.materials||[]).length)||st.jobCustomer||(st.projectName&&st.projectName!=='Untitled Job')||st.underlay);
+        (st.elements.length||((st.labels||[]).length)||((st.materials||[]).length)||st.jobCustomer||(st.projectName&&st.projectName!=='Untitled Job')||st.underlay||
+        (st.actuals&&Array.isArray(st.actuals.days)&&st.actuals.days.length));
       if(hasContent){applyState(st);_restoredSession=true;}
     }
   }catch(e){/* corrupt session — start clean rather than crash boot */}
@@ -3829,14 +4023,19 @@ function init(){
       S.activeTab=b.dataset.tab;
       document.querySelectorAll('.ptab').forEach(t=>t.classList.remove('active'));
       b.classList.add('active');
-      ['draw','specs','materials','summary','pricing'].forEach(id=>{
+      ['draw','specs','materials','summary','pricing','field'].forEach(id=>{
         document.getElementById('tab-'+id).style.display=id===S.activeTab?'':'none';
       });
+      if(S.activeTab==='field')updateFieldTab();
+      // Field taps mark progress; the type picker would only cover runs there.
+      document.getElementById('type-bar').style.visibility=S.activeTab==='field'?'hidden':'';
+      draw();// field progress colors show only on the Field tab
       if(S.activeTab==='materials')updateMatList();
       if(S.activeTab==='summary')updatePanel();
       if(S.activeTab==='pricing')updatePricing();
     });
   });
+  updateFieldTab();
 
   // Pricing view toggle (Client vs Internal Cost)
   document.querySelectorAll('[data-view]').forEach(b=>{
@@ -3904,7 +4103,7 @@ function init(){
         applyState(st);
         S.history=[];S.future=[];// a new job: no undo back into the previous one (audit CAD-12)
         syncSpecInputs();
-        draw();updatePanel();updateMatList();updateDrawers();updateUndoButtons();
+        draw();updatePanel();updateMatList();updateDrawers();updateUndoButtons();updateFieldTab();
         // Unlike background autosave, import must report a failed durable write.
         localStorage.setItem(AUTOSAVE_KEY,JSON.stringify(snapshotState()));
         showToast(`Imported "${S.projectName}"`);
@@ -3913,7 +4112,7 @@ function init(){
         applyJobPricingInputs(prior.inputs);
         // Recovery rendering must not normalize the accepted specs or replace
         // run objects (their per-type settings live in a WeakMap).
-        [()=>syncSpecInputs(true),draw,()=>updatePanel(true),updateMatList,updateDrawers,updateUndoButtons]
+        [()=>syncSpecInputs(true),draw,()=>updatePanel(true),updateMatList,updateDrawers,updateUndoButtons,updateFieldTab]
           .forEach(refresh=>{try{refresh();}catch(_){/* Preserve state even if a view cannot render. */}});
         showToast('Import failed — '+err.message,true);
       }
@@ -3941,7 +4140,8 @@ function init(){
     // Undo of Clear restores the drawing only; with jobId cleared, Save
     // cannot write it over the previous job.
     S.projectName='Untitled Job';S.jobCustomer='';S.jobAddress='';S.jobNotes='';S.materials=[];
-    syncSpecInputs();updateMatList();updateDrawers();
+    S.actuals=emptyActuals();_fieldDay=-1;
+    syncSpecInputs();updateMatList();updateDrawers();updateFieldTab();
     draw();updatePanel();updateGateEditor();updatePricing();scheduleAutosave();
   });
   document.getElementById('btn-pdf').addEventListener('click',exportPDF);
