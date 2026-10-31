@@ -1267,3 +1267,17 @@ undo/redo restores `quote`; T10 isolation still holds.
 - #50 merged (`eddb986`). Owner: hand off to a session that uses both Claude Code and Codex; tethering
   problems slowed this session. Handoff: `handoffs/CLAUDE-NEXT-duo1.md` on `docs/duo-handoff1`. No next track
   authorized yet.
+
+## 2026-10-31 — duo r1: field capture design and priority ranking (Claude Code + Codex)
+
+- Owner (AskUserQuestion): tracks are (1) the field data capture design, then (2) a priority ranking. Answers:
+  materials per estimate line; labor "make it an edge"; no annoying pop-ups; entry on the phone on site; the
+  product goal is a quote as fast as the job can be drawn.
+- Codex (`codex/field-survey1`, read-only): `handoffs/CODEX-RESULT-field-survey1.md`, the estimate-side figures,
+  job stores, actuals attachment options, storage budget and the open-work inventory. Claude spot-checked labor
+  ($/LF, no hours) and the job id changing on rename + Save; both hold. Committed "Implemented by Codex".
+- Launching Codex with the bypass flag from Claude Code is blocked by the auto-mode classifier; the owner runs
+  `/tmp/duo/<job>.run`.
+- Design: `Docs/planning/FIELD_CAPTURE_DESIGN_2026-10-31.md` ("the drawing is the timesheet": run taps + day
+  log; job-level `S.actuals` beside `quote`, not keyed by job id; no rate-card writes; no pop-ups). Ranking:
+  `Docs/planning/PRIORITY_RANKING_2026-10-31.md`. Both await owner decisions; no code changed, no gates run.
