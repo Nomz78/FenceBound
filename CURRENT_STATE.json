@@ -2,10 +2,10 @@
   "$schema": "./CURRENT_STATE.schema.json",
   "stateSchemaVersion": 1,
   "project": "FenceBound",
-  "repository": "/Users/altairus78/Developer/fencebound-codex",
-  "branch": "codex/market-readiness-repairs",
-  "head": "25f0cd917e1b5d3304510921d498630a3939e1a7",
-  "upstream": "origin/codex/market-readiness-repairs",
+  "repository": "/home/altairus78/Projects/FenceBound",
+  "branch": "main",
+  "head": "56c5d9f1d43f02bda29949fe133175cd0add19ac",
+  "upstream": "origin/main",
   "worktreeClean": true,
   "canonicalRuntime": "index.html",
   "applicationVersion": "5.4.0",
@@ -22,29 +22,23 @@
   "developmentIndex": "index.html#FenceboundCAD-Development-Index",
   "projectInstructions": "PROJECT-INSTRUCTIONS.md",
   "currentHandoff": "Docs/CURRENT_HANDOFF.md",
-  "lastCompletedTask": "Repaired automatic material price-unit checks, company-card JSON import isolation, portable job import rollback, and sub-cent material extension precision. Added 15 focused regressions and adapted IB3/R9 without changing price values or golden BOM counts.",
-  "activeTask": "No new implementation task is active. The three approved task branches are ready for owner review; do not open PRs yet. C0 evidence gaps, C1 packs/order quantities, and wider pilot requirements remain unfinished.",
-  "nextOwnerDecision": "C0 named product/assembly choices and unresolved source evidence; footing depths past 42 in.; vinyl split-rail default height; collinear joint post (CAD-06); line-post concrete; residential post stock lengths; truss rods/sleeves/bolts; NC sales-tax treatment (CPA/NC DOR); v6.0 engine authorization; mid/bottom rail ties; under-6 ft depth editability; session:init merge handling. O-6 remains unresolved.",
-  "repositoryHeadAtGeneration": "25f0cd917e1b5d3304510921d498630a3939e1a7",
-  "testedHead": "25f0cd917e1b5d3304510921d498630a3939e1a7",
+  "lastCompletedTask": "REDO 1-6 merged (#43-#49); MR5 quoted-job coverage and matrix route 10 migrated pricing (#50); field capture design, priority ranking and Codex field survey (#51). Records since 2026-10-15 live in handoffs/ and Docs/development/DEVELOPER_LOG.md.",
+  "activeTask": "Duo r1 (Claude Code coordinates, Codex implements): quote-without-a-drawing design and Codex footage takeoff survey. Design only; no implementation authorized. See handoffs/CLAUDE-NEXT-* (newest) and Docs/planning/PRIORITY_RANKING_2026-10-31.md.",
+  "nextOwnerDecision": "Authorize implementation after reading Docs/planning/FIELD_CAPTURE_DESIGN_2026-10-31.md and the quote-without-a-drawing design; ranking in Docs/planning/PRIORITY_RANKING_2026-10-31.md. Carried rulings: C0 named product/assembly choices and unresolved source evidence; footing depths past 42 in.; vinyl split-rail default height; collinear joint post (CAD-06); line-post concrete; residential post stock lengths; truss rods/sleeves/bolts; NC sales-tax treatment (CPA/NC DOR); v6.0 engine authorization; mid/bottom rail ties; under-6 ft depth editability; session:init merge handling. O-6 remains unresolved.",
+  "repositoryHeadAtGeneration": "56c5d9f1d43f02bda29949fe133175cd0add19ac",
+  "testedHead": "56c5d9f1d43f02bda29949fe133175cd0add19ac",
   "closeoutConvention": "The current HEAD may be one direct documentation-only closeout child of head; see START_HERE.md.",
   "gate": {
     "status": "PASS",
-    "command": "NODE_OPTIONS=--require=/tmp/fencebound-pinned-jspdf.cjs npm test; NODE_OPTIONS=--require=/tmp/fencebound-pinned-jspdf.cjs node scripts/cad-persistence-matrix.js; git diff --check",
-    "timestamp": "2026-10-15T18:51:39+00:00",
-    "head": "25f0cd917e1b5d3304510921d498630a3939e1a7",
+    "command": "npx playwright test; node scripts/cad-persistence-matrix.js; git diff --check",
+    "timestamp": "2026-10-31",
+    "head": "56c5d9f1d43f02bda29949fe133175cd0add19ac",
     "results": {
-      "npm test": "187/187 passed, including PDF tests; same repository configuration with scratch routing of verified jsPDF 2.5.1",
+      "npx playwright test": "257/257 passed",
       "node scripts/cad-persistence-matrix.js": "12/12 passed",
       "git diff --check": "PASS"
     },
-    "artifacts": {
-      "tests": "/tmp/fencebound-closeout-repairs-tests.log",
-      "matrix": "/tmp/fencebound-closeout-repairs-matrix.log",
-      "matrixTransport": "/tmp/fencebound-closeout-repairs-matrix-transport.log"
-    },
-    "transport": "The repository test configuration and all assertions are unchanged. A scratch-only\nNode preload routes the exact existing cdnjs jsPDF 2.5.1 URL to the same pinned\nversion's real npm UMD library after direct CDN requests timed out. The npm tarball\nSHA-512 was verified against registry version metadata. UMD bytes: 364463; SHA-256:\n`98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875`.\nNo runtime, test, dependency, or lockfile edits implement this transport workaround.\nScratch wrapper: `/tmp/fencebound-pinned-jspdf.cjs`; verification:\n`/tmp/fencebound-jspdf-evidence.json`. This gate validates actual PDF behavior with\nthe pinned library, but does not establish availability of the external CDN or\noffline product delivery. Routing can alter browser cache/timing; a pass does not\nestablish that the earlier intermittent R9 pageerror is fixed.",
-    "predecessorGateCaveat": "The predecessor assessment's initial R9 pageerror and CDN-interrupted run are\npreserved in `Docs/handoffs/2026-10-15__market-readiness-assessment-closeout.md`.\nThe current passing gate does not establish that the earlier intermittent error's\nunconfirmed trigger is fixed. No new runtime or test edits were made during this\ncloseout; their bytes match the previously reviewed repair checkpoint."
+    "note": "Run on Linux (~/Projects/FenceBound) with the live cdnjs jsPDF; no transport workaround."
   },
   "knownDrift": [
     "The embedded Development Index records the four October 15 repairs, but retains older status entries explicitly labeled historical. Other known documentation/tooling limitations below remain.",
@@ -53,7 +47,6 @@
     "No repository-orientation document is authoritative on main; a candidate exists only on the unresolved continuity branch."
   ],
   "knownDefects": [
-    "Persistence matrix route 10 does not verify migrated-job pricing; unknown legacy types now block FINAL-READY as unsupported (4813e49) but are not migrated.",
     "ADDON_STATE validation is currently unreachable after hydration.",
     "Pre-fix saved-job reference contamination cannot be distinguished from legitimate historical edits.",
     "Very pale company accent colors can make branded PDF labels difficult to read against white.",

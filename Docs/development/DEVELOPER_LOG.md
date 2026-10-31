@@ -1281,3 +1281,11 @@ undo/redo restores `quote`; T10 isolation still holds.
 - Design: `Docs/planning/FIELD_CAPTURE_DESIGN_2026-10-31.md` ("the drawing is the timesheet": run taps + day
   log; job-level `S.actuals` beside `quote`, not keyed by job id; no rate-card writes; no pop-ups). Ranking:
   `Docs/planning/PRIORITY_RANKING_2026-10-31.md`. Both await owner decisions; no code changed, no gates run.
+- **State refresh.** `npm run session:init` reported DRIFT: `CURRENT_STATE.json` and `Docs/CURRENT_HANDOFF.md`
+  still recorded `codex/market-readiness-repairs` @ `25f0cd9` (2026-10-15); REDO sessions used `handoffs/`.
+  Gates on `main` `56c5d9f`: `npx playwright test` 257/257, matrix 12/12, `git diff --check` clean. Both files
+  now record `main` @ `56c5d9f`; matrix route 10 dropped from known defects (repaired in #50). Note:
+  `npm run test:phase-one` runs only the 9 acceptance tests; the full gate is `npx playwright test`.
+- Owner product input: owners quote from types, footage, equipment and crew; the drawing comes last, for the
+  foreman. Labor is priced per foot, crew × days or multiplier; equipment itemized until rates are familiar.
+  Next: quote-without-a-drawing design (Claude) and footage takeoff survey (Codex, `CODEX-NEXT-footage-survey1`).
