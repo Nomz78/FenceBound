@@ -1239,3 +1239,12 @@ undo/redo restores `quote`; T10 isolation still holds.
   255/255. Visual check: rendered the pad and a signed estimate (pdftoppm). The signature, date and name sit
   over their lines, and the "Signed electronically" line comes after Printed Name.
 - **Handoff (REDO r5 → r6):** `handoffs/CLAUDE-NEXT-redo6.md`.
+
+## 2026-10-30 — REDO r5 (cont.): import atomicity check, CLAUDE.md correction (Claude Code)
+
+- #49 (6c) merged by the owner (`7cc2ac0`).
+- Owner asked to fix "failed portable import is not atomic". Finding: already repaired on 2026-10-15
+  (market-readiness repairs, MR5); CLAUDE.md still listed it. No code change, since no test can fail first.
+- Owner approved: (1) CLAUDE.md Known defects corrected; (2) MR5 extended with a quoted, signed job open (render
+  and storage failures). That is coverage, not a repair: it passes on the current runtime, 17/17 in the spec.
+- Next: matrix route 10 / migrated-job pricing.

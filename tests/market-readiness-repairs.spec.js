@@ -185,3 +185,36 @@ for (const example of [
     expect(Object.values(result.cents).every(Number.isInteger)).toBe(true);
   });
 }
+
+// Coverage added in REDO r5: MR5 predates the 6b quote store and the 6c
+// signature. A failed import with a quoted, signed job open restores both.
+for (const failure of ['render failure', 'storage failure']) {
+  test(`MR5 portable import is atomic with a quoted, signed job open after ${failure}`, async ({ page }) => {
+    await state(page, `(()=>{
+      S.projectName='Quoted job';S.jobCustomer='Quoted customer';
+      S.elements=[{type:'fence',start:{x:0,y:0},end:{x:400,y:0},fenceType:'chainlink',runId:'quoted',
+        specs:cloneRunSpecs(S.specs),postSpacing:10,autoPostSpacing:10}];
+      COST_DB['chain link fabric'].cost=7.77;_pricingFromLoadedProject=true;
+      const total=computePricing().clientTotal;
+      S.quote={frozenAt:'2026-10-30T00:00:00.000Z',total,pricing:clonePricing(),
+        signature:{image:'data:image/png;base64,AAAA',name:'Pat',signedAt:'2026-10-30T00:00:00.000Z',total}};
+      draw();updatePanel();updatePricing();saveSession();
+    })()`);
+    const incoming = await state(page, `(()=>{const st=JSON.parse(JSON.stringify(snapshotState()));
+      st.projectName='Incoming';st.quote={frozenAt:'2026-01-01T00:00:00.000Z',total:1};
+      st.costs={'chain link fabric':{cost:1,unit:'lf'}};return st;})()`);
+    const snapshot = `JSON.stringify({quote:S.quote,live:COST_DB['chain link fabric'].cost,
+      provenance:_pricingFromLoadedProject,total:computePricing().clientTotal,
+      note:document.getElementById('quote-price-text').textContent,auto:localStorage.getItem(AUTOSAVE_KEY)})`;
+    const before = await state(page, snapshot);
+    if (failure === 'render failure') await state(page, `(()=>{const original=updateMatList;
+      updateMatList=()=>{updateMatList=original;throw new Error('injected render failure');};})()`);
+    else await state(page, `(()=>{const original=Storage.prototype.setItem;
+      Storage.prototype.setItem=function(k,v){if(k===AUTOSAVE_KEY)throw new Error('injected quota');return original.call(this,k,v);};})()`);
+    await upload(page, '#job-file-input', incoming);
+    await expect(page.locator('#app-toast')).toContainText('Import failed');
+    expect(await state(page, snapshot)).toBe(before);
+    expect(await state(page, `COST_DB['chain link fabric'].cost`)).toBe(7.77);
+    await expect(page.locator('#quote-price-text')).toContainText('Signed by Pat');
+  });
+}
