@@ -691,7 +691,7 @@ label{font-size:12px;color:var(--text2);letter-spacing:0.02em;display:block;marg
         <div class="psec">
           <button class="btn" id="btn-company-profile" style="width:100%;padding:7px;font-size:12px;margin-bottom:6px">Company Profile</button>
           <div id="seed-price-note" style="display:none;font-size:12px;color:var(--accent);line-height:1.5;margin-bottom:6px">Pricing is still the shipped placeholder baseline. Load your own costs before quoting.</div>
-          <div id="quote-price-note" style="display:none;align-items:center;gap:8px;font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:6px"><span id="quote-price-text" style="flex:1"></span><button class="btn" id="btn-reprice" style="font-size:12px;padding:3px 8px" title="Replace this job's quoted prices with the company rate card">Re-price</button></div>
+          <div id="quote-price-note" style="display:none;align-items:center;gap:8px;font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:6px"><span id="quote-price-text" style="flex:1"></span><button class="btn" id="btn-reprice" style="font-size:12px;padding:3px 8px" title="Replace this job's quoted prices with the company rate card">Re-price</button><button class="btn" id="btn-sign" style="font-size:12px;padding:3px 8px" title="Customer signs this quote">Sign</button></div>
           <button class="btn" id="btn-cost-editor" style="width:100%;padding:7px;font-size:12px;margin-bottom:6px">Edit Costs & Margin</button>
           <button class="btn accent" id="btn-gen-estimate" style="width:100%;padding:8px;font-size:12px;letter-spacing:0.08em">GENERATE ESTIMATE PDF</button>
           <button class="btn" id="btn-validate-job" style="width:100%;padding:7px;font-size:12px;margin-top:6px">✓ VALIDATE JOB</button>
@@ -1022,7 +1022,7 @@ function snapshotState(){
     autoPost:S.autoPost,postSpacing:S.postSpacing,underlay:S.underlay,
     // A quoted job's frozen prices are the costs…postEmbedIn above; a draft's
     // are the rate card at save time and are not read back (REDO 6b).
-    quote:S.quote?{frozenAt:S.quote.frozenAt,total:S.quote.total}:null};
+    quote:S.quote?{frozenAt:S.quote.frozenAt,total:S.quote.total,...(S.quote.signature?{signature:{...S.quote.signature}}:{})}:null};
 }
 function applyState(st){
   S.elements=Array.isArray(st.elements)?st.elements:[];
@@ -1060,6 +1060,7 @@ function applyState(st){
     if(st.postODIn)mergePostOD(st.postODIn);
     if(st.postEmbedIn)mergePostEmbed(st.postEmbedIn);
     S.quote={frozenAt:typeof q.frozenAt==='string'?q.frozenAt:null,total:Number.isFinite(q.total)?q.total:null,pricing:clonePricing()};
+    const sig=sanitizeSignature(q.signature);if(sig)S.quote.signature=sig;
     _pricingFromLoadedProject=true;
   }
   if(st.specs){
@@ -1619,6 +1620,17 @@ let MARKUP  = JSON.parse(JSON.stringify(DEFAULT_MARKUP));
 // hold whichever store prices the open job: _pricingFromLoadedProject is true
 // while they hold a quote, and saveCostDB refuses to write them.
 let _pricingFromLoadedProject=false;
+// Customer signature on a quote (REDO 6c): S.quote.signature =
+// {image,name,signedAt,total}. Capped for the localStorage budget, like the
+// underlay's UNDERLAY_MAX_PX; anything else loads the quote unsigned.
+const SIGNATURE_MAX_CHARS=150000;
+function sanitizeSignature(sig){
+  if(!sig||typeof sig!=='object')return null;
+  const{image,name,signedAt,total}=sig;
+  if(typeof image!=='string'||image.length>SIGNATURE_MAX_CHARS||!/^data:image\/png;base64,[A-Za-z0-9+/]+=*$/.test(image))return null;
+  if(typeof name!=='string'||!name.trim()||typeof signedAt!=='string'||!Number.isFinite(total))return null;
+  return{image,name:name.trim().slice(0,100),signedAt,total};
+}
 function clonePricing(){
   return JSON.parse(JSON.stringify({costs:COST_DB,labor:LABOR,markup:MARKUP,footing:FOOTING,postODIn:POST_OD_IN,postEmbedIn:POST_EMBED_IN}));
 }
@@ -3729,6 +3741,19 @@ function init(){
     restoreCompanyRateCard();
     draw();updatePanel();updatePricing();scheduleAutosave();showToast('Re-priced from the company rate card');
   });
+  // Sign (REDO 6c): only a current quote can be signed — the customer must see
+  // the total on the last exported estimate.
+  document.getElementById('btn-sign').addEventListener('click',()=>{
+    if(!S.quote)return;
+    if(S.quote.signature){
+      if(!confirm(`Remove ${S.quote.signature.name}'s signature from this quote?`))return;
+      delete S.quote.signature;writeQuoteToSavedJob();updatePricing();scheduleAutosave();return;
+    }
+    if(!Number.isFinite(S.quote.total)||Math.abs(computePricing().clientTotal-S.quote.total)>0.005){
+      showToast('The job changed since the last estimate — export the estimate again before signing',true);return;
+    }
+    openSignaturePad();
+  });
   document.getElementById('btn-validate-job').addEventListener('click',runValidationReport);
   const _ce=document.getElementById('btn-cost-editor');if(_ce)_ce.addEventListener('click',openCostEditor);
   const _cp=document.getElementById('btn-company-profile');if(_cp)_cp.addEventListener('click',openCompanyEditor);
@@ -4435,7 +4460,9 @@ function updatePricing(){
   if(_qpn){
     _qpn.style.display=S.quote?'flex':'none';
     const d=S.quote&&S.quote.frozenAt?new Date(S.quote.frozenAt):null;
-    document.getElementById('quote-price-text').textContent=S.quote?`Quoted prices${d?` · ${isNaN(d)?S.quote.frozenAt:d.toLocaleDateString()}`:''}`:'';
+    const sig=S.quote&&S.quote.signature;
+    document.getElementById('quote-price-text').textContent=S.quote?`Quoted prices${d?` · ${isNaN(d)?S.quote.frozenAt:d.toLocaleDateString()}`:''}${sig?` · Signed by ${sig.name}`:''}`:'';
+    document.getElementById('btn-sign').textContent=sig?'Remove signature':'Sign';
   }
   const P=computePricing();
   const showCost=S.showCostView; // employee/internal toggle
@@ -4549,6 +4576,49 @@ function openCompanyEditor(){
     const val=id=>String(ov.querySelector(id).value||'').trim(),num=(id,def,lo,hi)=>{const v=parseFloat(ov.querySelector(id).value);return Number.isFinite(v)?Math.max(lo,Math.min(hi,v)):def;};
     COMPANY={...COMPANY,name:val('#co-name'),tagline:val('#co-tagline'),phone:val('#co-phone'),email:val('#co-email'),location:val('#co-location'),license:val('#co-license'),accent:val('#co-accent')||DEFAULT_COMPANY.accent,depositPct:num('#co-deposit',50,0,100),validityDays:num('#co-validity',7,1,365),terms:String(ov.querySelector('#co-terms').value||'').trim()};
     if(!saveCompany()){showToast('Company profile could not be saved — storage full or blocked',true);return;}close();updatePricing();showToast(companyConfigured()?`Saved — estimates now brand as ${COMPANY.name}`:'Company profile saved');
+  };
+}
+
+// Owner, REDO r5: the job's Saved Jobs record carries the quote (and its
+// signature) at once. Only the quote is written; other unsaved edits wait for Save.
+function writeQuoteToSavedJob(){
+  const rec=S.jobId!=null&&S.savedJobs.find(j=>j&&j.id===S.jobId);
+  if(!rec)return;
+  const prev=rec.quote;rec.quote=JSON.parse(JSON.stringify(S.quote));
+  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(S.savedJobs));}
+  catch(err){rec.quote=prev;showToast('Quote not written to Saved Jobs — storage full or blocked',true);}
+}
+
+function openSignaturePad(){
+  let ov=document.getElementById('signature-pad');if(!ov){ov=document.createElement('div');ov.id='signature-pad';ov.style.cssText='position:fixed;inset:0;z-index:310;background:rgba(23,25,26,0.94);display:flex;align-items:center;justify-content:center;padding:16px';document.body.appendChild(ov);}
+  const total=S.quote.total;
+  ov.innerHTML=`<style>
+    #signature-pad .sg-card{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);width:100%;max-width:640px;padding:16px;box-shadow:0 14px 36px rgba(0,0,0,.38)}#signature-pad h3{margin:0 0 4px;font-size:13px;letter-spacing:.06em}
+    #signature-pad .sg-note{font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:10px}#signature-pad canvas{display:block;width:100%;aspect-ratio:3/1;background:#fff;border:1px solid var(--border2);border-radius:var(--radius-sm);touch-action:none;cursor:crosshair}
+    #signature-pad .sg-row{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--text2)}#signature-pad input{flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);padding:6px 8px;font:inherit}
+  </style><div class="sg-card"><h3>CUSTOMER SIGNATURE</h3><div class="sg-note">By signing, the customer accepts this estimate: ${esc(S.jobCustomer||S.projectName)} · $${total.toFixed(2)}.</div>
+    <canvas id="sig-canvas" width="600" height="200"></canvas>
+    <div class="sg-row"><label for="sig-name">Printed name</label><input type="text" id="sig-name" maxlength="100" autocomplete="off"/><span>${esc(new Date().toLocaleDateString())}</span></div>
+    <div class="sg-row"><button class="btn" id="sig-clear">Clear</button><span style="flex:1"></span><button class="btn" id="sig-cancel">Cancel</button><button class="btn accent" id="sig-accept" disabled>Accept</button></div></div>`;
+  ov.style.display='flex';
+  const cv=ov.querySelector('#sig-canvas'),ctx=cv.getContext('2d'),nameIn=ov.querySelector('#sig-name'),accept=ov.querySelector('#sig-accept');
+  ctx.lineWidth=2.5;ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#111';
+  let inked=false,last=null;
+  const refresh=()=>{accept.disabled=!(inked&&nameIn.value.trim());};
+  const at=e=>{const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*cv.width/r.width,y:(e.clientY-r.top)*cv.height/r.height};};
+  cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);last=at(e);};
+  cv.onpointermove=e=>{if(!last)return;const p=at(e);ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p;inked=true;refresh();};
+  cv.onpointerup=cv.onpointercancel=()=>{last=null;};
+  nameIn.oninput=refresh;
+  const close=()=>{ov.style.display='none';};
+  ov.querySelector('#sig-clear').onclick=()=>{ctx.clearRect(0,0,cv.width,cv.height);inked=false;refresh();};
+  ov.querySelector('#sig-cancel').onclick=close;
+  accept.onclick=()=>{
+    const image=cv.toDataURL('image/png');
+    if(image.length>SIGNATURE_MAX_CHARS){showToast('Signature too large — clear it and sign again',true);return;}
+    if(!S.quote||S.quote.total!==total){close();return;}
+    S.quote.signature={image,name:nameIn.value.trim().slice(0,100),signedAt:new Date().toISOString(),total};
+    writeQuoteToSavedJob();close();updatePricing();scheduleAutosave();showToast(`Signed by ${S.quote.signature.name}`);
   };
 }
 
@@ -5213,6 +5283,11 @@ function exportEstimatePDF(){
   let stats,P;
   try{stats=pricingUnavailable?emptyExportStats():getStats();}catch(e){stats=emptyExportStats();}
   try{P=pricingUnavailable?unavailableExportPricing():computePricing();}catch(e){P=unavailableExportPricing();}
+  // REDO 6c: a signature covers only the total it was given for.
+  if(!pricingUnavailable&&S.quote&&S.quote.signature&&Math.abs(P.clientTotal-S.quote.signature.total)>0.005){
+    delete S.quote.signature;showToast('Job changed since signing — signature removed',true);
+  }
+  const signature=pricingUnavailable?null:(S.quote&&S.quote.signature)||null;
   const quickReference=false;
   const usd0=v=>`$${Number(v.toFixed(0)).toLocaleString('en-US')}`;
   const ucDemo=document.getElementById('uc-demo')?.checked;
@@ -5404,12 +5479,21 @@ function exportEstimatePDF(){
   }
 
   // ── ACCEPTANCE ──
-  if(y>PH-45){doc.addPage();y=MT;}
+  if(y>PH-(signature?70:45)){doc.addPage();y=MT;}
   y+=4;
   doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);doc.line(ML,y,PW-MR,y);y+=5;
   doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(...ACC);doc.text('ACCEPTANCE',ML,y);y+=5;
   doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(100,100,100);
   doc.text('By signing below, client agrees to the scope and terms outlined in this estimate.',ML,y);y+=8;
+  if(signature){
+    y+=16;
+    doc.addImage(signature.image,'PNG',ML,y-19,54,18);
+    const sd=new Date(signature.signedAt);
+    doc.setFontSize(9);doc.setTextColor(28,28,28);
+    doc.text(isNaN(sd)?signature.signedAt:sd.toLocaleDateString(),ML+81,y-1.5);
+    doc.text(signature.name,ML+1,y+9.5);
+    doc.setFontSize(7.5);doc.setTextColor(100,100,100);
+  }
   // Sig lines
   doc.setDrawColor(80,80,80);doc.setLineWidth(0.3);
   doc.line(ML,y,ML+70,y);doc.line(ML+80,y,ML+120,y);
@@ -5417,6 +5501,11 @@ function exportEstimatePDF(){
   doc.text('Client Signature',ML,y);doc.text('Date',ML+80,y);y+=8;
   doc.line(ML,y,ML+70,y);
   y+=3;doc.text('Printed Name',ML,y);
+  if(signature){
+    const sd=new Date(signature.signedAt);
+    y+=5;doc.setFontSize(6.5);doc.setTextColor(130,130,130);
+    doc.text(`Signed electronically ${isNaN(sd)?signature.signedAt:sd.toLocaleString()}`,ML,y);
+  }
 
   // ── FOOTER ──
   doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(160,160,160);
@@ -5438,8 +5527,9 @@ function exportEstimatePDF(){
   // O-5 split (REDO 6b): the first estimate export freezes the job's prices.
   // Later exports keep them and record the latest quoted total.
   if(!pricingUnavailable){
-    S.quote={frozenAt:S.quote?S.quote.frozenAt:new Date().toISOString(),total:P.clientTotal,pricing:S.quote?S.quote.pricing:clonePricing()};
+    S.quote={frozenAt:S.quote?S.quote.frozenAt:new Date().toISOString(),total:P.clientTotal,pricing:S.quote?S.quote.pricing:clonePricing(),...(signature?{signature}:{})};
     _pricingFromLoadedProject=true;
+    writeQuoteToSavedJob();
     updatePricing();scheduleAutosave();
   }
 }
