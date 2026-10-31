@@ -1174,3 +1174,7 @@ undo/redo restores `quote`; T10 isolation still holds.
   marked as quotes / pre-split files: T-P2, O4, job-state-isolation 2, IB2/IB4 (`input-boundary-validation`).
   `fixture-168lf` "ratified footing parameters": a pre-split file without post sizes now fills them from the
   company card (1.625) instead of unsaved live globals (3); expectation updated, deliberate.
+- **PR:** #48 (`20db9bf`), awaiting owner merge. Open question to owner: should the estimate export also write
+  the quote into the job's Saved Jobs record?
+- **Handoff (REDO r4 → r5):** `handoffs/CLAUDE-NEXT-redo5.md` on `feat/redo6-price-snapshot`. Next: merge #48,
+  the Saved Jobs question, then 6c signature pad on `feat/redo6-signature`.
