@@ -1520,3 +1520,10 @@ undo/redo restores `quote`; T10 isolation still holds.
 - Gate: `npx playwright test` **297/297** (`/tmp/duo/p3-full.log`), `node scripts/cad-persistence-matrix.js`
   **12/12** (`/tmp/duo/p3-matrix.log`), `git diff --check` PASS. No pricing values or behavior changed; no
   rate-card writes. `CURRENT_STATE.json` head refresh stays with the merge closeout.
+
+### 2026-11-01 — duo r5 closeout (Claude Code coordinator)
+
+- Owner said "merge it": #60 (P3) merged clean (`main` `cfb6011`; tree equals gated `ff19a2e`).
+- `CURRENT_STATE.json` head/tested head/gate refreshed to `cfb6011` (297/297, 12/12). Handoff duo r5 → r6:
+  `handoffs/CLAUDE-NEXT-duo6.md`. No track authorized; it lists the candidates and the estimated-materials
+  observation from the P3 report.
