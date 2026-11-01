@@ -61,3 +61,11 @@ test('a day without both times is skipped and counted', async ({ page }) => {
   expect(report.daysWithoutTimes).toBe(1); // Second day lacks its end.
   expect(report.complete).toBe(false); // Missing time and blank materials.
 });
+
+test('a saved quote with no total falls back to the current price', async ({ page }) => {
+  await fixture(page);
+  await state(page, 'S.quote.total=null');
+  const report = await state(page, 'jobReport()');
+  expect(report.quoted).toBe(false); // No frozen total to compare against.
+  expect(report.revenueC).toBe(await state(page, 'computePricing().cents.clientTotal'));
+});

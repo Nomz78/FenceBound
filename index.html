@@ -3581,7 +3581,7 @@ function jobReport(){
   });
   const labor={estC:P.cents.laborCost,personHours,actC:centsOf(LABOR.crewHourlyRate,personHours),
     hPerLF:installed.lf>0?personHours/installed.lf:null};
-  const quoted=!!S.quote,revenueC=quoted?centsOf(S.quote.total,1):P.cents.clientTotal;
+  const quoted=!!S.quote&&Number.isFinite(S.quote.total),revenueC=quoted?centsOf(S.quote.total,1):P.cents.clientTotal;
   const actC=revenueC-materials.actC-labor.actC;
   return{materials,labor,installed,revenueC,quoted,
     margin:{estC:revenueC-materials.estC-labor.estC,actC,actPct:revenueC>0?actC/revenueC*100:null},
