@@ -665,6 +665,10 @@ label{font-size:12px;color:var(--text2);letter-spacing:0.02em;display:block;marg
           <div class="psec-title">Materials used</div>
           <div id="field-materials"></div>
         </div>
+        <div class="psec">
+          <div class="psec-title">Job report</div>
+          <div id="field-report"></div>
+        </div>
       </div>
 
       <!-- TAB: PRICING -->
@@ -1668,7 +1672,7 @@ function sanitizeSignature(sig){
 const FIELD_TAGS=['rock','slope','rain','access','other'];
 const FIELD_STAGES=['posts','finished'];
 const FIELD_MAX_DAYS=365,FIELD_NOTE_MAX=500,FIELD_MAX_MATERIALS=500,FIELD_MAT_NAME_MAX=200;
-function emptyActuals(){return{crewDefault:2,days:[],materials:[]};}
+function emptyActuals(){return{crewDefault:2,days:[],materials:[],closedAt:null};}
 function isFieldDate(v){
   if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;
   const d=new Date(v+'T00:00:00Z');return !isNaN(d)&&d.toISOString().slice(0,10)===v;
@@ -1709,6 +1713,7 @@ function sanitizeActuals(a){
   });
   out.days.sort((x,y)=>x.date<y.date?-1:x.date>y.date?1:0);
   out.materials=(Array.isArray(a.materials)?a.materials:[]).slice(0,FIELD_MAX_MATERIALS).map(sanitizeMaterialLine).filter(Boolean);
+  if(typeof a.closedAt==='string'&&a.closedAt.length<=40&&Number.isFinite(Date.parse(a.closedAt)))out.closedAt=a.closedAt;
   return out;
 }
 function clonePricing(){
@@ -3461,9 +3466,25 @@ function updateFieldSaveFlag(){
   const f=document.getElementById('field-save-flag');
   if(f)f.style.display=_autosaveFailed?'':'none';
 }
+// Field capture P3: Close job marks the job finished (closedAt), so P4 can count
+// closed jobs. Reopen clears it. Neither touches the drawing, quote or rates.
+function updateFieldReport(){
+  const box=document.getElementById('field-report');
+  if(!box)return;
+  const at=S.actuals.closedAt;
+  box.innerHTML=at
+    ?`<div style="font-size:12px;color:var(--text2);margin-bottom:6px">Closed ${esc(at.slice(0,10))}</div>
+      <button class="btn" id="field-reopen">Reopen job</button>`
+    :'<button class="btn" id="field-close">Close job</button>';
+  const close=box.querySelector('#field-close');
+  if(close)close.onclick=()=>{S.actuals.closedAt=new Date().toISOString();fieldChanged();};
+  const reopen=box.querySelector('#field-reopen');
+  if(reopen)reopen.onclick=()=>{S.actuals.closedAt=null;fieldChanged();};
+}
 function updateFieldTab(){
   updateFieldSaveFlag();
   updateFieldMaterials();
+  updateFieldReport();
   const box=document.getElementById('field-content');
   if(!box)return;
   if(_fieldDay>=S.actuals.days.length)_fieldDay=S.actuals.days.length-1;

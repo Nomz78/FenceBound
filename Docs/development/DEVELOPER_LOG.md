@@ -1471,3 +1471,8 @@ undo/redo restores `quote`; T10 isolation still holds.
   4. **Close job:** add a "Close job" mark in P3 that sets `actuals.closedAt` (ISO), so closed jobs accumulate
      before P4 ("≥3 closed jobs").
 - Work branch `feat/field-capture-p3` off `main` `3774d05`.
+- **Close job (Claude, P3 owner answer 4):** `S.actuals.closedAt` (`null` | ISO) in `emptyActuals`, sanitized in
+  `sanitizeActuals` (string ≤40 chars that `Date.parse` accepts, else `null`; job still loads); new Field-tab
+  "Job report" section (`updateFieldReport`) with Close job / Reopen job. Never touches drawing, quote or rates.
+  New `tests/job-close.spec.js`: red 3 failed (`/tmp/duo/p3-close-red.log`), green with the field suites 18/18
+  (`/tmp/duo/p3-close-green.log`). P1's empty-shape expectation gained `closedAt: null` (design §2 shape).
