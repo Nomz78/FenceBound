@@ -3534,6 +3534,39 @@ function fieldEstimateMaterialLines(){
     unit:l.pricedUnit??l.unit,estQty:l.pricedQty??l.qty,estUnitCost:l.unitCost})).filter(Boolean);
 }
 const fieldLineC=(cost,qty)=>cost===null||qty===null?null:centsOf(cost,qty);
+// Field capture P3: read-only figures shared by the job report and its PDF.
+// Partial actuals use entered lines only; complete describes entry coverage.
+function jobReport(){
+  const P=computePricing(),a=S.actuals,lines=a.materials;
+  const materials={estC:0,actC:0,linesEntered:0,lines:lines.length};
+  lines.forEach(l=>{
+    materials.estC+=fieldLineC(l.estUnitCost,l.estQty)??0;
+    const c=fieldLineC(l.unitCost,l.qty);
+    if(c!==null){materials.actC+=c;materials.linesEntered++;}
+  });
+  const installed={lf:0,plannedLF:0,runsFinished:0,runsTotal:0};
+  S.elements.filter(el=>el.type==='fence').forEach(run=>{
+    const lf=dist(run.start,run.end)/GRID_FT;
+    installed.plannedLF+=lf;installed.runsTotal++;
+    if(fieldRunStage(run.runId)==='finished'){installed.lf+=lf;installed.runsFinished++;}
+  });
+  let personHours=0,daysWithoutTimes=0;
+  const minutes=t=>Number(t.slice(0,2))*60+Number(t.slice(3));
+  a.days.forEach(d=>{
+    if(!isFieldTime(d.start)||!isFieldTime(d.end)){daysWithoutTimes++;return;}
+    // Time-only day logs have no overnight marker; never infer a second date
+    // or allow reversed times / excess breaks to create negative labor.
+    personHours+=d.crew*Math.max(0,minutes(d.end)-minutes(d.start)-d.breakMin)/60;
+  });
+  const labor={estC:P.cents.laborCost,personHours,actC:centsOf(LABOR.crewHourlyRate,personHours),
+    hPerLF:installed.lf>0?personHours/installed.lf:null};
+  const quoted=!!S.quote,revenueC=quoted?centsOf(S.quote.total,1):P.cents.clientTotal;
+  const actC=revenueC-materials.actC-labor.actC;
+  return{materials,labor,installed,revenueC,quoted,
+    margin:{estC:revenueC-materials.estC-labor.estC,actC,actPct:revenueC>0?actC/revenueC*100:null},
+    days:a.days.length,daysWithoutTimes,complete:materials.linesEntered===materials.lines&&daysWithoutTimes===0,
+    closedAt:a.closedAt??null};
+}
 function updateFieldMatTotal(){
   const el=document.getElementById('field-mat-total');
   if(!el)return;
