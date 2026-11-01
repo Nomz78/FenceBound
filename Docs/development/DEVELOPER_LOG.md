@@ -1452,3 +1452,11 @@ undo/redo restores `quote`; T10 isolation still holds.
 - Reviewed by Claude Code (duo r4): display only, no pricing function or rate change; all 14 summary cost keys
   exist in the rate card; `writeQuoteToSavedJob` deep-copies the quote, so `layout`/`quantities` reach Saved Jobs.
   Committed "Implemented by Codex" on `feat/qq-price-notice`.
+
+### 2026-10-31 — duo r4 closeout (Claude Code coordinator)
+
+- Owner said "merge it": #57 (P2) merged; #58 (notice) brought up to date with `main` (developer log keep-both
+  only), full gate on the combined code `npx playwright test` 288/288, matrix 12/12, then merged (`main`
+  `9c54ef7`). Codex's interactive session closed by the owner.
+- **Authorized by the owner (2026-10-31): field capture P3** (job report: app section + PDF page, derived
+  rates), design §5-§6. Handoff duo r4 → r5: `handoffs/CLAUDE-NEXT-duo5.md`.
