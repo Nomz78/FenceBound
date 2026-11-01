@@ -4,7 +4,7 @@
   "project": "FenceBound",
   "repository": "/home/altairus78/Projects/FenceBound",
   "branch": "main",
-  "head": "56c5d9f1d43f02bda29949fe133175cd0add19ac",
+  "head": "cfb60111b086ad032e63bf1340c67b4fb247c4de",
   "upstream": "origin/main",
   "worktreeClean": true,
   "canonicalRuntime": "index.html",
@@ -22,23 +22,23 @@
   "developmentIndex": "index.html#FenceboundCAD-Development-Index",
   "projectInstructions": "PROJECT-INSTRUCTIONS.md",
   "currentHandoff": "Docs/CURRENT_HANDOFF.md",
-  "lastCompletedTask": "REDO 1-6 merged (#43-#49); MR5 quoted-job coverage and matrix route 10 migrated pricing (#50); field capture design, priority ranking and Codex field survey (#51). Records since 2026-10-15 live in handoffs/ and Docs/development/DEVELOPER_LOG.md.",
-  "activeTask": "Duo r1 (Claude Code coordinates, Codex implements): quote-without-a-drawing design and Codex footage takeoff survey. Design only; no implementation authorized. See handoffs/CLAUDE-NEXT-* (newest) and Docs/planning/PRIORITY_RANKING_2026-10-31.md.",
-  "nextOwnerDecision": "Authorize implementation after reading Docs/planning/FIELD_CAPTURE_DESIGN_2026-10-31.md and the quote-without-a-drawing design; ranking in Docs/planning/PRIORITY_RANKING_2026-10-31.md. Carried rulings: C0 named product/assembly choices and unresolved source evidence; footing depths past 42 in.; vinyl split-rail default height; collinear joint post (CAD-06); line-post concrete; residential post stock lengths; truss rods/sleeves/bolts; NC sales-tax treatment (CPA/NC DOR); v6.0 engine authorization; mid/bottom rail ties; under-6 ft depth editability; session:init merge handling. O-6 remains unresolved.",
-  "repositoryHeadAtGeneration": "56c5d9f1d43f02bda29949fe133175cd0add19ac",
-  "testedHead": "56c5d9f1d43f02bda29949fe133175cd0add19ac",
+  "lastCompletedTask": "Field capture P1-P3 merged: day log (#55), materials actuals (#57), quick-quote price notice (#58), P3 job report, Job report PDF and Close job (#60, jobReport() implemented by Codex).",
+  "activeTask": "None in progress. Duo r6: see handoffs/CLAUDE-NEXT-duo6.md.",
+  "nextOwnerDecision": "Authorize the next track: P4 'Your numbers' (needs >=3 closed jobs), per-side type in the quick-quote form, F13 bullet 3, or the estimated-materials fallback in the job report.",
+  "repositoryHeadAtGeneration": "cfb60111b086ad032e63bf1340c67b4fb247c4de",
+  "testedHead": "cfb60111b086ad032e63bf1340c67b4fb247c4de",
   "closeoutConvention": "The current HEAD may be one direct documentation-only closeout child of head; see START_HERE.md.",
   "gate": {
     "status": "PASS",
     "command": "npx playwright test; node scripts/cad-persistence-matrix.js; git diff --check",
     "timestamp": "2026-10-31",
-    "head": "56c5d9f1d43f02bda29949fe133175cd0add19ac",
+    "head": "cfb60111b086ad032e63bf1340c67b4fb247c4de",
     "results": {
-      "npx playwright test": "257/257 passed",
+      "npx playwright test": "297/297 passed",
       "node scripts/cad-persistence-matrix.js": "12/12 passed",
       "git diff --check": "PASS"
     },
-    "note": "Run on Linux (~/Projects/FenceBound) with the live cdnjs jsPDF; no transport workaround."
+    "note": "Run on Linux (~/Projects/FenceBound) on ff19a2e, whose tree equals merge cfb6011; live cdnjs jsPDF."
   },
   "knownDrift": [
     "The embedded Development Index records the four October 15 repairs, but retains older status entries explicitly labeled historical. Other known documentation/tooling limitations below remain.",
