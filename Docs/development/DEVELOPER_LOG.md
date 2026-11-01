@@ -1460,3 +1460,14 @@ undo/redo restores `quote`; T10 isolation still holds.
   `9c54ef7`). Codex's interactive session closed by the owner.
 - **Authorized by the owner (2026-10-31): field capture P3** (job report: app section + PDF page, derived
   rates), design §5-§6. Handoff duo r4 → r5: `handoffs/CLAUDE-NEXT-duo5.md`.
+
+### 2026-10-31 — duo r5: field capture P3 owner answers (Claude Code coordinator)
+
+- Owner answered the r5 open questions (all four recommendations), recorded before any build:
+  1. **Report PDF:** a separate "Job report" PDF export. The customer estimate PDF never shows cost or margin.
+  2. **Labor:** compare labor **dollars** (actual person-hours × `crewHourlyRate` vs estimate labor $) and show
+     actual h/LF alongside.
+  3. **Installed LF:** LF of runs marked `finished`; no `installedOverride` in P3.
+  4. **Close job:** add a "Close job" mark in P3 that sets `actuals.closedAt` (ISO), so closed jobs accumulate
+     before P4 ("≥3 closed jobs").
+- Work branch `feat/field-capture-p3` off `main` `3774d05`.
