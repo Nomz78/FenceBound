@@ -1506,3 +1506,17 @@ undo/redo restores `quote`; T10 isolation still holds.
   assigned P3 handoff/owner authorization controls. Older SOURCE_OF_TRUTH authority order also differs
   from START_HERE. Global initiate-repo skill unavailable locally; repository checks followed.
   Shared state/current handoff and two-commit closeout intentionally left to coordinator per scope.
+
+### 2026-10-31 — duo r5: P3 integration, report section and Job report PDF (Claude Code coordinator)
+
+- Reviewed Codex's `jobReport()` (fixture arithmetic checked by hand) and committed it "Implemented by Codex"
+  (`5c24fb0`), merged into `feat/field-capture-p3` (developer log keep-both only).
+- Review fix: a saved quote with `total: null` (allowed by `applyState`) made revenue `centsOf(null,1)`; now
+  `quoted` needs a finite total, else the current price. Test red 1 failed → green 4/4.
+- `jobReportRows()`: one ASCII row builder shared by the Field-tab **Job report** section and the new
+  `exportJobReportPDF()` (own file `<company>_JobReport_<job>.pdf`, headed "JOB REPORT - INTERNAL, NOT FOR THE
+  CUSTOMER"; the customer estimate PDF is unchanged). Notes flag blank lines, days without times, and an
+  unquoted job. Material edits refresh the report in place. Tests red 2 failed (functions absent) → green.
+- Gate: `npx playwright test` **297/297** (`/tmp/duo/p3-full.log`), `node scripts/cad-persistence-matrix.js`
+  **12/12** (`/tmp/duo/p3-matrix.log`), `git diff --check` PASS. No pricing values or behavior changed; no
+  rate-card writes. `CURRENT_STATE.json` head refresh stays with the merge closeout.

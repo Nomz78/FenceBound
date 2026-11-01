@@ -3466,16 +3466,26 @@ function updateFieldSaveFlag(){
   const f=document.getElementById('field-save-flag');
   if(f)f.style.display=_autosaveFailed?'':'none';
 }
-// Field capture P3: Close job marks the job finished (closedAt), so P4 can count
-// closed jobs. Reopen clears it. Neither touches the drawing, quote or rates.
+// Field capture P3: estimate vs actual (jobReport), a Job report PDF for the
+// owner (never the customer estimate), and Close job, which marks the job
+// finished (closedAt) so P4 can count closed jobs. Reopen clears it. None of
+// this touches the drawing, quote or rates.
 function updateFieldReport(){
   const box=document.getElementById('field-report');
   if(!box)return;
-  const at=S.actuals.closedAt;
-  box.innerHTML=at
-    ?`<div style="font-size:12px;color:var(--text2);margin-bottom:6px">Closed ${esc(at.slice(0,10))}</div>
-      <button class="btn" id="field-reopen">Reopen job</button>`
-    :'<button class="btn" id="field-close">Close job</button>';
+  let R=null;try{R=jobReport();}catch(e){}
+  const at=S.actuals.closedAt,T=R&&jobReportRows(R),cell='padding:2px 4px;text-align:right';
+  box.innerHTML=(T?`<table style="width:100%;border-collapse:collapse;font-size:12px;color:var(--text2)">
+      <tr><th></th><th style="${cell}">Estimate</th><th style="${cell}">Actual</th></tr>
+      ${T.rows.map(r=>`<tr><td style="padding:2px 4px">${r.label}</td><td style="${cell}">${r.est}</td><td style="${cell};color:var(--text1)">${r.act}</td></tr>`).join('')}
+    </table>${T.notes.map(n=>`<div style="font-size:11px;color:var(--text3);margin-top:4px">${n}</div>`).join('')}`
+    :'<div style="font-size:12px;color:var(--text3)">Report unavailable: pricing has errors.</div>')+
+    `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px">
+      ${T?'<button class="btn" id="field-report-pdf">Job report PDF</button>':''}
+      ${at?`<span style="font-size:12px;color:var(--text2)">Closed ${esc(at.slice(0,10))}</span>
+      <button class="btn" id="field-reopen">Reopen job</button>`:'<button class="btn" id="field-close">Close job</button>'}</div>`;
+  const pdf=box.querySelector('#field-report-pdf');
+  if(pdf)pdf.onclick=exportJobReportPDF;
   const close=box.querySelector('#field-close');
   if(close)close.onclick=()=>{S.actuals.closedAt=new Date().toISOString();fieldChanged();};
   const reopen=box.querySelector('#field-reopen');
@@ -3588,7 +3598,27 @@ function jobReport(){
     days:a.days.length,daysWithoutTimes,complete:materials.linesEntered===materials.lines&&daysWithoutTimes===0,
     closedAt:a.closedAt??null};
 }
+// Display rows for the job report, shared by the Field section and the Job report
+// PDF so they cannot disagree. ASCII only: jsPDF's standard fonts print it as typed.
+function jobReportRows(R){
+  const $=c=>'$'+(c/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const pct=(c,rev)=>rev>0?`, ${(c/rev*100).toFixed(1)}%`:'';
+  const rows=[
+    {label:'Materials',est:$(R.materials.estC),act:`${$(R.materials.actC)}, ${R.materials.linesEntered} of ${R.materials.lines} lines`},
+    {label:'Labor',est:$(R.labor.estC),act:`${$(R.labor.actC)}, ${R.labor.personHours.toFixed(1)} person-h`},
+    {label:'Labor rate',est:'-',act:R.labor.hPerLF===null?'-':`${R.labor.hPerLF.toFixed(2)} h/LF`},
+    {label:'Installed',est:`${R.installed.plannedLF.toFixed(1)} LF`,act:`${R.installed.lf.toFixed(1)} LF, ${R.installed.runsFinished} of ${R.installed.runsTotal} runs`},
+    {label:'Price',est:$(R.revenueC),act:$(R.revenueC)},
+    {label:'Margin',est:$(R.margin.estC)+pct(R.margin.estC,R.revenueC),act:$(R.margin.actC)+pct(R.margin.actC,R.revenueC)}];
+  const notes=[];
+  const blank=R.materials.lines-R.materials.linesEntered;
+  if(blank||R.daysWithoutTimes)notes.push('Incomplete: '+[blank?`${blank} material line${blank>1?'s':''} blank`:'',
+    R.daysWithoutTimes?`${R.daysWithoutTimes} day${R.daysWithoutTimes>1?'s':''} without times`:''].filter(Boolean).join(', ')+'.');
+  if(!R.quoted)notes.push('No quote yet: price is the current estimate.');
+  return{rows,notes};
+}
 function updateFieldMatTotal(){
+  updateFieldReport();// material edits update in place; keep the report current
   const el=document.getElementById('field-mat-total');
   if(!el)return;
   const lines=S.actuals.materials;
@@ -5782,6 +5812,34 @@ function drawPdfValidationWarning(doc,validation,x,y,width){
 }
 
 // ── ESTIMATE PDF (company-profile branded) ─────────────────────────────────
+// Job report PDF (field capture P3): the owner's estimate-vs-actual page. It shows
+// cost and margin, so it is its own file and never part of the customer estimate.
+function exportJobReportPDF(){
+  if(!window.jspdf){alert('PDF library not loaded. Check internet connection.');return;}
+  let R;try{R=jobReport();}catch(e){alert('Job report unavailable: pricing has errors.');return;}
+  const{rows,notes}=jobReportRows(R),{jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'letter'});
+  const ML=16,PW=216,cE=150,cA=200;
+  doc.setFont('helvetica','bold');doc.setFontSize(14);doc.setTextColor(28,28,28);
+  doc.text(companyDisplayName(),ML,18);
+  doc.setFontSize(10);doc.setTextColor(180,40,40);
+  doc.text('JOB REPORT - INTERNAL, NOT FOR THE CUSTOMER',ML,25);
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(40,55,65);
+  let y=33;
+  [S.projectName,S.jobCustomer,S.jobAddress,`Days logged: ${R.days}`,
+    R.closedAt?`Closed ${R.closedAt.slice(0,10)}`:'Open job',
+    `Printed ${new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`]
+    .filter(Boolean).forEach(t=>{doc.text(String(t),ML,y);y+=5;});
+  y+=4;
+  doc.setFont('helvetica','bold');doc.text('Estimate',cE,y,{align:'right'});doc.text('Actual',cA,y,{align:'right'});
+  doc.setDrawColor(200,200,200);doc.line(ML,y+2,PW-ML,y+2);y+=8;
+  doc.setFont('helvetica','normal');
+  rows.forEach(r=>{doc.text(r.label,ML,y);doc.text(r.est,cE,y,{align:'right'});doc.text(r.act,cA,y,{align:'right'});y+=7;});
+  y+=3;doc.setFontSize(8);doc.setTextColor(110,110,110);
+  notes.forEach(n=>{doc.text(n,ML,y);y+=5;});
+  const safeName=(S.jobCustomer||S.projectName).replace(/[^a-z0-9]/gi,'_');
+  doc.save(`${companySlug()}_JobReport_${safeName}.pdf`);
+}
 function exportEstimatePDF(){
   const validation=validateProject();
   renderValidationStatus(validation);

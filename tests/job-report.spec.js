@@ -69,3 +69,41 @@ test('a saved quote with no total falls back to the current price', async ({ pag
   expect(report.quoted).toBe(false); // No frozen total to compare against.
   expect(report.revenueC).toBe(await state(page, 'computePricing().cents.clientTotal'));
 });
+
+// The app section and the Job report PDF read the same rows (jobReportRows).
+const FIXTURE_ROWS = [
+  { label: 'Materials', est: '$400.00', act: '$200.00, 2 of 3 lines' },
+  { label: 'Labor', est: '$600.00', act: '$1,050.00, 21.0 person-h' }, // 21 h × $50.
+  { label: 'Labor rate', est: '-', act: '0.21 h/LF' }, // 21 h / 100 LF.
+  { label: 'Installed', est: '150.0 LF', act: '100.0 LF, 1 of 2 runs' },
+  { label: 'Price', est: '$2,000.00', act: '$2,000.00' }, // Frozen quote.
+  { label: 'Margin', est: '$1,000.00, 50.0%', act: '$750.00, 37.5%' }, // 1000/2000; 750/2000.
+];
+
+test('report rows format the fixture figures; the Field tab shows them', async ({ page }) => {
+  await fixture(page);
+  const rows = await state(page, 'jobReportRows(jobReport())');
+  expect(rows.rows).toEqual(FIXTURE_ROWS);
+  expect(rows.notes).toEqual(['Incomplete: 1 material line blank.']);
+  await page.locator('.ptab[data-tab="field"]').click();
+  const section = page.locator('#field-report');
+  for (const r of FIXTURE_ROWS) for (const v of [r.label, r.est, r.act]) await expect(section).toContainText(v);
+  await expect(section).toContainText('Incomplete: 1 material line blank.');
+  await expect(section.locator('#field-report-pdf')).toBeVisible();
+});
+
+test('the Job report PDF carries the rows and is not the customer estimate', async ({ page }) => {
+  await page.waitForFunction(() => !!window.jspdf);
+  await fixture(page);
+  const out = await state(page, `(()=>{const calls=[],Real=window.jspdf.jsPDF;
+    window.jspdf.jsPDF=function(...args){const doc=new Real(...args);
+      doc.save=name=>{calls.push({name,pdf:doc.output()});};return doc;};
+    try{exportJobReportPDF();}finally{window.jspdf.jsPDF=Real;}
+    return calls;})()`);
+  expect(out).toHaveLength(1);
+  expect(out[0].name).toMatch(/_JobReport_.*\.pdf$/);
+  expect(out[0].pdf).toContain('(JOB REPORT - INTERNAL, NOT FOR THE CUSTOMER)');
+  for (const r of FIXTURE_ROWS) for (const v of [r.label, r.est, r.act]) expect(out[0].pdf).toContain(`(${v})`);
+  expect(out[0].pdf).toContain('(Incomplete: 1 material line blank.)');
+  expect(out[0].pdf).toContain('(Closed 2026-10-31)');
+});
