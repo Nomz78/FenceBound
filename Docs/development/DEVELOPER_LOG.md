@@ -1460,3 +1460,63 @@ undo/redo restores `quote`; T10 isolation still holds.
   `9c54ef7`). Codex's interactive session closed by the owner.
 - **Authorized by the owner (2026-10-31): field capture P3** (job report: app section + PDF page, derived
   rates), design §5-§6. Handoff duo r4 → r5: `handoffs/CLAUDE-NEXT-duo5.md`.
+
+### 2026-10-31 — duo r5: field capture P3 owner answers (Claude Code coordinator)
+
+- Owner answered the r5 open questions (all four recommendations), recorded before any build:
+  1. **Report PDF:** a separate "Job report" PDF export. The customer estimate PDF never shows cost or margin.
+  2. **Labor:** compare labor **dollars** (actual person-hours × `crewHourlyRate` vs estimate labor $) and show
+     actual h/LF alongside.
+  3. **Installed LF:** LF of runs marked `finished`; no `installedOverride` in P3.
+  4. **Close job:** add a "Close job" mark in P3 that sets `actuals.closedAt` (ISO), so closed jobs accumulate
+     before P4 ("≥3 closed jobs").
+- Work branch `feat/field-capture-p3` off `main` `3774d05`.
+- **Close job (Claude, P3 owner answer 4):** `S.actuals.closedAt` (`null` | ISO) in `emptyActuals`, sanitized in
+  `sanitizeActuals` (string ≤40 chars that `Date.parse` accepts, else `null`; job still loads); new Field-tab
+  "Job report" section (`updateFieldReport`) with Close job / Reopen job. Never touches drawing, quote or rates.
+  New `tests/job-close.spec.js`: red 3 failed (`/tmp/duo/p3-close-red.log`), green with the field suites 18/18
+  (`/tmp/duo/p3-close-green.log`). P1's empty-shape expectation gained `closedAt: null` (design §2 shape).
+
+### 2026-10-31 — field capture P3 job-report figures (Implemented by Codex)
+
+- Scope: `handoffs/CODEX-NEXT-p3-report1.md`, on `codex/p3-report1` at base `8287a81`;
+  changes deliberately uncommitted for the coordinator. Added pure `jobReport()` near Field materials:
+  integer-cent estimate/actual costs, person-hours, finished-run LF, quote/current revenue, margins,
+  entry completeness and echoed close mark. No pricing values/behavior or state/rate-card writes changed.
+- Owner rules remain those recorded above under duo r5: separate Job report PDF; labor dollars at the
+  per-person-hour crew rate plus h/LF; finished-run LF only, no installed override; `actuals.closedAt`.
+  This task implements figures only; coordinator owns UI/PDF/Close job and persistence support.
+- `tests/job-report.spec.js`: literal manual fixture arithmetic (150 planned LF, 100 finished LF,
+  $400 estimated materials / $200 entered actual materials including a return, $600 estimated labor,
+  21 person-hours / $1050 actual labor, $2000 quote, $1000 estimated / $750 actual margin, 37.5%).
+  Also covers empty actuals, skipped missing times and read-only state/pricing/localStorage behavior.
+- Choices: `materials.lines` and `days` are counts; empty entries are vacuously complete, not a closed-job
+  indication; zero LF/revenue ratios are null; reversed shifts/excess breaks contribute zero hours
+  because time-only logs cannot establish overnight work. Partial actual margin uses entered costs only
+  as directed, without disagreement. Result/integration notes: `handoffs/CODEX-RESULT-p3-report1.md`.
+- RED 3/3 absent-function failures; GREEN 3/3 pass. Persistence matrix 12/12 pass. Full Playwright:
+  286/291 pass, 5 failures waiting for CDN-loaded `window.jspdf` (20s timeouts). Rechecked all five
+  failures and related cases: 22/22 pass with no source/transport changes. All cases passed across runs;
+  initial full run was not wholly green. Logs `/tmp/duo/p3-report1-{red,green,full,matrix,recheck}.log`;
+  static `git diff --check` PASS. CDN intermittency remains a test-environment limitation.
+  Playwright uses an external temporary config on 8081 because coordinator tests in another checkout
+  occupied 8080; repository settings otherwise preserved. Matrix command unchanged on 8091.
+- Entry audit: clean correct branch, HEAD equals upstream `origin/feat/field-capture-p3`, app 5.4.0,
+  schema 3, canonical `index.html`. Session-init main/head metadata and design-only task are stale;
+  assigned P3 handoff/owner authorization controls. Older SOURCE_OF_TRUTH authority order also differs
+  from START_HERE. Global initiate-repo skill unavailable locally; repository checks followed.
+  Shared state/current handoff and two-commit closeout intentionally left to coordinator per scope.
+
+### 2026-10-31 — duo r5: P3 integration, report section and Job report PDF (Claude Code coordinator)
+
+- Reviewed Codex's `jobReport()` (fixture arithmetic checked by hand) and committed it "Implemented by Codex"
+  (`5c24fb0`), merged into `feat/field-capture-p3` (developer log keep-both only).
+- Review fix: a saved quote with `total: null` (allowed by `applyState`) made revenue `centsOf(null,1)`; now
+  `quoted` needs a finite total, else the current price. Test red 1 failed → green 4/4.
+- `jobReportRows()`: one ASCII row builder shared by the Field-tab **Job report** section and the new
+  `exportJobReportPDF()` (own file `<company>_JobReport_<job>.pdf`, headed "JOB REPORT - INTERNAL, NOT FOR THE
+  CUSTOMER"; the customer estimate PDF is unchanged). Notes flag blank lines, days without times, and an
+  unquoted job. Material edits refresh the report in place. Tests red 2 failed (functions absent) → green.
+- Gate: `npx playwright test` **297/297** (`/tmp/duo/p3-full.log`), `node scripts/cad-persistence-matrix.js`
+  **12/12** (`/tmp/duo/p3-matrix.log`), `git diff --check` PASS. No pricing values or behavior changed; no
+  rate-card writes. `CURRENT_STATE.json` head refresh stays with the merge closeout.

@@ -168,7 +168,7 @@ test.describe('field capture P1', () => {
     expect(d.gatesDone).toEqual([]);
     for (const junk of [null, 'x', 5, { days: 'x' }]) {
       expect(await state(page, `(()=>{applyState({...snapshotState(),actuals:${JSON.stringify(junk)}});
-        return JSON.parse(JSON.stringify(S.actuals));})()`)).toEqual({ crewDefault: 2, days: [], materials: [] });
+        return JSON.parse(JSON.stringify(S.actuals));})()`)).toEqual({ crewDefault: 2, days: [], materials: [], closedAt: null });
     }
   });
 
