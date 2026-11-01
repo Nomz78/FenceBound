@@ -1428,3 +1428,27 @@ undo/redo restores `quote`; T10 isolation still holds.
   `materials: []` (schema extension, not a behavior change).
 - Gate on `feat/field-capture-p2`: `npx playwright test` 284/284 (3.8m), matrix 12/12, `git diff --check` clean.
   Pricing untouched.
+
+## 2026-10-31 — Quick quote drawing-price notice (Codex, qq-notice1)
+
+- Owner authorization: supplied `handoffs/CODEX-NEXT-qq-notice1.md` (duo r4 ruling) and current direct request;
+  display-only “Drawing changed the price” notice. No automatic re-price, change order or per-side form work.
+- Exported quote stores typed/drawn layout and four needed-quantity totals from existing automatic material
+  lines: posts, rail LF, pickets, each-unit panels. Snapshot/load retain whitelisted valid metadata; legacy
+  quotes remain quiet. Inline Pricing notice shows old/current totals and changed quantities after geometry
+  becomes drawn; equal totals/undo/re-export clear it. Rates and company card remain untouched.
+- New `tests/quick-quote-notice.spec.js`: initial red 3 failed/1 control passed; final focused green 4/4.
+  Logs `/tmp/duo/qq-notice1-{red,green}.log`. Pricing-tab setup corrected during focused verification;
+  geometry-panel refresh added so the comparison updates after Move, including while Pricing is closed.
+- Design choice: four compact needed-quantity keys, not purchased packs or a full BOM; finite nonnegative
+  numeric fields only; malformed/unknown fields dropped. Field capture P2 symbols untouched.
+- Full gate: Playwright **282/282**, persistence matrix **12/12**, syntax and `git diff --check` PASS.
+  Evidence in `handoffs/CODEX-RESULT-qq-notice1.md`; logs under `/tmp/duo/qq-notice1-*`.
+  Startup metadata still records older main; requested branch/base `codex/qq-notice1` / `98659ed` verified.
+- Owner-authorized stash cleanup: dropped old qq-parity copy `db71cf4` then F13 leftovers `bbadf5b`, in the
+  requested stash@{1}, stash@{0} order; owner confirmed all contents on main. Stash list empty.
+- Changes uncommitted for coordinator review/commit (“Implemented by Codex”) and PR on `feat/qq-price-notice`.
+  No PR, push or release performed. Explicit scoped handoff supersedes routine two-commit state closeout.
+- Reviewed by Claude Code (duo r4): display only, no pricing function or rate change; all 14 summary cost keys
+  exist in the rate card; `writeQuoteToSavedJob` deep-copies the quote, so `layout`/`quantities` reach Saved Jobs.
+  Committed "Implemented by Codex" on `feat/qq-price-notice`.

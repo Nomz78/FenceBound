@@ -712,6 +712,7 @@ label{font-size:12px;color:var(--text2);letter-spacing:0.02em;display:block;marg
         <div class="psec">
           <button class="btn" id="btn-company-profile" style="width:100%;padding:7px;font-size:12px;margin-bottom:6px">Company Profile</button>
           <div id="seed-price-note" style="display:none;font-size:12px;color:var(--accent);line-height:1.5;margin-bottom:6px">Pricing is still the shipped placeholder baseline. Load your own costs before quoting.</div>
+          <div id="quote-drawing-notice" style="display:none;font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:6px"></div>
           <div id="quote-price-note" style="display:none;align-items:center;gap:8px;font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:6px"><span id="quote-price-text" style="flex:1"></span><button class="btn" id="btn-reprice" style="font-size:12px;padding:3px 8px" title="Replace this job's quoted prices with the company rate card">Re-price</button><button class="btn" id="btn-sign" style="font-size:12px;padding:3px 8px" title="Customer signs this quote">Sign</button></div>
           <button class="btn" id="btn-cost-editor" style="width:100%;padding:7px;font-size:12px;margin-bottom:6px">Edit Costs & Margin</button>
           <button class="btn accent" id="btn-gen-estimate" style="width:100%;padding:8px;font-size:12px;letter-spacing:0.08em">GENERATE ESTIMATE PDF</button>
@@ -1043,7 +1044,7 @@ function snapshotState(){
     autoPost:S.autoPost,postSpacing:S.postSpacing,underlay:S.underlay,
     // A quoted job's frozen prices are the costs…postEmbedIn above; a draft's
     // are the rate card at save time and are not read back (REDO 6b).
-    quote:S.quote?{frozenAt:S.quote.frozenAt,total:S.quote.total,...(S.quote.signature?{signature:{...S.quote.signature}}:{})}:null,
+    quote:S.quote?{frozenAt:S.quote.frozenAt,total:S.quote.total,...quoteLayoutMetadata(S.quote),...(S.quote.signature?{signature:{...S.quote.signature}}:{})}:null,
     actuals:JSON.parse(JSON.stringify(S.actuals))};
 }
 function applyState(st){
@@ -1081,7 +1082,7 @@ function applyState(st){
     if(st.footing)mergeFooting(st.footing);
     if(st.postODIn)mergePostOD(st.postODIn);
     if(st.postEmbedIn)mergePostEmbed(st.postEmbedIn);
-    S.quote={frozenAt:typeof q.frozenAt==='string'?q.frozenAt:null,total:Number.isFinite(q.total)?q.total:null,pricing:clonePricing()};
+    S.quote={frozenAt:typeof q.frozenAt==='string'?q.frozenAt:null,total:Number.isFinite(q.total)?q.total:null,pricing:clonePricing(),...quoteLayoutMetadata(q)};
     const sig=sanitizeSignature(q.signature);if(sig)S.quote.signature=sig;
     _pricingFromLoadedProject=true;
   }
@@ -2967,6 +2968,7 @@ function updatePanel(preserveSpecs=false){
         <span class="mat-order" style="font-size:12px;color:var(--accent);font-weight:700;white-space:nowrap;margin-left:6px" title="Order${m.pack>1?` (packs of ${m.pack} ${m.unit})`:''}">order ${m.order} ${m.unit}</span>
       </div>`).join('');
   }
+  updateDrawingPriceNotice();
 }
 
 function updateLegend(){
@@ -4859,6 +4861,51 @@ function customerDocumentLines(P,stats){
   return{rows,totalC:P.cents.clientTotal,total:customerMoney(P.cents.clientTotal)};
 }
 
+// Display-only comparison with the last exported estimate. Needed quantities,
+// not purchase packs, describe the changed drawing; all prices remain untouched.
+function quoteQuantities(P){
+  const posts=new Set(['post','line post','terminal corner post','gate post','vinyl post','vinyl split rail post','ornamental post','split rail post','t post','wood corner brace post']);
+  const panels=new Set(['vinyl privacy panel','ornamental panel','temp panel']);
+  const out={posts:0,rails:0,pickets:0,panels:0};
+  P.matLines.forEach(m=>{
+    if(m.source==='manual'||!Number.isFinite(m.qty)||m.qty<0)return;
+    if(m.unit==='ea'&&posts.has(m.costKey))out.posts+=m.qty;
+    if(m.unit==='lf'&&/rail/.test(m.costKey||''))out.rails+=m.qty;
+    if(m.unit==='ea'&&m.costKey==='dog ear picket')out.pickets+=m.qty;
+    if(m.unit==='ea'&&panels.has(m.costKey))out.panels+=m.qty;
+  });
+  return out;
+}
+function quoteLayoutMetadata(q){
+  const out={};
+  if(q.layout==='typed'||q.layout==='drawn')out.layout=q.layout;
+  if(q.quantities&&typeof q.quantities==='object'&&!Array.isArray(q.quantities)){
+    const quantities={};
+    ['posts','rails','pickets','panels'].forEach(k=>{
+      const v=q.quantities[k];if(Number.isFinite(v)&&v>=0)quantities[k]=v;
+    });
+    if(Object.keys(quantities).length)out.quantities=quantities;
+  }
+  return out;
+}
+function updateDrawingPriceNotice(P){
+  const el=document.getElementById('quote-drawing-notice');if(!el)return;
+  el.style.display='none';el.textContent='';
+  const q=S.quote;
+  if(!q||q.layout!=='typed'||!q.quantities||jobLayout()!=='drawn'||!Number.isFinite(q.total))return;
+  // Geometry edits refresh the summary panel even while Pricing is closed.
+  // Invalid drawings retain their existing validation path; no comparison then.
+  try{P=P||computePricing();}catch(e){return;}
+  if(!Number.isFinite(P.clientTotal)||Math.abs(P.clientTotal-q.total)<=0.005)return;
+  el.style.display='block';
+  const now=quoteQuantities(P),deltas=[];
+  ['posts','rails','pickets','panels'].forEach(k=>{
+    if(!Number.isFinite(q.quantities[k]))return;
+    const delta=Math.round((now[k]-q.quantities[k])*1000)/1000;
+    if(delta)deltas.push(`${k} ${delta>0?'+':''}${delta}${k==='rails'?' LF':''}`);
+  });
+  el.textContent=`Drawing changed the price: $${q.total.toFixed(2)} → $${P.clientTotal.toFixed(2)}${deltas.length?` (${deltas.join(', ')})`:''}`;
+}
 function updatePricing(){
   refreshSiteAdderLabels();
   const _spn=document.getElementById('seed-price-note');
@@ -4872,6 +4919,7 @@ function updatePricing(){
     document.getElementById('btn-sign').textContent=sig?'Remove signature':'Sign';
   }
   const P=computePricing();
+  updateDrawingPriceNotice(P);
   const showCost=S.showCostView; // employee/internal toggle
 
   // ── BREAKDOWN: itemized when in cost view, summarized otherwise ──
@@ -5935,7 +5983,7 @@ function exportEstimatePDF(){
   // O-5 split (REDO 6b): the first estimate export freezes the job's prices.
   // Later exports keep them and record the latest quoted total.
   if(!pricingUnavailable){
-    S.quote={frozenAt:S.quote?S.quote.frozenAt:new Date().toISOString(),total:P.clientTotal,pricing:S.quote?S.quote.pricing:clonePricing(),...(signature?{signature}:{})};
+    S.quote={frozenAt:S.quote?S.quote.frozenAt:new Date().toISOString(),total:P.clientTotal,layout:jobLayout(),quantities:quoteQuantities(P),pricing:S.quote?S.quote.pricing:clonePricing(),...(signature?{signature}:{})};
     _pricingFromLoadedProject=true;
     writeQuoteToSavedJob();
     updatePricing();scheduleAutosave();
