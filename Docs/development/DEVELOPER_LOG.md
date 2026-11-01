@@ -1402,6 +1402,33 @@ undo/redo restores `quote`; T10 isolation still holds.
   install" line) → green. Gate: `npx playwright test` 278/278, matrix 12/12. Handoff duo r3 → r4:
   `handoffs/CLAUDE-NEXT-duo4.md`.
 
+### 2026-10-31 — duo r4: authorization and field capture P2 (Claude Code coordinator)
+
+- PR #56 (F13) merged by the owner (`main` `98659ed`).
+- **Authorized by the owner (AskUserQuestion, 2026-10-31):** field capture **P2** (materials actuals per
+  estimate line) and the quick quote Q1 leftover **"Drawing changed the price" notice**. Two tracks. Not
+  authorized: per-side type in the quick-quote form, F13 bullet 3.
+- Track 2 (notice) goes to Codex: `handoffs/CODEX-NEXT-qq-notice1.md`, worktree on `codex/qq-notice1` off
+  `98659ed`; owner launches `bash /tmp/duo/qq-notice1.run` in a real terminal. The worktree's F13 leftovers
+  (every added line verified on `main`) and the old qq-parity1 stash are kept as `git stash` entries, since
+  discarding them was blocked; both can be dropped by the owner.
+- Track 1, P2 (Claude Code, `feat/field-capture-p2`), per `FIELD_CAPTURE_DESIGN_2026-10-31.md` §2, §4:
+  `S.actuals.materials[]` of `{key,name,unit,estQty,estUnitCost,qty,unitCost,supplier,extra}` in
+  `emptyActuals` and `sanitizeActuals` (`sanitizeMaterialLine`: no name drops the line; estimate figures and
+  unit cost finite ≥0; actual qty finite, **negative allowed for returns** (design §4; §2's "≥0" read as not
+  covering returns); ≤500 lines; strings capped). Boot `hasContent` counts a materials-only session.
+- Field tab "Materials used": **Load estimate lines** pre-fills from `computePricing().matLines` (priced qty and
+  unit, so a per-pack rate reads per pack), which prices a quoted job at its frozen quote rates; loading again
+  adds only missing lines (matched by cost key + name) and keeps entered actuals. Per line: actual qty, unit cost,
+  **Same** (one tap copies the estimate), supplier, remove; **Add line** for extras. Totals: estimate vs actual
+  and lines entered. Typing saves without re-rendering (phone focus). Never writes a rate. Not done (design §4
+  "or the line total"): entering a line total instead of a unit cost.
+- Tests: `tests/field-materials.spec.js` (phone 390×844) 6 red before (no `#field-mat-load`, no `materials`) →
+  6 green. `tests/field-capture.spec.js` line 171 expected the old empty shape `{crewDefault, days}`; now includes
+  `materials: []` (schema extension, not a behavior change).
+- Gate on `feat/field-capture-p2`: `npx playwright test` 284/284 (3.8m), matrix 12/12, `git diff --check` clean.
+  Pricing untouched.
+
 ## 2026-10-31 — Quick quote drawing-price notice (Codex, qq-notice1)
 
 - Owner authorization: supplied `handoffs/CODEX-NEXT-qq-notice1.md` (duo r4 ruling) and current direct request;
