@@ -107,3 +107,17 @@ test('the Job report PDF carries the rows and is not the customer estimate', asy
   expect(out[0].pdf).toContain('(Incomplete: 1 material line blank.)');
   expect(out[0].pdf).toContain('(Closed 2026-10-31)');
 });
+
+test('with no material lines loaded, estimated materials fall back to the quote materials cost', async ({ page }) => {
+  await fixture(page);
+  await state(page, 'S.actuals.materials=[]');
+  const report = await state(page, 'jobReport()');
+  const matC = await state(page, 'computePricing().cents.matCost'); // Frozen quote rates, as for labor.
+  expect(matC).toBeGreaterThan(0);
+  expect(report.materials).toEqual({ estC: matC, actC: 0, linesEntered: 0, lines: 0 });
+  expect(report.margin.estC).toBe(200000 - matC - 60000); // Revenue − quoted materials − quoted labor.
+  expect(report.complete).toBe(true); // No blank lines; both days timed.
+  const rows = await state(page, 'jobReportRows(jobReport())');
+  expect(rows.notes).toEqual(['No material lines loaded: estimated materials are the quote materials cost.']);
+  expect(await state(page, 'clonePricing().labor.crewHourlyRate')).toBe(50); // Still the quote rates; nothing written.
+});

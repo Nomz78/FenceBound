@@ -3575,6 +3575,8 @@ function jobReport(){
     const c=fieldLineC(l.unitCost,l.qty);
     if(c!==null){materials.actC+=c;materials.linesEntered++;}
   });
+  // No lines loaded: estimate materials at the quote's cost, as labor does.
+  if(!lines.length)materials.estC=P.cents.matCost;
   const installed={lf:0,plannedLF:0,runsFinished:0,runsTotal:0};
   S.elements.filter(el=>el.type==='fence').forEach(run=>{
     const lf=dist(run.start,run.end)/GRID_FT;
@@ -3614,6 +3616,7 @@ function jobReportRows(R){
   const blank=R.materials.lines-R.materials.linesEntered;
   if(blank||R.daysWithoutTimes)notes.push('Incomplete: '+[blank?`${blank} material line${blank>1?'s':''} blank`:'',
     R.daysWithoutTimes?`${R.daysWithoutTimes} day${R.daysWithoutTimes>1?'s':''} without times`:''].filter(Boolean).join(', ')+'.');
+  if(!R.materials.lines&&R.materials.estC)notes.push('No material lines loaded: estimated materials are the quote materials cost.');
   if(!R.quoted)notes.push('No quote yet: price is the current estimate.');
   return{rows,notes};
 }

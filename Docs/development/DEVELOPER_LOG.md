@@ -1520,3 +1520,20 @@ undo/redo restores `quote`; T10 isolation still holds.
 - Gate: `npx playwright test` **297/297** (`/tmp/duo/p3-full.log`), `node scripts/cad-persistence-matrix.js`
   **12/12** (`/tmp/duo/p3-matrix.log`), `git diff --check` PASS. No pricing values or behavior changed; no
   rate-card writes. `CURRENT_STATE.json` head refresh stays with the merge closeout.
+
+### 2026-11-01 — duo r6: F13 bullet 3 check, job-report materials fallback (Claude Code coordinator)
+
+- Owner first chose F13 bullet 3 (audit `01-pricing-audit.md` F13: empty drawing plus crew hours gives a total
+  with no PDF lines). A probe on `cfb6011` (8 h, nothing drawn) does not reproduce it: the total is $682.00 and
+  `customerDocumentLines` carries one "Other installation charges — $682.00" row (since `37cdd86`), and
+  `validateProject` blocks issue with `NO_FENCE_RUNS` (since `b05ea08`). Residual, recorded, not filed:
+  `computePricing().isFinalReady` alone is true for that job. No code change. The owner then chose the
+  job-report materials fallback instead.
+- Fix: `jobReport()` with no materials lines loaded (`S.actuals.materials` empty) now takes estimated
+  materials from `computePricing().cents.matCost`, the same source as estimated labor (frozen quote rates on a
+  quoted job). Before, it reported $0 and an inflated estimated margin. `jobReportRows` adds the note "No
+  material lines loaded: estimated materials are the quote materials cost." Report fields are unchanged.
+- Test `tests/job-report.spec.js` "with no material lines loaded…": red 1 failed (estC 0, expected 94940) →
+  green 7/7.
+- Gate: `npx playwright test` **298/298**, `node scripts/cad-persistence-matrix.js` **12/12**,
+  `git diff --check` PASS. No pricing values or behavior changed; no rate-card writes.
