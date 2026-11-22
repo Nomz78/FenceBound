@@ -27,7 +27,7 @@ async function run() {
   let browser;
   try {
     await waitForServer();
-    browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch({ headless: true, ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}) });
     const page = await browser.newPage({ acceptDownloads: true });
     const evaluate = expression => page.evaluate(source => window.eval(source), expression);
     await page.goto(URL);

@@ -3245,6 +3245,7 @@ function buildTypedLayoutFromForm(){
     sides:_qqForm.sides.split(',').map(x=>x.trim()===''?NaN:+x),shape:_qqForm.shape,gates});
   if(!res.ok){document.getElementById('qq-errors').textContent=res.errors.join(' ');return;}
   document.getElementById('qq-errors').textContent='';
+  zoomToFit();
   showToast('Typed layout built. Undo restores the previous drawing.');
 }
 function updateDrawers(){
@@ -4616,8 +4617,9 @@ function init(){
     pasteClipboardElement();
   });
 
-  // jsPDF CDN
-  (function(){var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';s.onerror=function(){console.warn('jsPDF failed to load — PDF export unavailable offline. PNG export still works.');};document.head.appendChild(s);}());
+  // jsPDF: bundled copy first (vendor/, same file as npm jspdf@2.5.1), cdnjs only as a fallback
+  (function(){function load(src,next){var s=document.createElement('script');s.src=src;s.onerror=next;document.head.appendChild(s);}
+    load('vendor/jspdf-2.5.1.umd.min.js',function(){load('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',function(){console.warn('jsPDF failed to load — PDF export unavailable. PNG export still works.');});});}());
 
   // ── DRAG-TO-SCRUB for number inputs ──────────────────────────────────────
   // Tap and hold a number input, drag left/right to decrease/increase value.

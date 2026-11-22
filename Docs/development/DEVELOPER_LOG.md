@@ -1520,3 +1520,6 @@ undo/redo restores `quote`; T10 isolation still holds.
 - Gate: `npx playwright test` **297/297** (`/tmp/duo/p3-full.log`), `node scripts/cad-persistence-matrix.js`
   **12/12** (`/tmp/duo/p3-matrix.log`), `git diff --check` PASS. No pricing values or behavior changed; no
   rate-card writes. `CURRENT_STATE.json` head refresh stays with the merge closeout.
+
+## 2026-11-22 — Ship item 1: end-to-end walkthrough (owner ship-mode directive)
+- Bundled jsPDF 2.5.1 at `vendor/` (npm tarball, sha256 98ccf17a…3875, 364463 bytes, MIT), cdnjs kept as fallback; Quick Quote build now fits the view. `tests/ship-readiness.spec.js` red 2 → green; gate 299/299, matrix 12/12. Optional `PW_CHROMIUM` lets tests use a preinstalled Chromium.

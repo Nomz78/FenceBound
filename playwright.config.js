@@ -11,6 +11,8 @@ module.exports = defineConfig({
     headless: true,
     browserName: 'chromium',
     acceptDownloads: true,
+    // Cloud sessions: set PW_CHROMIUM to a preinstalled Chromium when the pinned browser is absent.
+    launchOptions: process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
   },
   webServer: {
     command: 'python3 -m http.server 8080 --bind 127.0.0.1',
