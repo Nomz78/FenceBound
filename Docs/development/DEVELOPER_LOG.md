@@ -1523,3 +1523,6 @@ undo/redo restores `quote`; T10 isolation still holds.
 
 ## 2026-11-22 — Ship item 1: end-to-end walkthrough (owner ship-mode directive)
 - Bundled jsPDF 2.5.1 at `lib/` (npm tarball, sha256 98ccf17a…3875, 364463 bytes, MIT), cdnjs kept as fallback; Quick Quote build now fits the view. `tests/ship-readiness.spec.js` red 2 → green; gate 299/299, matrix 12/12. Optional `PW_CHROMIUM` lets tests use a preinstalled Chromium.
+
+## 2026-11-22 — Ship item 2: first-run setup (owner ship-mode directive)
+- New "Get set up" card under the panel tabs (`renderSetupSteps`): step 1 company profile, which goes straight on to step 2 the price list on Save; card hides once both are saved. No pricing values or rules changed. `tests/first-run-setup.spec.js` red 2 → green (reaches an unstamped estimate PDF); gate 301/301, matrix 12/12.
