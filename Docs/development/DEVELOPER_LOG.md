@@ -1529,3 +1529,6 @@ undo/redo restores `quote`; T10 isolation still holds.
 
 ## 2026-11-22 — Ship item 3: Quick Quote as the front door (owner ship-mode directive)
 - New "Start a quote" card (`renderFrontDoor`) on an empty drawing: customer, address and typed sides/gates, then "Download estimate PDF", with no canvas or panel tabs; `buildTypedLayoutFromForm` takes an id prefix. No pricing values or rules changed. `tests/quick-quote-front-door.spec.js` red 4 → green; gate 305/305, matrix 12/12. First version was too tall and blocked panel buttons (gate caught it); card now opens as one line.
+
+## 2026-11-22 — Ship item 4: data-loss protection (owner ship-mode directive)
+- Clear and opening a saved job now say when the current job is not in Saved Jobs (`hasUnsavedWork`, `unsavedWorkNote`); a failed autosave, Save or job delete shows an error toast pointing to Export .json; the existing never-backed-up warning beside "Backup all" is kept and now tested. No pricing values or behavior changed. Test `tests/data-loss-protection.spec.js` (7; 4 red before, 3 guards). Gate: 312 passed, persistence matrix exit 0.

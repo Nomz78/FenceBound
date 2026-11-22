@@ -1128,9 +1128,20 @@ let _autosaveT=null;
 // Autosave stays silent, but the Field tab shows a failed write (field capture P1).
 let _autosaveFailed=false;
 function saveSession(){
-  try{localStorage.setItem(AUTOSAVE_KEY,JSON.stringify(snapshotState()));_autosaveFailed=false;}catch(e){_autosaveFailed=true;}
+  // Ship item 4: the first failed write after a good one is shown, not silent.
+  try{localStorage.setItem(AUTOSAVE_KEY,JSON.stringify(snapshotState()));_autosaveFailed=false;}
+  catch(e){if(!_autosaveFailed)showToast('Work not saved on this device — storage full or blocked. Use Jobs → Export .json to keep a copy.',true);_autosaveFailed=true;}
   updateFieldSaveFlag();
 }
+// Ship item 4: is there drawing or job detail that Saved Jobs does not hold?
+function hasUnsavedWork(){
+  if(!S.elements.length&&!S.labels.length&&!S.jobCustomer&&!S.jobAddress&&!S.jobNotes)return false;
+  const rec=S.jobId!=null&&S.savedJobs.find(j=>j&&j.id===S.jobId);
+  if(!rec)return true;
+  const pick=o=>JSON.stringify(['projectName','jobCustomer','jobAddress','jobNotes','elements','labels','materials'].map(k=>o[k]??null));
+  return pick(JSON.parse(JSON.stringify(snapshotState())))!==pick({...rec,projectName:rec.projectName||rec.name});
+}
+function unsavedWorkNote(){return hasUnsavedWork()?`"${S.projectName}" is not saved in Saved Jobs and will be lost.\n\n`:'';}
 function scheduleAutosave(){clearTimeout(_autosaveT);_autosaveT=setTimeout(saveSession,1000);}
 window.addEventListener('pagehide',saveSession);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveSession();});
@@ -3441,7 +3452,7 @@ function updateDrawers(){
       S.savedJobs=[snap,...S.savedJobs.filter(j=>j.name!==S.projectName)];
       scheduleAutosave();
       try{localStorage.setItem(STORAGE_KEY,JSON.stringify(S.savedJobs));S.saveMsg=`Saved "${esc(S.projectName)}"`;}
-      catch(err){S.saveMsg='Save failed — storage full or blocked';}
+      catch(err){S.saveMsg='Save failed — storage full or blocked';showToast('Save failed — this device\'s storage is full or blocked. Use Export .json to keep this job as a file.',true);}
       updateDrawers();
       setTimeout(()=>{S.saveMsg='';const m=document.getElementById('save-msg');if(m)m.textContent='';},2500);
     });
@@ -3449,6 +3460,7 @@ function updateDrawers(){
       if(e.target.dataset.jdel!==undefined)return;
       ensureSavedJobIds();// jobs from a backup restore may also predate ids
       const job=S.savedJobs[+el.dataset.ji];
+      if(hasUnsavedWork()&&!(job&&job.id===S.jobId)&&!confirm(unsavedWorkNote()+`Open "${job.name}" instead?`))return;
       applyState(JSON.parse(JSON.stringify({...job,projectName:job.projectName||job.name})));
       // History holds drawings only; undoing across a job load would put the
       // previous job's drawing under this job's name (audit CAD-12).
@@ -3459,7 +3471,7 @@ function updateDrawers(){
     }));
     jd.querySelectorAll('[data-jdel]').forEach(b=>b.addEventListener('click',e=>{
       e.stopPropagation();S.savedJobs.splice(+b.dataset.jdel,1);
-      try{localStorage.setItem(STORAGE_KEY,JSON.stringify(S.savedJobs));}catch(err){}
+      try{localStorage.setItem(STORAGE_KEY,JSON.stringify(S.savedJobs));}catch(err){showToast('Delete not saved — storage full or blocked',true);}
       updateDrawers();
     }));
   } else {jd.style.display='none';}
@@ -4370,7 +4382,7 @@ function init(){
   document.getElementById('btn-theme').addEventListener('click',()=>applyTheme(isLightTheme()?'dark':'light'));
   document.getElementById('btn-theme-lbl').textContent=isLightTheme()?'Dark':'Light';
   document.getElementById('btn-clear').addEventListener('click',()=>{
-    if(!confirm('Clear all elements?'))return;
+    if(!confirm(unsavedWorkNote()+'Clear the drawing and start a new job?'))return;
     if(S.elements.length||S.labels.length)pushHistory();// make Clear undoable
     S.elements=[];S.labels=[];S.selected=null;S.editingGate=null;
     // A cleared canvas starts the next quote (audit F5/F6, CAD-13): per-job
