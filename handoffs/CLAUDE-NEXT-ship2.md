@@ -4,7 +4,7 @@ Owner directive 2026-11-22 (ship mode): 30 days to a version a contractor can us
 one recommendation per decision, one ship item per session, one developer-log line per session.
 
 ## Current state
-- Item 1 done on `claude/great-brown-fr03ka`: jsPDF bundled at `vendor/`, Quick Quote auto-fits.
+- Item 1 done on `claude/great-brown-fr03ka`: jsPDF bundled at `lib/`, Quick Quote auto-fits.
   Gate 299/299 + matrix 12/12 (run with `PW_CHROMIUM=/opt/pw-browsers/chromium` in cloud sessions).
 - Owner answers: no customer lined up (contractors resist changing workflow, so the demo job matters);
   no past-job records, owner can vouch for job numbers; one device + backups is fine; repo stays private,
@@ -21,7 +21,7 @@ one recommendation per decision, one ship item per session, one developer-log li
 1. Walkthrough + fixes — DONE.
 2. First-run setup (company profile → own prices). Done when a new user reaches an unstamped PDF in <15 min.
 3. Quick Quote as front door. 4. Data-loss protection. 5. Hide developer content (`fb-dev-btn`, DEV INDEX).
-6. Hosting (Cloudflare Pages/Netlify, private repo; ship `vendor/`). 7. Demo job + one-page guide.
+6. Hosting (Cloudflare Pages/Netlify, private repo; ship `lib/`). 7. Demo job + one-page guide.
 
 ## Read first
 `index.html`: `buildTypedLayoutFromForm`, `btn-company-profile` handler, `co-save`, `validateProject`.
