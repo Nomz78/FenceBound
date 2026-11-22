@@ -9,7 +9,8 @@
   "scripts": {
     "session:init": "node scripts/session-init.js",
     "test": "playwright test",
-    "test:phase-one": "playwright test tests/phase-one-acceptance.spec.js"
+    "test:phase-one": "playwright test tests/phase-one-acceptance.spec.js",
+    "build:site": "node scripts/build-site.js"
   },
   "keywords": [],
   "author": "",

@@ -1535,3 +1535,6 @@ undo/redo restores `quote`; T10 isolation still holds.
 
 ## 2026-11-22 — Ship item 5: hide developer content (owner ship-mode directive)
 - DEV INDEX was already hidden unless `?dev=1`; removed the Ctrl+Shift+D unlock (in the `fb-dev-index-script` keydown handler) so a stray key press can no longer reveal it permanently on a contractor's device; `?dev=1` / `?dev=0` remain the owner's switch. All side tabs scanned, no other developer content visible. No pricing values or behavior changed. Test `tests/hide-developer-content.spec.js` (3; 1 red before, 2 guards). Gate: 315 passed, matrix exit 0.
+
+## 2026-11-22 — Ship item 6: hosting build (owner ship-mode directive)
+- Runtime loads only `index.html` and `lib/jspdf-2.5.1.umd.min.js` (cdnjs fallback); added `scripts/build-site.js` / `npm run build:site` that copies just those into `dist/` for a static host, and `Docs/HOSTING.md` with Cloudflare Pages steps (account connection is the owner's step). No pricing values or behavior changed. Test `tests/hosting-build.spec.js` (2; both red before). Gate: 317 passed, matrix exit 0.
