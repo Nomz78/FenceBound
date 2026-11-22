@@ -1526,3 +1526,6 @@ undo/redo restores `quote`; T10 isolation still holds.
 
 ## 2026-11-22 — Ship item 2: first-run setup (owner ship-mode directive)
 - New "Get set up" card under the panel tabs (`renderSetupSteps`): step 1 company profile, which goes straight on to step 2 the price list on Save; card hides once both are saved. No pricing values or rules changed. `tests/first-run-setup.spec.js` red 2 → green (reaches an unstamped estimate PDF); gate 301/301, matrix 12/12.
+
+## 2026-11-22 — Ship item 3: Quick Quote as the front door (owner ship-mode directive)
+- New "Start a quote" card (`renderFrontDoor`) on an empty drawing: customer, address and typed sides/gates, then "Download estimate PDF", with no canvas or panel tabs; `buildTypedLayoutFromForm` takes an id prefix. No pricing values or rules changed. `tests/quick-quote-front-door.spec.js` red 4 → green; gate 305/305, matrix 12/12. First version was too tall and blocked panel buttons (gate caught it); card now opens as one line.
