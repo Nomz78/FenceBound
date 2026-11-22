@@ -6260,8 +6260,9 @@ init();
 </div>
 <script id="fb-dev-index-script">
 // The dev index is internal. It appears only with ?dev=1 in the URL, or once
-// unlocked on this device via localStorage. A customer running the app never
-// sees the button. Ctrl+Shift+D also toggles it, for when the URL is awkward.
+// unlocked on this device via localStorage (?dev=0 locks it again). A customer
+// running the app never sees the button. No keyboard shortcut unlocks it, so a
+// stray key press cannot expose developer tools to a contractor.
 function fbDevEnabled(){
   try{
     const p=new URLSearchParams(location.search);
@@ -6281,14 +6282,6 @@ function fbCopyDevSummary(){if(navigator.clipboard)navigator.clipboard.writeText
 function fbExportDevSummary(){const b=new Blob([fbDevText()],{type:'text/plain'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='cad-development-index.txt';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape')fbToggleDevIndex(false);
-  if(e.ctrlKey&&e.shiftKey&&(e.key==='D'||e.key==='d')){
-    e.preventDefault();
-    try{
-      const on=localStorage.getItem('fencebound_dev')==='1';
-      if(on)localStorage.removeItem('fencebound_dev'); else localStorage.setItem('fencebound_dev','1');
-    }catch(err){}
-    fbApplyDevVisibility();
-  }
 });
 fbApplyDevVisibility();
 </script>
